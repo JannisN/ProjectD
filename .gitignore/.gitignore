@@ -1,5 +1,4 @@
-# Created by https://www.toptal.com/developers/gitignore/api/d,premake-gmake
-# Edit at https://www.toptal.com/developers/gitignore?templates=d,premake-gmake
+dub.sdl
 
 ### D ###
 # Compiled Object files
@@ -34,9 +33,14 @@ docs/
 # Comment to allow dub lock file to be version controlled as well
 dub.selections.json
 
-### premake-gmake ###
-Makefile
-*.make
-obj/
+### VisualStudioCode ###
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
 
-# End of https://www.toptal.com/developers/gitignore/api/d,premake-gmake
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
+.ionide
+
