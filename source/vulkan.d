@@ -1874,59 +1874,83 @@ VkSubpassDescription SubpassDescription(VkAttachmentReference[] inputAttachments
     return description;
 }
 
-// funktioniert nicht, pointer müssen direkt gefunden werden, ein lokales array zu erzeugen funktioniert nicht, ist nach der funktion nicht mehr valid
-// alternative: statt funktion struct, und die statischen arrays in der struct speichern
-VkGraphicsPipelineCreateInfo GraphicsPipelineInfo(Args...)(in Args args) {
-    // nur stages wird als array akzeptiert
-    auto stages = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto vertexInput = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto inputAssembly = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto tessellation = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto viewport = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto rasterization = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto multisample = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto depthStencil = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto colorBlend = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    auto dynamic = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
-    VkPipelineLayout layout = args[findTypes!(VkPipelineLayout, Args)[0]];
-    VkRenderPass renderPass = args[findTypes!(VkRenderPass, Args)[0]];
-    VkPipelineCreateFlags flags = 0;
-    static if (findTypes!(VkPipelineCreateFlags, Args).length > 0) {
-        flags = args[findTypes!(VkPipelineCreateFlags, Args)[0]];
+struct GraphicsPipelineCreateInfo(Args...) {
+    this(in Args args) {
+        stages = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
+        VkPipelineVertexInputStateCreateInfo* vertexInput;
+        VkPipelineInputAssemblyCreateInfo* inputAssembly;
+        VkPipelineTessellationStateCreateInfo* tessellation;
+        VkPipelineViewportStateCreateInfo* viewport;
+        VkPipelineRasterizationStateCreateInfo* rasterization;
+        VkPipelineMultisampleStateCreateInfo* multisample;
+        VkPipelineDepthStencilStateCreateInfo* depthStencil;
+        VkPipelineColorBlendStateCreateInfo* colorBlend;
+        VkPipelineDynamicStateCreateInfo* dynamic;
+        static if (countTypeCompatible!(VkPipelineVertexInputStateCreateInfo, Args) > 0)
+            vertexInput = &args[findCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineInputAssemblyCreateInfo, Args) > 0)
+            inputAssembly = &args[findCompatibleTypes!(VkPipelineInputAssemblyCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineTessellationStateCreateInfo, Args) > 0)
+            tessellation = &args[findCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineViewportStateCreateInfo, Args) > 0)
+            viewport = &args[findCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineRasterizationStateCreateInfo, Args) > 0)
+            rasterization = &args[findCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineMultisampleStateCreateInfo, Args) > 0)
+            multisample = &args[findCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineDepthStencilStateCreateInfo, Args) > 0)
+            depthStencil = &args[findCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineColorBlendStateCreateInfo, Args) > 0)
+            colorBlend = &args[findCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args)[0]];
+        static if (countTypeCompatible!(VkPipelineDynamicStateCreateInfo, Args) > 0)
+            dynamic = &args[findCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args)[0]];
+        VkPipelineLayout layout = args[findTypes!(VkPipelineLayout, Args)[0]];
+        VkRenderPass renderPass = args[findTypes!(VkRenderPass, Args)[0]];
+        VkPipelineCreateFlags flags = 0;
+        enum auto flagsCount = findTypes!(VkPipelineCreateFlags, Args).length;
+        static if (flagsCount > 0) {
+            flags = args[findTypes!(VkPipelineCreateFlags, Args)[0]];
+        }
+        uint subpass = 0;
+        //vorsicht, VkPipelineCreateFlags ist ein uint; muss noch getestet werden
+        static if (findCompatibleTypes!(uint, Args).length > 0 + flagsCount) {
+            subpass = cast(uint) args[findTypes!(uint, Args)[0 + flagsCount]];
+        }
+        VkPipeline basePipelineHandle = null;
+        static if (findCompatibleTypes!(VkPipeline, Args).length > 0) {
+            basePipelineHandle = cast(VkPipeline) args[findTypes!(VkPipeline, Args)[0]];
+        }
+        int basePipelineIndex = 0;
+        static if (findCompatibleTypes!(int, Args).length > 1 + flagsCount) {
+            basePipelineIndex = cast(int) args[findTypes!(int, Args)[1 + flagsCount]];
+        }
+        info.sType = VkStructureType.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        info.pNext = null;
+        info.flags = flags;
+        info.stageCount = cast(uint) stages.length;
+        info.pStages = stages.ptr;
+        info.pVertexInputState = vertexInput.ptr;
+        info.pInputAssemblyState = inputAssembly.ptr;
+        info.pTessellationState = tessellation.ptr;
+        info.pViewportState = viewport.ptr;
+        info.pRasterizationState = rasterization.ptr;
+        info.pMultisampleState = multisample.ptr;
+        info.pDepthStencilState = depthStencil.ptr;
+        info.pColorBlendState = colorBlend.ptr;
+        info.pDynamicState = dynamic.ptr;
+        info.layout = layout;
+        info.renderPass = renderPass;
+        info.subpass = subpass;
+        info.basePipelineHandle = basePipelineHandle;
+        info.basePipelineIndex = basePipelineIndex;
     }
-    uint subpass = 0;
-    static if (findCompatibleTypes!(uint, Args).length > 0) {
-        subpass = cast(uint) args[findTypes!(uint, Args)[0]];
-    }
-    VkPipeline basePipelineHandle = null;
-    static if (findCompatibleTypes!(VkPipeline, Args).length > 0) {
-        basePipelineHandle = cast(VkPipeline) args[findTypes!(VkPipeline, Args)[0]];
-    }
-    int basePipelineIndex = 0;
-    static if (findCompatibleTypes!(int, Args).length > 1) {
-        basePipelineIndex = cast(int) args[findTypes!(int, Args)[0]];
-    }
+    VkPipelineShaderStageCreateInfo[countTypeCompatible!(VkPipelineShaderStageCreateInfo, Args)] shaderStages;
     VkGraphicsPipelineCreateInfo info;
-    info.sType = VkStructureType.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.pNext = null;
-    info.flags = flags;
-    info.stageCount = cast(uint) stages.length;
-    info.pStages = stages.ptr;
-    info.pVertexInputState = vertexInput.ptr;
-    info.pInputAssemblyState = inputAssembly.ptr;
-    info.pTessellationState = tessellation.ptr;
-    info.pViewportState = viewport.ptr;
-    info.pRasterizationState = rasterization.ptr;
-    info.pMultisampleState = multisample.ptr;
-    info.pDepthStencilState = depthStencil.ptr;
-    info.pColorBlendState = colorBlend.ptr;
-    info.pDynamicState = dynamic.ptr;
-    info.layout = layout;
-    info.renderPass = renderPass;
-    info.subpass = subpass;
-    info.basePipelineHandle = basePipelineHandle;
-    info.basePipelineIndex = basePipelineIndex;
-    return info;
+    alias info this;
+}
+
+auto graphicsPipelineCreateInfo(Args...)(in Args args) {
+    return GraphicsPipelineCreateInfo(args);
 }
 
 struct GraphicsPipeline {
@@ -1936,7 +1960,7 @@ struct GraphicsPipeline {
     }
     this(Args...)(ref RenderPass renderPass, in Args args) {
         this.renderPass = &renderPass;
-        VkGraphicsPipelineCreateInfo info = GraphicsPipelineInfo(renderPass, args);
+        auto info = graphicsPipelineCreateInfo(renderPass, args);
         VkPipelineCache cache = null;
         static if (findCompatibleTypes!(VkPipelineCache, Args).length > 0) {
             cache = cast(VkPipelineCache) args[findCompatibleTypes!(VkPipelineCache, Args)[0]];
