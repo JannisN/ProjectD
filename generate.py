@@ -10,6 +10,10 @@ if platform == "darwin":
 	vulkanLib = input("Vulkan SDK:")
 	glfwLib = input("Glfw Lib:")
 
+if platform == "linux":
+	vulkanLib = input("Vulkan Lib:")
+	glfwLib = input("Glfw Lib:")
+
 #C://Users/Admin/Desktop/dlang/dubtest/lib/vulkan-1.lib
 #C://Users/Admin/Desktop/dlang/dubtest/lib/glfw.lib
 #C://Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.1/lib/x64/OpenCL.lib
@@ -63,4 +67,10 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		f.write('"-rpath" "' + vulkanLib + '/macOS/Frameworks" ')
 		f.write('platform="osx"\n')
 		f.write('libs "stdc++" platform="osx"')
+	if platform == "darwin":
+		f.write('lflags ')
+		f.write('"' + glfwLib + '" ')
+		f.write('"' + vulkanLib + '" ')
+		f.write('"/usr/lib/libOpenCL.so" platform="linux"\n')
+		f.write('libs "GL" "X11" platform="linux"\n')
 	f.close()
