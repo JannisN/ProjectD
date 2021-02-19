@@ -67,7 +67,7 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		f.write('"-rpath" "' + vulkanLib + '/macOS/Frameworks" ')
 		f.write('platform="osx"\n')
 		f.write('libs "stdc++" platform="osx"')
-	if platform == "darwin":
+	if platform == "linux":
 		f.write('lflags ')
 		f.write('"' + glfwLib + '" ')
 		f.write('"' + vulkanLib + '" ')
