@@ -483,7 +483,6 @@ template countTypeInGroups(T, Args...) {
     enum uint[2][countTypeGroups!(T, Args)] countTypeInGroups = countTypeInGroupsImpl!(T, Args)();
 }
 
-
 template countCompatibleTypeInGroups(T, Args...) {
     uint[2][countCompatibleTypeGroups!(T, Args)] countCompatibleTypeInGroupsImpl(T, Args...)() {
         StaticArray!(uint[2], countCompatibleTypeGroups!(T, Args)) groupCounts;

@@ -17,6 +17,7 @@ dscanner.ini
 
 # Executables
 *.exe
+projectd
 
 # DUB
 .dub
