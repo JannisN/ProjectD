@@ -242,6 +242,17 @@ struct Instance {
             physicalDevices[i].instance = &this;
         }
     }
+    this(int layerCount, int extensionCount)(string name, uint appVersion, uint apiVersion, string[layerCount] layers, string[extensionCount] extensions) {
+        char*[layerCount] l;
+        char*[extensionCount] e;
+        for (int i = 0; i < layerCount; i++) {
+            l[i] = cast(char*) layers[i].ptr;
+        }
+        for (int i = 0; i < extensionCount; i++) {
+            e[i] = cast(char*) extensions[i].ptr;
+        }
+        this(name, appVersion, apiVersion, l, e);
+    }
     @disable this(ref return scope Instance rhs);
     ~this() {
         vkDestroyInstance(instance, null);
@@ -414,6 +425,17 @@ struct Device {
         }
         this.physicalDevice = &physicalDevice;
     }
+    this(int layerCount, int extensionCount)(ref PhysicalDevice physicalDevice, VkPhysicalDeviceFeatures features, string[layerCount] layers, string[extensionCount] extensions, QueueCreateInfo[] queueInfos) {
+        char*[layerCount] l;
+        char*[extensionCount] e;
+        for (int i = 0; i < layerCount; i++) {
+            l[i] = cast(char*) layers[i].ptr;
+        }
+        for (int i = 0; i < extensionCount; i++) {
+            e[i] = cast(char*) extensions[i].ptr;
+        }
+        this(physicalDevice, features, l, e, queueInfos);
+    }
     @disable this(ref return scope Device rhs);
     ~this() {
         vkDeviceWaitIdle(device);
@@ -482,9 +504,9 @@ struct Device {
     //PipelineLayout createPipelineLayout(VkDescriptorSetLayout[] descriptorSetLayouts) {
     //    return PipelineLayout(this, descriptorSetLayouts);
     //}
-    //ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t //dataSize, void* data) {
-    //    return ComputePipeline(this, cache, shader, entry, layout, spezialization, dataSize, data);
-    //}
+    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipelineCache cache) {
+        return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data, cache);
+    }
     ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base, VkPipelineCache cache) {
         return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data, base, cache);
     }
@@ -554,8 +576,8 @@ struct Device {
             cache = cast(VkPipelineCache) args[findCompatibleTypes!(VkPipelineCache, Args)[0]];
         }
         auto infos = typesToArray!VkGraphicsPipelineCreateInfo(args);
-        //RenderPass*[countTypeCompatible!(RenderPass, Args)] renderPasses;
-        VkPipeline[countTypeCompatible!(RenderPass, Args)] pipelines;
+        //RenderPass*[countCompatibleTypes!(RenderPass, Args)] renderPasses;
+        VkPipeline[countCompatibleTypes!(RenderPass, Args)] pipelines;
         static foreach (i, e; infos) {
             e.renderPass = args[findCompatibleTypes!(VkRenderPass, Args)[i]];
         }
@@ -761,16 +783,15 @@ struct CommandBuffer {
             vkFreeCommandBuffers(commandPool.device.device, commandPool.commandPool, 1, &commandBuffer);
     }
     void begin(VkCommandBufferUsageFlags flags, VkRenderPass renderPass, uint subpass, VkFramebuffer framebuffer, VkBool32 occlusionQueryEnable, VkQueryControlFlags queryFlags, VkQueryPipelineStatisticFlags pipelineStatistics) {
-        VkCommandBufferInheritanceInfo inheritanceInfo = VkCommandBufferInheritanceInfo(
-            VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
-            null,
-            renderPass,
-            subpass,
-            framebuffer,
-            occlusionQueryEnable,
-            queryFlags,
-            pipelineStatistics
-        );
+        VkCommandBufferInheritanceInfo inheritanceInfo;
+        inheritanceInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+        inheritanceInfo.pNext = null;
+        inheritanceInfo.renderPass = renderPass;
+        inheritanceInfo.subpass = subpass;
+        inheritanceInfo.framebuffer = framebuffer;
+        inheritanceInfo.occlusionQueryEnable = occlusionQueryEnable;
+        inheritanceInfo.queryFlags = queryFlags;
+        inheritanceInfo.pipelineStatistics = pipelineStatistics;
         VkCommandBufferBeginInfo info;
         info.sType = VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         info.pNext = null;
@@ -902,18 +923,18 @@ struct CommandBuffer {
     void bindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint firstSet, VkDescriptorSet[] sets, uint[] offsets) {
         vkCmdBindDescriptorSets(commandBuffer, bindPoint, layout, firstSet, cast(uint) sets.length, sets.ptr, cast(uint) offsets.length, offsets.ptr);
     }
-    void bindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint firstSet, VkDescriptorSet[] sets) {
-        vkCmdBindDescriptorSets(commandBuffer, bindPoint, layout, firstSet, cast(uint) sets.length, sets.ptr, 0, null);
-    }
-    void bindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint firstSet, VkDescriptorSet set) {
-        vkCmdBindDescriptorSets(commandBuffer, bindPoint, layout, firstSet, 1, &set, 0, null);
-    }
+    //void bindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint firstSet, VkDescriptorSet[] sets) {
+    //    vkCmdBindDescriptorSets(commandBuffer, bindPoint, layout, firstSet, cast(uint) sets.length, sets.ptr, 0, null);
+    //}
+    //void bindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, uint firstSet, VkDescriptorSet set) {
+    //    vkCmdBindDescriptorSets(commandBuffer, bindPoint, layout, firstSet, 1, &set, 0, null);
+    //}
     void pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint offset, uint size, void* data) {
         vkCmdPushConstants(commandBuffer, layout, stageFlags, offset, size, data);
     }
-    void pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint size, void* data) {
-        vkCmdPushConstants(commandBuffer, layout, stageFlags, 0, size, data);
-    }
+    //void pushConstants(VkPipelineLayout layout, VkShaderStageFlags stageFlags, uint size, void* data) {
+    //    vkCmdPushConstants(commandBuffer, layout, stageFlags, 0, size, data);
+    //}
     void executeCommands(VkCommandBuffer[] commandBuffers) {
         vkCmdExecuteCommands(commandBuffer, cast(uint) commandBuffers.length, commandBuffers.ptr);
     }
@@ -1126,7 +1147,7 @@ struct ImageView {
     Image* image;
 }
 
-VkMappedMemoryRange MappedMemoryRange(ref Memory memory, VkDeviceSize offset, VkDeviceSize size) {
+VkMappedMemoryRange mappedMemoryRange(ref Memory memory, VkDeviceSize offset, VkDeviceSize size) {
     VkMappedMemoryRange range;
     range.sType = VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
     range.pNext = null;
@@ -1135,7 +1156,7 @@ VkMappedMemoryRange MappedMemoryRange(ref Memory memory, VkDeviceSize offset, Vk
     range.size = size;
     return range;
 }
-VkMappedMemoryRange MappedMemoryRange(VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size) {
+VkMappedMemoryRange mappedMemoryRange(VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size) {
     VkMappedMemoryRange range;
     range.sType = VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
     range.pNext = null;
@@ -1144,7 +1165,7 @@ VkMappedMemoryRange MappedMemoryRange(VkDeviceMemory memory, VkDeviceSize offset
     range.size = size;
     return range;
 }
-VkMappedMemoryRange MappedMemoryRange(VkDeviceSize offset, VkDeviceSize size) {
+VkMappedMemoryRange mappedMemoryRange(VkDeviceSize offset, VkDeviceSize size) {
     VkMappedMemoryRange range;
     range.sType = VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
     range.pNext = null;
@@ -1245,9 +1266,9 @@ struct Swapchain {
         images = Vector!VkImage(imageCount);
         result = vkGetSwapchainImagesKHR(device.device, swapchain, &imageCount, images.ptr);
     }
-    this(ref Device device, VkSurfaceKHR surface, uint minImageCount, VkFormat imageFormat, VkColorSpaceKHR imageColorSpace, VkExtent2D imageExtent, uint imageArrayLayers, VkImageUsageFlags imageUsage, VkSharingMode imageSharingMode, uint[] familyIndices, VkSurfaceTransformFlagBitsKHR preTransform, VkCompositeAlphaFlagBitsKHR compositeAlpha, VkPresentModeKHR presentMode, VkBool32 clipped) {
-        this(device, surface, minImageCount, imageFormat, imageColorSpace, imageExtent, imageArrayLayers, imageUsage, imageSharingMode, familyIndices, preTransform, compositeAlpha, presentMode, clipped, swapchain);
-    }
+    //this(ref Device device, VkSurfaceKHR surface, uint minImageCount, VkFormat imageFormat, VkColorSpaceKHR imageColorSpace, VkExtent2D imageExtent, uint imageArrayLayers, //VkImageUsageFlags imageUsage, VkSharingMode imageSharingMode, uint[] familyIndices, VkSurfaceTransformFlagBitsKHR preTransform, VkCompositeAlphaFlagBitsKHR compositeAlpha, //VkPresentModeKHR presentMode, VkBool32 clipped) {
+    //    this(device, surface, minImageCount, imageFormat, imageColorSpace, imageExtent, imageArrayLayers, imageUsage, imageSharingMode, familyIndices, preTransform, //compositeAlpha, presentMode, clipped, swapchain);
+    //}
     @disable this(ref return scope Swapchain rhs);
     ~this() {
         vkDestroySwapchainKHR(device.device, swapchain, null);
@@ -1323,18 +1344,18 @@ struct PipelineLayout {
         result = vkCreatePipelineLayout(device.device, &info, null, &pipelineLayout);
         this.device = &device;
     }
-    this(ref Device device, VkDescriptorSetLayout[] descriptorSetLayouts) {
-        VkPipelineLayoutCreateInfo info;
-        info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        info.pNext = null;
-        info.flags = 0;
-        info.setLayoutCount = cast(uint) descriptorSetLayouts.length;
-        info.pSetLayouts = descriptorSetLayouts.ptr;
-        info.pushConstantRangeCount = 0;
-        info.pPushConstantRanges = null;
-        result = vkCreatePipelineLayout(device.device, &info, null, &pipelineLayout);
-        this.device = &device;
-    }
+    //this(ref Device device, VkDescriptorSetLayout[] descriptorSetLayouts) {
+    //    VkPipelineLayoutCreateInfo info;
+    //    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    //    info.pNext = null;
+    //    info.flags = 0;
+    //    info.setLayoutCount = cast(uint) descriptorSetLayouts.length;
+    //    info.pSetLayouts = descriptorSetLayouts.ptr;
+    //    info.pushConstantRangeCount = 0;
+    //    info.pPushConstantRanges = null;
+    //    result = vkCreatePipelineLayout(device.device, &info, null, &pipelineLayout);
+    //    this.device = &device;
+    //}
     @disable this(ref return scope PipelineLayout rhs);
     ~this() {
         vkDestroyPipelineLayout(device.device, pipelineLayout, null);
@@ -1411,31 +1432,31 @@ struct ComputePipelineInfo {
 }
 
 struct ComputePipeline {
-    //this(ref Device device, VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, //void* data) {
-    //    VkSpecializationInfo specInfo;
-    //    specInfo.mapEntryCount = cast(uint) spezialization.length;
-    //    specInfo.pMapEntries = spezialization.ptr;
-    //    specInfo.dataSize = dataSize;
-    //    specInfo.pData = data;
-    //    VkPipelineShaderStageCreateInfo stageInfo;
-    //    stageInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    //    stageInfo.pNext = null;
-    //    stageInfo.flags = 0;
-    //    stageInfo.stage = VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT;
-    //    stageInfo.module_ = shader;
-    //    stageInfo.pName = entry.ptr;
-    //    stageInfo.pSpecializationInfo = &specInfo;
-    //    VkComputePipelineCreateInfo info;
-    //    info.sType = VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    //    info.pNext = null;
-    //    info.flags = 0; // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#pipelines-pipeline-derivatives
-    //    info.stage = stageInfo;
-    //    info.layout = layout;
-    //    //info.basePipelineHandle;
-    //    //info.basePipelineIndex;
-    //    result = vkCreateComputePipelines(device.device, null, 1, &info, null, &pipeline);// todo
-    //    this.device = &device;
-    //}
+    this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipelineCache cache) {
+        VkSpecializationInfo specInfo;
+        specInfo.mapEntryCount = cast(uint) spezialization.length;
+        specInfo.pMapEntries = spezialization.ptr;
+        specInfo.dataSize = dataSize;
+        specInfo.pData = data;
+        VkPipelineShaderStageCreateInfo stageInfo;
+        stageInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = null;
+        stageInfo.flags = 0;
+        stageInfo.stage = VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module_ = shader;
+        stageInfo.pName = entry.ptr;
+        stageInfo.pSpecializationInfo = &specInfo;
+        VkComputePipelineCreateInfo info;
+        info.sType = VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        info.pNext = null;
+        info.flags = 0; // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#pipelines-pipeline-derivatives
+        info.stage = stageInfo;
+        info.layout = layout;
+        //info.basePipelineHandle;
+        //info.basePipelineIndex;
+        result = vkCreateComputePipelines(device.device, null, 1, &info, null, &pipeline);// todo
+        this.device = &device;
+    }
     this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base, VkPipelineCache cache) {
         VkSpecializationInfo specInfo;
         specInfo.mapEntryCount = cast(uint) spezialization.length;
@@ -1523,7 +1544,7 @@ struct DescriptorPool {
     bool setsFreeable;
 }
 
-VkCopyDescriptorSet CopyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, uint srcArrayElement, VkDescriptorSet dstSet, uint dstIndex, uint dstArrayElement, uint descriptorCount) {
+VkCopyDescriptorSet copyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, uint srcArrayElement, VkDescriptorSet dstSet, uint dstIndex, uint dstArrayElement, uint descriptorCount) {
     VkCopyDescriptorSet copyDescriptorSet;
     copyDescriptorSet.sType = VkStructureType.VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
     copyDescriptorSet.pNext = null;
@@ -1536,8 +1557,8 @@ VkCopyDescriptorSet CopyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, uin
     copyDescriptorSet.descriptorCount = descriptorCount;
     return copyDescriptorSet;
 }
-VkCopyDescriptorSet CopyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, VkDescriptorSet dstSet, uint dstIndex) {
-    return CopyDescriptorSet(srcSet, srcIndex, 0, dstSet, dstIndex, 0, 1);
+VkCopyDescriptorSet copyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, VkDescriptorSet dstSet, uint dstIndex) {
+    return copyDescriptorSet(srcSet, srcIndex, 0, dstSet, dstIndex, 0, 1);
 }
 
 // hier unbedingt variadic parameter verwenden
@@ -1850,7 +1871,7 @@ struct Framebuffer {
     alias framebuffer this;
 }
 
-VkSubpassDescription SubpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, VkAttachmentReference depthStencilAttachment, uint[] preserveAttachments) {
+VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, VkAttachmentReference depthStencilAttachment, uint[] preserveAttachments) {
     VkSubpassDescription description;
     description.flags = 0;
     description.pipelineBindPoint = VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -1864,7 +1885,7 @@ VkSubpassDescription SubpassDescription(VkAttachmentReference[] inputAttachments
     description.pPreserveAttachments = preserveAttachments.ptr;
     return description;
 }
-VkSubpassDescription SubpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, uint[] preserveAttachments) {
+VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, uint[] preserveAttachments) {
     VkSubpassDescription description;
     description.flags = 0;
     description.pipelineBindPoint = VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -1891,23 +1912,23 @@ struct GraphicsPipelineCreateInfo(Args...) {
         VkPipelineDepthStencilStateCreateInfo* depthStencil;
         VkPipelineColorBlendStateCreateInfo* colorBlend;
         VkPipelineDynamicStateCreateInfo* dynamic;
-        static if (countTypeCompatible!(VkPipelineVertexInputStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args) > 0)
             vertexInput = &args[findCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineInputAssemblyCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineInputAssemblyCreateInfo, Args) > 0)
             inputAssembly = &args[findCompatibleTypes!(VkPipelineInputAssemblyCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineTessellationStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args) > 0)
             tessellation = &args[findCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineViewportStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args) > 0)
             viewport = &args[findCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineRasterizationStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args) > 0)
             rasterization = &args[findCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineMultisampleStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args) > 0)
             multisample = &args[findCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineDepthStencilStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args) > 0)
             depthStencil = &args[findCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineColorBlendStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args) > 0)
             colorBlend = &args[findCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args)[0]];
-        static if (countTypeCompatible!(VkPipelineDynamicStateCreateInfo, Args) > 0)
+        static if (countCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args) > 0)
             dynamic = &args[findCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args)[0]];
         VkPipelineLayout layout = args[findTypes!(VkPipelineLayout, Args)[0]];
         VkRenderPass renderPass = args[findTypes!(VkRenderPass, Args)[0]];
@@ -1949,7 +1970,7 @@ struct GraphicsPipelineCreateInfo(Args...) {
         info.basePipelineHandle = basePipelineHandle;
         info.basePipelineIndex = basePipelineIndex;
     }
-    VkPipelineShaderStageCreateInfo[countTypeCompatible!(VkPipelineShaderStageCreateInfo, Args)] shaderStages;
+    VkPipelineShaderStageCreateInfo[countCompatibleTypes!(VkPipelineShaderStageCreateInfo, Args)] shaderStages;
     VkGraphicsPipelineCreateInfo info;
     alias info this;
 }
@@ -2000,15 +2021,16 @@ void main() {
     }
     version(Windows) {
         // hier könnte man auch ein string array verlangen
-        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_surface", "VK_KHR_win32_surface"));
+        //auto instance = Instance("test", 1, VK_API_VERSION_1_0, array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_surface", "VK_KHR_win32_surface"));
+        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
     }
     version(OSX) {
         //"$PACKAGE_DIR/lib/vulkan"
-        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_surface", "VK_EXT_metal_surface"/*, "VK_MVK_macos_surface"*/));
+        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_EXT_metal_surface"/*, "VK_MVK_macos_surface"*/));
         //auto instance = Instance("test", 1, VK_API_VERSION_1_0, array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_surface", "VK_MVK_macos_surface"));
     }
     version(linux) {
-        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_surface", "VK_KHR_xcb_surface"));
+        auto instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
     }
     for (uint i = 0; i < instance.physicalDevices[0].memprops.memoryTypeCount; i++) {
         writeln(instance.physicalDevices[0].memprops.memoryTypes[i].propertyFlags, " ", instance.physicalDevices[0].memprops.memoryTypes[i].heapIndex);
@@ -2030,7 +2052,8 @@ void main() {
     
     writeln("max allocations", instance.physicalDevices[0].properties.limits.maxMemoryAllocationCount);
 
-    auto device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_swapchain"), array(QueueCreateInfo(0, 1)));
+    //auto device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array!(char*)("VK_LAYER_KHRONOS_validation"), array!(char*)("VK_KHR_swapchain"), array(QueueCreateInfo(0, 1)));
+    auto device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
 
     auto commandPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     //auto commandBuffer = move(commandPool.allocateCommandBuffers(1, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY)[0]);
@@ -2080,7 +2103,7 @@ void main() {
     cmdBuffer.reset();
     cmdBuffer.begin();
     cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
-    cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, descriptorSet);
+    cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
     cmdBuffer.dispatch(1, 1, 1);
     cmdBuffer.end();
     fence.reset();
@@ -2193,7 +2216,7 @@ void main() {
             )
         ),
         array(
-            SubpassDescription(
+            subpassDescription(
                 [],
                 array(
                     VkAttachmentReference(

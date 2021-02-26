@@ -213,10 +213,16 @@ struct Ref(T) if (!is(T == class)) {
     }
 }
 
+struct StaticArray(T, uint size) {
+    T[size] elements;
+    alias elements this;
+}
+
 auto array() {
     return [];
 }
 
+// test ob typ kopierbar
 void copyTest(T)(T t) {
 }
 
@@ -408,8 +414,8 @@ template countType(T, Args...) {
     enum uint countType = countTypeImpl!(T, Args)();
 }
 
-template countTypeCompatible(T, Args...) {
-    uint countTypeCompatibleImpl(T, Args...)() {
+template countCompatibleTypes(T, Args...) {
+    uint countCompatibleTypesImpl(T, Args...)() {
         uint count = 0;
         static foreach (i; 0 .. Args.length) {
             static if (is(Args[i] : T)) {
@@ -418,7 +424,7 @@ template countTypeCompatible(T, Args...) {
         }
         return count;
     }
-    enum uint countTypeCompatible = countTypeCompatibleImpl!(T, Args)();
+    enum uint countCompatibleTypes = countCompatibleTypesImpl!(T, Args)();
 }
 
 template countTypeGroups(T, Args...) {
@@ -522,15 +528,10 @@ template findTypes(T, Args...) {
     enum uint[countType!(T, Args)] findTypes = findTypesImpl!(T, Args)();
 }
 
-struct StaticArray(T, uint size) {
-    T[size] elements;
-    alias elements this;
-}
-
 template findCompatibleTypes(T, Args...) {
-    uint[countTypeCompatible!(T, Args)] findCompatibleTypesImpl(T, Args...)() {
+    uint[countCompatibleTypes!(T, Args)] findCompatibleTypesImpl(T, Args...)() {
         //uint[countType!(T, Args)] indices;
-        StaticArray!(uint, countTypeCompatible!(T, Args)) indices;
+        StaticArray!(uint, countCompatibleTypes!(T, Args)) indices;
         uint count = 0;
         static foreach (i; 0 .. Args.length) {
             static if (is(Args[i] : T)) {
@@ -540,7 +541,7 @@ template findCompatibleTypes(T, Args...) {
         }
         return indices.elements;
     }
-    enum uint[countTypeCompatible!(T, Args)] findCompatibleTypes = findCompatibleTypesImpl!(T, Args)();
+    enum uint[countCompatibleTypes!(T, Args)] findCompatibleTypes = findCompatibleTypesImpl!(T, Args)();
 }
 
 T[findTypes!(T, Args).length] typesToArray(T, Args...)(in Args args) {
