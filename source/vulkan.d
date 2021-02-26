@@ -944,7 +944,7 @@ struct CommandBuffer {
     void beginQuery(VkQueryPool pool, uint query, VkQueryControlFlags flags) {
         vkCmdBeginQuery(commandBuffer, pool, query, flags);
     }
-    void endQuery(VkQueryPool pool, uint query, VkQueryControlFlags flags) {
+    void endQuery(VkQueryPool pool, uint query) {
         vkCmdEndQuery(commandBuffer, pool, query);
     }
     void copyQueryPoolResults(VkQueryPool pool, uint firstQuery, uint queryCount, VkBuffer dstBuffer, VkDeviceSize dstOffset, VkDeviceSize stride, VkQueryResultFlags flags) {
