@@ -470,44 +470,44 @@ struct Device {
     Swapchain createSwapchain(ref Surface surface, uint minImageCount, VkFormat imageFormat, VkColorSpaceKHR imageColorSpace, VkExtent2D imageExtent, uint imageArrayLayers, VkImageUsageFlags imageUsage, VkSharingMode imageSharingMode, uint[] familyIndices, VkSurfaceTransformFlagBitsKHR preTransform, VkCompositeAlphaFlagBitsKHR compositeAlpha, VkPresentModeKHR presentMode, VkBool32 clipped, VkSwapchainKHR oldSwapchain) {
         return Swapchain(this, surface.surface, minImageCount, imageFormat, imageColorSpace, imageExtent, imageArrayLayers, imageUsage, imageSharingMode, familyIndices, preTransform, compositeAlpha, presentMode, clipped, oldSwapchain);
     }
-    Swapchain createSwapchain(ref Surface surface, uint minImageCount, VkFormat imageFormat, VkColorSpaceKHR imageColorSpace, VkExtent2D imageExtent, uint imageArrayLayers, VkImageUsageFlags imageUsage, VkSharingMode imageSharingMode, uint[] familyIndices, VkSurfaceTransformFlagBitsKHR preTransform, VkCompositeAlphaFlagBitsKHR compositeAlpha, VkPresentModeKHR presentMode, VkBool32 clipped) {
-        return Swapchain(this, surface.surface, minImageCount, imageFormat, imageColorSpace, imageExtent, imageArrayLayers, imageUsage, imageSharingMode, familyIndices, preTransform, compositeAlpha, presentMode, clipped);
-    }
+    //Swapchain createSwapchain(ref Surface surface, uint minImageCount, VkFormat imageFormat, VkColorSpaceKHR imageColorSpace, VkExtent2D imageExtent, uint imageArrayLayers, //VkImageUsageFlags imageUsage, VkSharingMode imageSharingMode, uint[] familyIndices, VkSurfaceTransformFlagBitsKHR preTransform, VkCompositeAlphaFlagBitsKHR compositeAlpha, //VkPresentModeKHR presentMode, VkBool32 clipped) {
+    //    return Swapchain(this, surface.surface, minImageCount, imageFormat, imageColorSpace, imageExtent, imageArrayLayers, imageUsage, imageSharingMode, familyIndices, //preTransform, compositeAlpha, presentMode, clipped);
+    //}
     Shader createShader(string code) {
         return Shader(this, code);
     }
     PipelineLayout createPipelineLayout(VkDescriptorSetLayout[] descriptorSetLayouts, VkPushConstantRange[] pushConstants) {
         return PipelineLayout(this, descriptorSetLayouts, pushConstants);
     }
-    PipelineLayout createPipelineLayout(VkDescriptorSetLayout[] descriptorSetLayouts) {
-        return PipelineLayout(this, descriptorSetLayouts);
+    //PipelineLayout createPipelineLayout(VkDescriptorSetLayout[] descriptorSetLayouts) {
+    //    return PipelineLayout(this, descriptorSetLayouts);
+    //}
+    //ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t //dataSize, void* data) {
+    //    return ComputePipeline(this, cache, shader, entry, layout, spezialization, dataSize, data);
+    //}
+    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base, VkPipelineCache cache) {
+        return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data, base, cache);
     }
-    ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
-        return ComputePipeline(this, cache, shader, entry, layout, spezialization, dataSize, data);
-    }
-    ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base) {
-        return ComputePipeline(this, cache, shader, entry, layout, spezialization, dataSize, data, base);
-    }
-    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
-        return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data);
-    }
-    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base) {
-        return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data, base);
-    }
-    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout) {
-        return ComputePipeline(this, null, shader, entry, layout, [], 0, null, null);
-    }
-    ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout) {
-        return ComputePipeline(this, cache, shader, entry, layout, [], 0, null, null);
-    }
-    ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkPipeline base) {
-        return ComputePipeline(this, null, shader, entry, layout, [], 0, null, base);
-    }
-    ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkPipeline base) {
-        return ComputePipeline(this, cache, shader, entry, layout, [], 0, null, base);
-    }
+    //ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
+    //    return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data);
+    //}
+    //ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, //VkPipeline base) {
+    //    return ComputePipeline(this, shader, entry, layout, spezialization, dataSize, data, base);
+    //}
+    //ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout) {
+    //    return ComputePipeline(this, null, shader, entry, layout, [], 0, null, null);
+    //}
+    //ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout) {
+    //    return ComputePipeline(this, cache, shader, entry, layout, [], 0, null, null);
+    //}
+    //ComputePipeline createComputePipeline(VkShaderModule shader, string entry, VkPipelineLayout layout, VkPipeline base) {
+    //    return ComputePipeline(this, null, shader, entry, layout, [], 0, null, base);
+    //}
+    //ComputePipeline createComputePipeline(VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkPipeline base) {
+    //    return ComputePipeline(this, cache, shader, entry, layout, [], 0, null, base);
+    //}
     // hier eine variadic version zur verfügung stellen, um ohne Vector auszukommen
-    Vector!ComputePipeline createComputePipelines(VkPipelineCache cache, VkComputePipelineCreateInfo[] infos) {
+    Vector!ComputePipeline createComputePipelines(VkComputePipelineCreateInfo[] infos, VkPipelineCache cache) {
         auto pipelines = Vector!ComputePipeline(infos.length);
         auto vkPipelines = Vector!VkPipeline(infos.length);
         result = vkCreateComputePipelines(device, cache, cast(uint) infos.length, infos.ptr, null, vkPipelines.ptr);
@@ -516,9 +516,6 @@ struct Device {
             pipelines[i].pipeline = vkPipelines[i];
         }
         return pipelines;
-    }
-    Vector!ComputePipeline createComputePipelines(VkComputePipelineCreateInfo[] infos) {
-        return createComputePipelines(null, infos);
     }
     DescriptorSetLayout createDescriptorSetLayout(VkDescriptorSetLayoutBinding[] bindings) {
         return DescriptorSetLayout(this, bindings);
@@ -541,7 +538,16 @@ struct Device {
     RenderPass createRenderPass(VkAttachmentDescription[] attachements, VkSubpassDescription[] subpasses, VkSubpassDependency[] dependencies) {
         return RenderPass(this, attachements, subpasses, dependencies);
     }
-    // hier umgekehrt eine version zur verfügung stellen für runtime, also wie compute oben
+    auto createGraphicsPipelines(VkGraphicsPipelineCreateInfo[] infos, RenderPass*[] renderPasses, VkPipelineCache cache) {
+        auto pipelines = Vector!GraphicsPipeline(infos.length);
+        auto vkPipelines = Vector!VkPipeline(infos.length);
+        result = vkCreateGraphicsPipelines(device, cache, cast(uint) infos.length, infos.ptr, null, vkPipelines.ptr);
+        for (int i = 0; i < infos.length; i++) {
+            pipelines[i].renderPass = renderPasses[i];
+            pipelines[i].pipeline = vkPipelines[i];
+        }
+        return pipelines;
+    }
     auto createGraphicsPipelines(Args...)(in Args args) {
         VkPipelineCache cache = null;
         static if (findCompatibleTypes!(VkPipelineCache, Args).length > 0) {
@@ -690,7 +696,7 @@ struct CommandPool {
     Device* device;
 }
 
-VkMemoryBarrier MemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+VkMemoryBarrier memoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
     VkMemoryBarrier barrier;
     barrier.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_BARRIER;
     barrier.pNext = null;
@@ -699,7 +705,7 @@ VkMemoryBarrier MemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAcce
     return barrier;
 }
 
-VkBufferMemoryBarrier BufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, ref Buffer buffer, VkDeviceSize offset, VkDeviceSize size) {
+VkBufferMemoryBarrier bufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, ref Buffer buffer, VkDeviceSize offset, VkDeviceSize size) {
     VkBufferMemoryBarrier barrier;
     barrier.sType = VkStructureType.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     barrier.pNext = null;
@@ -712,14 +718,14 @@ VkBufferMemoryBarrier BufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessF
     barrier.size = size;
     return barrier;
 }
-VkBufferMemoryBarrier BufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, ref Buffer buffer) {
-    return BufferMemoryBarrier(srcAccessMask, dstAccessMask, srcQueueFamilyIndex, dstQueueFamilyIndex, buffer, 0, VK_WHOLE_SIZE);
+VkBufferMemoryBarrier bufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, ref Buffer buffer) {
+    return bufferMemoryBarrier(srcAccessMask, dstAccessMask, srcQueueFamilyIndex, dstQueueFamilyIndex, buffer, 0, VK_WHOLE_SIZE);
 }
-VkBufferMemoryBarrier BufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, ref Buffer buffer) {
-    return BufferMemoryBarrier(srcAccessMask, dstAccessMask, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, buffer, 0, VK_WHOLE_SIZE);
+VkBufferMemoryBarrier bufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, ref Buffer buffer) {
+    return bufferMemoryBarrier(srcAccessMask, dstAccessMask, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, buffer, 0, VK_WHOLE_SIZE);
 }
 
-VkImageMemoryBarrier ImageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, VkImage image, VkImageSubresourceRange subresourceRange) {
+VkImageMemoryBarrier imageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout, uint srcQueueFamilyIndex, uint dstQueueFamilyIndex, VkImage image, VkImageSubresourceRange subresourceRange) {
     VkImageMemoryBarrier barrier;
     barrier.sType = VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.pNext = null;
@@ -733,8 +739,8 @@ VkImageMemoryBarrier ImageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFla
     barrier.subresourceRange = subresourceRange;
     return barrier;
 }
-VkImageMemoryBarrier ImageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkImageSubresourceRange subresourceRange) {
-    return ImageMemoryBarrier(srcAccessMask, dstAccessMask, oldLayout, newLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, image, subresourceRange);
+VkImageMemoryBarrier imageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout, VkImage image, VkImageSubresourceRange subresourceRange) {
+    return imageMemoryBarrier(srcAccessMask, dstAccessMask, oldLayout, newLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, image, subresourceRange);
 }
 
 struct CommandBuffer {
@@ -1405,32 +1411,32 @@ struct ComputePipelineInfo {
 }
 
 struct ComputePipeline {
-    this(ref Device device, VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
-        VkSpecializationInfo specInfo;
-        specInfo.mapEntryCount = cast(uint) spezialization.length;
-        specInfo.pMapEntries = spezialization.ptr;
-        specInfo.dataSize = dataSize;
-        specInfo.pData = data;
-        VkPipelineShaderStageCreateInfo stageInfo;
-        stageInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stageInfo.pNext = null;
-        stageInfo.flags = 0;
-        stageInfo.stage = VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT;
-        stageInfo.module_ = shader;
-        stageInfo.pName = entry.ptr;
-        stageInfo.pSpecializationInfo = &specInfo;
-        VkComputePipelineCreateInfo info;
-        info.sType = VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        info.pNext = null;
-        info.flags = 0; // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#pipelines-pipeline-derivatives
-        info.stage = stageInfo;
-        info.layout = layout;
-        //info.basePipelineHandle;
-        //info.basePipelineIndex;
-        result = vkCreateComputePipelines(device.device, null, 1, &info, null, &pipeline);// todo
-        this.device = &device;
-    }
-    this(ref Device device, VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base) {
+    //this(ref Device device, VkPipelineCache cache, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, //void* data) {
+    //    VkSpecializationInfo specInfo;
+    //    specInfo.mapEntryCount = cast(uint) spezialization.length;
+    //    specInfo.pMapEntries = spezialization.ptr;
+    //    specInfo.dataSize = dataSize;
+    //    specInfo.pData = data;
+    //    VkPipelineShaderStageCreateInfo stageInfo;
+    //    stageInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    //    stageInfo.pNext = null;
+    //    stageInfo.flags = 0;
+    //    stageInfo.stage = VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT;
+    //    stageInfo.module_ = shader;
+    //    stageInfo.pName = entry.ptr;
+    //    stageInfo.pSpecializationInfo = &specInfo;
+    //    VkComputePipelineCreateInfo info;
+    //    info.sType = VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    //    info.pNext = null;
+    //    info.flags = 0; // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#pipelines-pipeline-derivatives
+    //    info.stage = stageInfo;
+    //    info.layout = layout;
+    //    //info.basePipelineHandle;
+    //    //info.basePipelineIndex;
+    //    result = vkCreateComputePipelines(device.device, null, 1, &info, null, &pipeline);// todo
+    //    this.device = &device;
+    //}
+    this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base, VkPipelineCache cache) {
         VkSpecializationInfo specInfo;
         specInfo.mapEntryCount = cast(uint) spezialization.length;
         specInfo.pMapEntries = spezialization.ptr;
@@ -1451,16 +1457,16 @@ struct ComputePipeline {
         info.stage = stageInfo;
         info.layout = layout;
         info.basePipelineHandle = base;
-        //info.basePipelineIndex;
+        //info.basePipelineIndex; soll leer sein
         result = vkCreateComputePipelines(device.device, null, 1, &info, null, &pipeline);// todo
         this.device = &device;
     }
-    this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
-        this(device, null, shader, entry, layout, spezialization, dataSize, data);
-    }
-    this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline base) {
-        this(device, null, shader, entry, layout, spezialization, dataSize, data, base);
-    }
+    //this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data) {
+    //    this(device, null, shader, entry, layout, spezialization, dataSize, data);
+    //}
+    //this(ref Device device, VkShaderModule shader, string entry, VkPipelineLayout layout, VkSpecializationMapEntry[] spezialization, size_t dataSize, void* data, VkPipeline //base) {
+    //    this(device, null, shader, entry, layout, spezialization, dataSize, data, base);
+    //}
     @disable this(ref return scope ComputePipeline rhs);
     ~this() {
         vkDestroyPipeline(device.device, pipeline, null);
@@ -1727,26 +1733,25 @@ struct Sampler {
         VkBool32 unnormalizedCoordinate
     ) {
         this.device = &device;
-        VkSamplerCreateInfo info = VkSamplerCreateInfo(
-            VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            null,
-            0,
-            magFilter,
-            minFilter,
-            mipmapMode,
-            addressModeU,
-            addressModeV,
-            addressModeW,
-            mipLodBias,
-            anisotropyEnable,
-            maxAnisotropy,
-            compareEnable,
-            compareOp,
-            minLod,
-            maxLod,
-            borderColor,
-            unnormalizedCoordinate
-        );
+        VkSamplerCreateInfo info;
+        info.sType = VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        info.pNext = null;
+        info.flags = 0;
+        info.magFilter = magFilter;
+        info.minFilter = minFilter;
+        info.mipmapMode = mipmapMode;
+        info.addressModeU = addressModeU;
+        info.addressModeV = addressModeV;
+        info.addressModeW = addressModeW;
+        info.mipLodBias = mipLodBias;
+        info.anisotropyEnable = anisotropyEnable;
+        info.maxAnisotropy = maxAnisotropy;
+        info.compareEnable = compareEnable;
+        info.compareOp = compareOp;
+        info.minLod = minLod;
+        info.maxLod = maxLod;
+        info.borderColor = borderColor;
+        unnormalizedCoordinate = unnormalizedCoordinate;
         result = vkCreateSampler(device.device, &info, null, &sampler);
     }
     @disable this(ref return scope Sampler rhs);
@@ -2058,8 +2063,8 @@ void main() {
         VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
         null
     )));
-    auto pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout));
-    auto computePipeline = device.createComputePipeline(shader, "main", pipelineLayout);
+    auto pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), []);
+    auto computePipeline = device.createComputePipeline(shader, "main", pipelineLayout, [], 0, null, null, null);
     auto descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
         VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1
@@ -2121,7 +2126,8 @@ void main() {
         VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
         VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR,
-        true
+        true,
+        null
     );
     auto semaphore = device.createSemaphore();
     fence.reset();
@@ -2134,7 +2140,7 @@ void main() {
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         0, [], [],
-        array(ImageMemoryBarrier(
+        array(imageMemoryBarrier(
             VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
             VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
@@ -2153,7 +2159,7 @@ void main() {
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         0, [], [],
-        array(ImageMemoryBarrier(
+        array(imageMemoryBarrier(
             VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
             VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
