@@ -170,7 +170,7 @@ struct PhysicalDevice {
             return vkGetPhysicalDeviceWin32PresentationSupportKHR(physicalDevice, familyIndex) == VK_TRUE;
         }
     }
-    bool surfaceSupport(VkSurfaceKHR surface) {
+    bool surfaceSupported(VkSurfaceKHR surface) {
         VkBool32 surfacesupport;
         result = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, 0, surface, &surfacesupport);
         return surfacesupport == VK_TRUE;
@@ -2131,7 +2131,7 @@ void main() {
     writeln(res);
 
     Surface surface = instance.createSurface(vksurface);
-    bool surfacesupport = instance.physicalDevices[0].surfaceSupport(surface);
+    bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
     VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
     auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
 
