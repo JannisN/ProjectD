@@ -1902,9 +1902,9 @@ VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments
 
 struct GraphicsPipelineCreateInfo(Args...) {
     this(in Args args) {
-        stages = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
+        shaderStages = compatibleTypesToArray!VkPipelineShaderStageCreateInfo(args);
         VkPipelineVertexInputStateCreateInfo* vertexInput;
-        VkPipelineInputAssemblyCreateInfo* inputAssembly;
+        VkPipelineInputAssemblyStateCreateInfo* inputAssembly;
         VkPipelineTessellationStateCreateInfo* tessellation;
         VkPipelineViewportStateCreateInfo* viewport;
         VkPipelineRasterizationStateCreateInfo* rasterization;
@@ -1912,26 +1912,29 @@ struct GraphicsPipelineCreateInfo(Args...) {
         VkPipelineDepthStencilStateCreateInfo* depthStencil;
         VkPipelineColorBlendStateCreateInfo* colorBlend;
         VkPipelineDynamicStateCreateInfo* dynamic;
+        //VkPipelineLayout layout;
         static if (countCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args) > 0)
-            vertexInput = &args[findCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args)[0]];
-        static if (countCompatibleTypes!(VkPipelineInputAssemblyCreateInfo, Args) > 0)
-            inputAssembly = &args[findCompatibleTypes!(VkPipelineInputAssemblyCreateInfo, Args)[0]];
+            vertexInput = cast(VkPipelineVertexInputStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineVertexInputStateCreateInfo, Args)[0]];
+        static if (countCompatibleTypes!(VkPipelineInputAssemblyStateCreateInfo, Args) > 0)
+            inputAssembly = cast(VkPipelineInputAssemblyStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineInputAssemblyStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args) > 0)
-            tessellation = &args[findCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args)[0]];
+            tessellation = cast(VkPipelineTessellationStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineTessellationStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args) > 0)
-            viewport = &args[findCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args)[0]];
+            viewport = cast(VkPipelineViewportStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineViewportStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args) > 0)
-            rasterization = &args[findCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args)[0]];
+            rasterization = cast(VkPipelineRasterizationStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineRasterizationStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args) > 0)
-            multisample = &args[findCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args)[0]];
+            multisample = cast(VkPipelineMultisampleStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineMultisampleStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args) > 0)
-            depthStencil = &args[findCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args)[0]];
+            depthStencil = cast(VkPipelineDepthStencilStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineDepthStencilStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args) > 0)
-            colorBlend = &args[findCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args)[0]];
+            colorBlend = cast(VkPipelineColorBlendStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineColorBlendStateCreateInfo, Args)[0]];
         static if (countCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args) > 0)
-            dynamic = &args[findCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args)[0]];
-        VkPipelineLayout layout = args[findTypes!(VkPipelineLayout, Args)[0]];
-        VkRenderPass renderPass = args[findTypes!(VkRenderPass, Args)[0]];
+            dynamic = cast(VkPipelineDynamicStateCreateInfo*) &args[findCompatibleTypes!(VkPipelineDynamicStateCreateInfo, Args)[0]];
+        //static if (countCompatibleTypes!(VkPipelineLayout, Args) > 0)
+        //    layout = args[findTypes!(VkPipelineLayout, Args)[0]];
+        VkPipelineLayout layout = cast(VkPipelineLayout) args[findCompatibleTypes!(VkPipelineLayout, Args)[0]];
+        VkRenderPass renderPass = cast(VkRenderPass) args[findCompatibleTypes!(VkRenderPass, Args)[0]];
         VkPipelineCreateFlags flags = 0;
         enum auto flagsCount = findTypes!(VkPipelineCreateFlags, Args).length;
         static if (flagsCount > 0) {
@@ -1953,17 +1956,17 @@ struct GraphicsPipelineCreateInfo(Args...) {
         info.sType = VkStructureType.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         info.pNext = null;
         info.flags = flags;
-        info.stageCount = cast(uint) stages.length;
-        info.pStages = stages.ptr;
-        info.pVertexInputState = vertexInput.ptr;
-        info.pInputAssemblyState = inputAssembly.ptr;
-        info.pTessellationState = tessellation.ptr;
-        info.pViewportState = viewport.ptr;
-        info.pRasterizationState = rasterization.ptr;
-        info.pMultisampleState = multisample.ptr;
-        info.pDepthStencilState = depthStencil.ptr;
-        info.pColorBlendState = colorBlend.ptr;
-        info.pDynamicState = dynamic.ptr;
+        info.stageCount = cast(uint) shaderStages.length;
+        info.pStages = shaderStages.ptr;
+        info.pVertexInputState = vertexInput;
+        info.pInputAssemblyState = inputAssembly;
+        info.pTessellationState = tessellation;
+        info.pViewportState = viewport;
+        info.pRasterizationState = rasterization;
+        info.pMultisampleState = multisample;
+        info.pDepthStencilState = depthStencil;
+        info.pColorBlendState = colorBlend;
+        info.pDynamicState = dynamic;
         info.layout = layout;
         info.renderPass = renderPass;
         info.subpass = subpass;
@@ -1976,7 +1979,7 @@ struct GraphicsPipelineCreateInfo(Args...) {
 }
 
 auto graphicsPipelineCreateInfo(Args...)(in Args args) {
-    return GraphicsPipelineCreateInfo(args);
+    return GraphicsPipelineCreateInfo!(Args)(args);
 }
 
 struct GraphicsPipeline {
@@ -1991,7 +1994,7 @@ struct GraphicsPipeline {
         static if (findCompatibleTypes!(VkPipelineCache, Args).length > 0) {
             cache = cast(VkPipelineCache) args[findCompatibleTypes!(VkPipelineCache, Args)[0]];
         }
-        result = vkCreateGraphicsPipelines(renderPass.device.device, cache, 1, &info, null, &pipeline);
+        result = vkCreateGraphicsPipelines(renderPass.device.device, cache, 1, &info.info, null, &pipeline);
     }
     @disable this(ref return scope GraphicsPipeline rhs);
     ~this() {
@@ -2017,6 +2020,8 @@ struct ShaderStageInfo {
         info.pName = entry.ptr;
         info.pSpecializationInfo = &specializationInfo;
     }
+    //vlt disable this?
+    //@disable this(ref return scope ShaderStageInfo rhs);
     VkSpecializationInfo specializationInfo;
     VkPipelineShaderStageCreateInfo info;
     alias info this;
@@ -2032,6 +2037,8 @@ int* testret(int[] a) {
     return a.ptr;
 }
 string testsource = import("test2.spv");
+
+string vertsource = import("a.spv");
 
 void main() {
     auto layers = getInstanceLayers();
@@ -2285,6 +2292,53 @@ void main() {
         )
     );
     auto framebuffer = renderPass.createFramebuffer(array(imageView), 1024, 1024, 1);
+
+    Shader vertShader = device.createShader(vertsource);
+    auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", [], 0, null);
+    auto vertexInputStateCreateInfo = VkPipelineVertexInputStateCreateInfo(
+        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        null,
+        0,
+        0,
+        null,
+        0,
+        null
+    );
+    auto inputAssemblyStateCreateInfo = VkPipelineInputAssemblyStateCreateInfo(
+        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        null,
+        0,
+        VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+        false
+    );
+    auto dummyViewport = VkViewport(0.0f, 0.0f, 1.0f, 1.0f, 0.1f, 1000.0f);
+    auto dummyScissor = VkRect2D(VkOffset2D(0, 0), VkExtent2D(1, 1));
+    auto viewportStateCreateInfo = VkPipelineViewportStateCreateInfo(
+        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        null,
+        0,
+        1,
+        &dummyViewport,
+        1,
+        &dummyScissor
+    );
+    auto rasterizationStateCreateInfo = VkPipelineRasterizationStateCreateInfo(
+        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        null,
+        0,
+        false,
+        true,
+        VkPolygonMode.VK_POLYGON_MODE_FILL,
+        VkCullModeFlagBits.VK_CULL_MODE_NONE,
+        VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        false,
+        0,
+        0,
+        0,
+        1
+    );
+    auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
+    auto graphicsPipeline = renderPass.createGraphicsPipeline(vertStage, vertexInputStateCreateInfo, inputAssemblyStateCreateInfo, viewportStateCreateInfo, rasterizationStateCreateInfo, pipelineLayoutGraphics);
 
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
     writeln(typesToArrayInGroup!(int, 1)(1, 2, 3, "bla", 3, 2, 1));
