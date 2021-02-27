@@ -2003,6 +2003,29 @@ struct GraphicsPipeline {
     alias pipeline this;
 }
 
+struct ShaderStageInfo {
+    this(VkShaderStageFlagBits stage, VkShaderModule shader, string entry, VkSpecializationMapEntry[] specialization, size_t dataSize, void* data) {
+        specializationInfo.mapEntryCount = cast(uint) specialization.length;
+        specializationInfo.pMapEntries = specialization.ptr;
+        specializationInfo.dataSize = dataSize;
+        specializationInfo.pData = data;
+        info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        info.pNext = null;
+        info.flags = 0;
+        info.stage = stage;
+        info.module_ = shader;
+        info.pName = entry.ptr;
+        info.pSpecializationInfo = &specializationInfo;
+    }
+    VkSpecializationInfo specializationInfo;
+    VkPipelineShaderStageCreateInfo info;
+    alias info this;
+}
+
+ShaderStageInfo shaderStageInfo(VkShaderStageFlagBits stage, VkShaderModule shader, string entry, VkSpecializationMapEntry[] specialization, size_t dataSize, void* data) {
+    return ShaderStageInfo(stage, shader, entry, specialization, dataSize, data);
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
