@@ -2031,6 +2031,49 @@ ShaderStageInfo shaderStageInfo(VkShaderStageFlagBits stage, VkShaderModule shad
     return ShaderStageInfo(stage, shader, entry, specialization, dataSize, data);
 }
 
+VkPipelineVertexInputStateCreateInfo vertexInputState(VkVertexInputBindingDescription[] vertexBindingDescriptions, VkVertexInputAttributeDescription[] vertexAttributeDescriptions) {
+    VkPipelineVertexInputStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.vertexBindingDescriptionCount = cast(uint) vertexBindingDescriptions.length;
+    info.pVertexBindingDescriptions = vertexBindingDescriptions.ptr;
+    info.vertexAttributeDescriptionCount = cast(uint) vertexAttributeDescriptions.length;
+    info.pVertexAttributeDescriptions = vertexAttributeDescriptions.ptr;
+    return info;
+}
+
+VkPipelineInputAssemblyStateCreateInfo inputAssemblyState(VkPrimitiveTopology topology, bool primitiveRestart) {
+    VkPipelineInputAssemblyStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.topology = topology;
+    info.primitiveRestartEnable = primitiveRestart;
+    return info;
+}
+
+VkPipelineTessellationStateCreateInfo tessellationState(uint patchControlPoints) {
+    VkPipelineTessellationStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.patchControlPoints = patchControlPoints;
+    return info;
+}
+
+VkPipelineViewportStateCreateInfo viewportState(VkViewport[] viewports, VkRect2D[] rects) {
+    VkPipelineViewportStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.viewportCount = cast(uint) viewports.length;
+    info.pViewports = viewports.ptr;
+    info.scissorCount = cast(uint) rects.length;
+    info.pScissors = rects.ptr;
+    return info;
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
