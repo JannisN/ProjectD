@@ -1561,7 +1561,6 @@ VkCopyDescriptorSet copyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, VkD
     return copyDescriptorSet(srcSet, srcIndex, 0, dstSet, dstIndex, 0, 1);
 }
 
-// hier unbedingt variadic parameter verwenden
 struct WriteDescriptorSet {
     this(VkDescriptorSet set, uint index, uint arrayStart, uint count, VkDescriptorType type, VkSampler sampler, VkImageView view, VkImageLayout layout) {
         imageInfo.sampler = sampler;
@@ -1680,6 +1679,11 @@ struct DescriptorSet {
         vkUpdateDescriptorSets(descriptorPool.device.device, cast(uint) writes.length, writes.ptr, 0, null);
     }
     void write(VkWriteDescriptorSet write) {
+        write.dstSet = descriptorSet;
+        vkUpdateDescriptorSets(descriptorPool.device.device, 1, &write, 0, null);
+    }
+    void write(Args...)(in Args args) {
+        WriteDescriptorSet write = WriteDescriptorSet(args);
         write.dstSet = descriptorSet;
         vkUpdateDescriptorSets(descriptorPool.device.device, 1, &write, 0, null);
     }
@@ -2031,6 +2035,18 @@ ShaderStageInfo shaderStageInfo(VkShaderStageFlagBits stage, VkShaderModule shad
     return ShaderStageInfo(stage, shader, entry, specialization, dataSize, data);
 }
 
+/*
+Binding: (buffer)
+binding(index)
+stride(grösse eines vertex in bytes)
+inputRate(vertex oder instance)
+
+Attribute: (teile eines vertex, zb position, normal, uv, etc.)
+location(index in shader)
+binding(index von binding)
+format(VkFormat)
+offset(offset in vertex struct)
+*/
 VkPipelineVertexInputStateCreateInfo vertexInputState(VkVertexInputBindingDescription[] vertexBindingDescriptions, VkVertexInputAttributeDescription[] vertexAttributeDescriptions) {
     VkPipelineVertexInputStateCreateInfo info;
     info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -2062,6 +2078,7 @@ VkPipelineTessellationStateCreateInfo tessellationState(uint patchControlPoints)
     return info;
 }
 
+// arrays müssen gleiche grösse haben
 VkPipelineViewportStateCreateInfo viewportState(VkViewport[] viewports, VkRect2D[] rects) {
     VkPipelineViewportStateCreateInfo info;
     info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
