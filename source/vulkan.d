@@ -2091,6 +2091,35 @@ VkPipelineViewportStateCreateInfo viewportState(VkViewport[] viewports, VkRect2D
     return info;
 }
 
+VkPipelineRasterizationStateCreateInfo rasterizationState(
+    bool depthClampEnable,
+    bool rasterizerDiscardEnable,
+    VkPolygonMode polygonMode,
+    VkCullModeFlags cullMode,
+    VkFrontFace frontFace,
+    bool depthBiasEnable,
+    float depthBiasConstantFactor,
+    float depthBiasClamp,
+    float depthBiasSlopeFactor,
+    float lineWidth
+) {
+    VkPipelineRasterizationStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.depthClampEnable = depthClampEnable;
+    info.rasterizerDiscardEnable = rasterizerDiscardEnable;
+    info.polygonMode = polygonMode;
+    info.cullMode = cullMode;
+    info.frontFace = frontFace;
+    info.depthBiasEnable = depthBiasEnable;
+    info.depthBiasConstantFactor = depthBiasConstantFactor;
+    info.depthBiasClamp = depthBiasClamp;
+    info.depthBiasSlopeFactor = depthBiasSlopeFactor;
+    info.lineWidth = lineWidth;
+    return info;
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
