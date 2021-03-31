@@ -2120,6 +2120,82 @@ VkPipelineRasterizationStateCreateInfo rasterizationState(
     return info;
 }
 
+VkPipelineMultisampleStateCreateInfo multisampleState(
+    VkSampleCountFlagBits rasterizationSamples,
+    bool sampleShadingEnable,
+    float minSampleShading,
+    VkSampleMask[] sampleMask,
+    bool alphaToCoverageEnable,
+    bool alphaToOneEnable
+) {
+    VkPipelineMultisampleStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.rasterizationSamples = rasterizationSamples;
+    info.sampleShadingEnable = sampleShadingEnable;
+    info.minSampleShading = minSampleShading;
+    info.pSampleMask = sampleMask.ptr;
+    info.alphaToCoverageEnable = alphaToCoverageEnable;
+    info.alphaToOneEnable = alphaToOneEnable;
+    return info;
+}
+
+VkPipelineDepthStencilStateCreateInfo depthStencilState(
+    bool depthTestEnable,
+    bool depthWriteEnable,
+    VkCompareOp depthCompareOp,
+    bool depthBoundsTestEnable,
+    bool stencilTestEnable,
+    VkStencilOpState front,
+    VkStencilOpState back,
+    float minDepthBounds,
+    float maxDepthBounds
+) {
+    VkPipelineDepthStencilStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.depthTestEnable = depthTestEnable;
+    info.depthWriteEnable = depthWriteEnable;
+    info.depthCompareOp = depthCompareOp;
+    info.depthBoundsTestEnable = depthBoundsTestEnable;
+    info.stencilTestEnable = stencilTestEnable;
+    info.front = front;
+    info.back = back;
+    info.minDepthBounds = minDepthBounds;
+    info.maxDepthBounds = maxDepthBounds;
+    return info;
+}
+
+VkPipelineColorBlendStateCreateInfo colorBlendState(
+    bool logicOpEnable,
+    VkLogicOp logicOp,
+    VkPipelineColorBlendAttachmentState[] attachements,
+    float[4] blendConstants
+) {
+    VkPipelineColorBlendStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.logicOpEnable = logicOpEnable;
+    info.logicOp = logicOp;
+    info.attachmentCount = cast(uint) attachements.length;
+    info.pAttachments = attachements.ptr;
+    info.blendConstants = blendConstants;
+    return info;
+}
+
+VkPipelineDynamicStateCreateInfo dynamicState(VkDynamicState[] dynamicStates) {
+    VkPipelineDynamicStateCreateInfo info;
+    info.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    info.pNext = null;
+    info.flags = 0;
+    info.dynamicStateCount = cast(uint) dynamicStates.length;
+    info.pDynamicStates = dynamicStates.ptr;
+    return info;
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
