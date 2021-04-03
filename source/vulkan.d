@@ -888,17 +888,17 @@ struct CommandBuffer {
         region.imageExtent = extent;
         vkCmdCopyImageToBuffer(commandBuffer, image.image, layout, buffer.buffer, 1, &region);
     }
-    void copyImage(ref Image src, ref Image dst, VkImageLayout srcLayout, VkImageLayout dstLayout, VkImageCopy[] regions) {
-        vkCmdCopyImage(commandBuffer, src.image, srcLayout, dst.image, dstLayout, cast(uint) regions.length, regions.ptr);
+    void copyImage(VkImage src, VkImage dst, VkImageLayout srcLayout, VkImageLayout dstLayout, VkImageCopy[] regions) {
+        vkCmdCopyImage(commandBuffer, src, srcLayout, dst, dstLayout, cast(uint) regions.length, regions.ptr);
     }
-    void copyImage(ref Image src, ref Image dst, VkImageLayout srcLayout, VkImageLayout dstLayout, VkImageSubresourceLayers srcSub, VkOffset3D srcOff, VkImageSubresourceLayers dstSub, VkOffset3D dstOff, VkExtent3D extent) {
+    void copyImage(VkImage src, VkImage dst, VkImageLayout srcLayout, VkImageLayout dstLayout, VkImageSubresourceLayers srcSub, VkOffset3D srcOff, VkImageSubresourceLayers dstSub, VkOffset3D dstOff, VkExtent3D extent) {
         VkImageCopy region;
         region.srcSubresource = srcSub;
         region.srcOffset = srcOff;
         region.dstSubresource = dstSub;
         region.dstOffset = dstOff;
         region.extent = extent;
-        vkCmdCopyImage(commandBuffer, src.image, srcLayout, dst.image, dstLayout, 1, &region);
+        vkCmdCopyImage(commandBuffer, src, srcLayout, dst, dstLayout, 1, &region);
     }
     void blitImage(ref Image src, ref Image dst, VkImageLayout srcLayout, VkImageLayout dstLayout, VkImageBlit[] regions, VkFilter filter) {
         vkCmdBlitImage(commandBuffer, src, srcLayout, dst, dstLayout, cast(uint) regions.length, regions.ptr, filter);
@@ -2479,28 +2479,19 @@ void main() {
     Shader fragShader = device.createShader(fragsource);
     
     float[] vertex_positions = [
-        10, 10, 0.5, 1,
-        -10, 10, 0.5, 1,
-        -10, -10, 0.5, 1,
-        100, 100, -10, 1,
-        -100, 100, 10, 1,
-        -100, -100, 0, 1,
-        0, 0, 0.5, 1,
-        1, 0, 0.5, 1,
-        1, 1, 0.5, 1
+        0, 0, 0.6, 1,
+        0, 0.5, 0.6, 1,
+        0.5, 0.5, 0.6, 1,
+        0, 0, 0.1, 1,
+        0, -0.5, 0.1, 1,
+        -0.5, -0.5, 0.1, 1,
     ];
 
     float* floatptr = cast(float*) memory.map(0, 1024);
     foreach (i, float f; vertex_positions) {
         floatptr[i] = f;
     }
-    VkMappedMemoryRange range;
-    range.sType = VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    range.pNext = null;
-    range.memory = memory.memory;
-    range.offset = 0;
-    range.size = 1024;
-    memory.flush(array(range));
+    memory.flush(array(mappedMemoryRange(memory, 0, 1024)));
     memory.unmap();
 
     auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", [], 0, null);
@@ -2510,8 +2501,8 @@ void main() {
         array(VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0))
     );
     auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
-    auto dummyViewport = VkViewport(0.0f, 0.0f, 1.0f, 1.0f, 0.1f, 1.0f);
-    auto dummyScissor = VkRect2D(VkOffset2D(0, 0), VkExtent2D(1, 1));
+    auto dummyViewport = VkViewport(0.0f, 0.0f, 640.0f, 480.0f, 0.1f, 1.0f);
+    auto dummyScissor = VkRect2D(VkOffset2D(0, 0), VkExtent2D(640, 480));
     auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
     auto rasterizationStateCreateInfo = rasterizationState(
         false,
@@ -2526,7 +2517,7 @@ void main() {
     VkPipelineColorBlendAttachmentState blendAttachment;
     blendAttachment.blendEnable = false;
     blendAttachment.colorWriteMask = 0xf;
-    auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_SET, array(blendAttachment), [0, 1, 0, 1]);
+    auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_COPY, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
 
     auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
     auto graphicsPipeline = renderPass.createGraphicsPipeline(
@@ -2561,16 +2552,10 @@ void main() {
             VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
         ))
     );
-    cmdBuffer.clearColorImage(
-        swapchain.images[imageIndex],
-        VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-        VkClearColorValue([1.0, 1.0, 0.0, 1.0]),
-        array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
-    );
     cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
     cmdBuffer.beginRenderPass(renderPass, framebuffer, VkRect2D(VkOffset2D(0, 0), VkExtent2D(640, 480)), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
     cmdBuffer.bindVertexBuffers(0, array(buffer), array(cast(ulong) 0));
-    cmdBuffer.draw(9, 0, 0, 0);
+    cmdBuffer.draw(6, 2, 0, 0);
     cmdBuffer.endRenderPass();
     cmdBuffer.pipelineBarrier(
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -2585,15 +2570,13 @@ void main() {
             VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
         ))
     );
-    // bild muss noch kopiert werden und evtl. noch iwie das output image oder input buffer deklariert werden im layout
-    //cmdBuffer.copyImage(image, swapchain.images[imageIndex]
     VkImageCopy imageCopy;
     imageCopy.srcSubresource = VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1);
     imageCopy.dstSubresource = VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1);
     imageCopy.srcOffset = VkOffset3D(0, 0, 0);
     imageCopy.dstOffset = VkOffset3D(0, 0, 0);
     imageCopy.extent = VkExtent3D(640, 480, 1);
-    vkCmdCopyImage(cmdBuffer.commandBuffer, image.image, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, swapchain.images[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, 1, &imageCopy);
+    cmdBuffer.copyImage(image, swapchain.images[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, array(imageCopy));
     cmdBuffer.pipelineBarrier(
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -2612,7 +2595,6 @@ void main() {
     queue.present(swapchain, imageIndex);
     fence.wait();
     fence.reset();
-    //--
 
     // -----------------------------------
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
