@@ -956,6 +956,23 @@ struct CommandBuffer {
     void draw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance) {
         vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
     }
+    void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, VkRect2D renderArea, VkClearValue[] clearValues, VkSubpassContents contents) {
+        VkRenderPassBeginInfo info;
+        info.sType = VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        info.pNext = null;
+        info.renderPass = renderPass;
+        info.framebuffer = framebuffer;
+        info.renderArea = renderArea;
+        info.clearValueCount = cast(uint) clearValues.length;
+        info.pClearValues = clearValues.ptr;
+        vkCmdBeginRenderPass(commandBuffer, &info, contents);
+    }
+    void endRenderPass() {
+        vkCmdEndRenderPass(commandBuffer);
+    }
+    void bindVertexBuffers(uint firstBinding, VkBuffer[] buffers, VkDeviceSize[] offsets) {
+        vkCmdBindVertexBuffers(commandBuffer, firstBinding, cast(uint) buffers.length, buffers.ptr, offsets.ptr);
+    }
     Result result;
     VkCommandBuffer commandBuffer;
     alias commandBuffer this;
@@ -2204,6 +2221,7 @@ int* testret(int[] a) {
 string testsource = import("test2.spv");
 
 string vertsource = import("a.spv");
+string fragsource = import("frag.spv");
 
 void main() {
     auto layers = getInstanceLayers();
@@ -2254,7 +2272,7 @@ void main() {
     //auto commandBuffer = move(commandPool.allocateCommandBuffers(1, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY)[0]);
     CommandBuffer cmdBuffer = commandPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-    auto buffer = device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+    auto buffer = device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     
     auto memory = device.allocateMemory(buffer.getMemoryRequirements().size, buffer.chooseHeap(VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
 
@@ -2458,10 +2476,15 @@ void main() {
     );
     auto framebuffer = renderPass.createFramebuffer(array(imageView), 1024, 1024, 1);
     Shader vertShader = device.createShader(vertsource);
+    Shader fragShader = device.createShader(fragsource);
     
     auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", [], 0, null);
-    auto vertexInputStateCreateInfo = vertexInputState([], []);
-    auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_POINT_LIST, false);
+    auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragShader, "main", [], 0, null);
+    auto vertexInputStateCreateInfo = vertexInputState(
+        array(VkVertexInputBindingDescription(0, float.sizeof * 4, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
+        array(VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0))
+    );
+    auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN, false);
     auto dummyViewport = VkViewport(0.0f, 0.0f, 1.0f, 1.0f, 0.1f, 1000.0f);
     auto dummyScissor = VkRect2D(VkOffset2D(0, 0), VkExtent2D(1, 1));
     auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
@@ -2478,6 +2501,7 @@ void main() {
     auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
     auto graphicsPipeline = renderPass.createGraphicsPipeline(
         vertStage,
+        fragStage,
         vertexInputStateCreateInfo,
         inputAssemblyStateCreateInfo,
         viewportStateCreateInfo,
@@ -2485,6 +2509,72 @@ void main() {
         pipelineLayoutGraphics
     );
 
+    float[] vertex_positions = [
+        0.5, -0.5, -1, 1,
+        0.5, 0.5, -1, 1,
+        -0.5, 0.5, -1, 1
+    ];
+
+    float* floatptr = cast(float*) memory.map(0, 1024);
+    foreach (i, float f; vertex_positions) {
+        floatptr[i] = f;
+    }
+    memory.unmap();
+
+    fence.reset();
+    imageIndex = swapchain.aquireNextImage(null, fence);
+    fence.wait();
+    fence.reset();
+    cmdBuffer.reset();
+
+    cmdBuffer.begin();
+    cmdBuffer.pipelineBarrier(
+        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        0, [], [],
+        array(imageMemoryBarrier(
+            VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
+            VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+            VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+            swapchain.images[imageIndex],
+            VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+        ))
+    );
+    cmdBuffer.clearColorImage(
+        swapchain.images[imageIndex],
+        VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+        VkClearColorValue([1.0, 1.0, 0.0, 1.0]),
+        array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
+    );
+    cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+    cmdBuffer.beginRenderPass(renderPass, framebuffer, VkRect2D(VkOffset2D(0, 0), VkExtent2D(1024, 1024)), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+    cmdBuffer.bindVertexBuffers(0, array(buffer), array(cast(ulong) 0));
+    cmdBuffer.draw(3, 0, 0, 0);
+    cmdBuffer.endRenderPass();
+    // bild muss noch kopiert werden und evtl. noch iwie das output image oder input buffer deklariert werden im layout
+    //cmdBuffer.copyImage(image, swapchain.images[imageIndex]
+    cmdBuffer.pipelineBarrier(
+        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        0, [], [],
+        array(imageMemoryBarrier(
+            VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
+            VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+            VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            swapchain.images[imageIndex],
+            VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+        ))
+    );
+    cmdBuffer.end();
+    queue.submit(cmdBuffer, fence);
+    queue.present(swapchain, imageIndex);
+    fence.wait();
+    fence.reset();
+    //--
+
+    // -----------------------------------
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
     writeln(typesToArrayInGroup!(int, 1)(1, 2, 3, "bla", 3, 2, 1));
 
