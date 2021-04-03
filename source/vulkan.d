@@ -2457,53 +2457,33 @@ void main() {
         )
     );
     auto framebuffer = renderPass.createFramebuffer(array(imageView), 1024, 1024, 1);
-
     Shader vertShader = device.createShader(vertsource);
+    
     auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", [], 0, null);
-    auto vertexInputStateCreateInfo = VkPipelineVertexInputStateCreateInfo(
-        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        null,
-        0,
-        0,
-        null,
-        0,
-        null
-    );
-    auto inputAssemblyStateCreateInfo = VkPipelineInputAssemblyStateCreateInfo(
-        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        null,
-        0,
-        VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-        false
-    );
+    auto vertexInputStateCreateInfo = vertexInputState([], []);
+    auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_POINT_LIST, false);
     auto dummyViewport = VkViewport(0.0f, 0.0f, 1.0f, 1.0f, 0.1f, 1000.0f);
     auto dummyScissor = VkRect2D(VkOffset2D(0, 0), VkExtent2D(1, 1));
-    auto viewportStateCreateInfo = VkPipelineViewportStateCreateInfo(
-        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-        null,
-        0,
-        1,
-        &dummyViewport,
-        1,
-        &dummyScissor
-    );
-    auto rasterizationStateCreateInfo = VkPipelineRasterizationStateCreateInfo(
-        VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        null,
-        0,
+    auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
+    auto rasterizationStateCreateInfo = rasterizationState(
         false,
         true,
         VkPolygonMode.VK_POLYGON_MODE_FILL,
         VkCullModeFlagBits.VK_CULL_MODE_NONE,
         VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
         false,
-        0,
-        0,
-        0,
-        1
+        0, 0, 0, 1
     );
+
     auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
-    auto graphicsPipeline = renderPass.createGraphicsPipeline(vertStage, vertexInputStateCreateInfo, inputAssemblyStateCreateInfo, viewportStateCreateInfo, rasterizationStateCreateInfo, pipelineLayoutGraphics);
+    auto graphicsPipeline = renderPass.createGraphicsPipeline(
+        vertStage,
+        vertexInputStateCreateInfo,
+        inputAssemblyStateCreateInfo,
+        viewportStateCreateInfo,
+        rasterizationStateCreateInfo,
+        pipelineLayoutGraphics
+    );
 
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
     writeln(typesToArrayInGroup!(int, 1)(1, 2, 3, "bla", 3, 2, 1));
