@@ -973,6 +973,18 @@ struct CommandBuffer {
     void bindVertexBuffers(uint firstBinding, VkBuffer[] buffers, VkDeviceSize[] offsets) {
         vkCmdBindVertexBuffers(commandBuffer, firstBinding, cast(uint) buffers.length, buffers.ptr, offsets.ptr);
     }
+    void drawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int vertexOffset, uint firstInstance) {
+        vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+    void bindIndexBuffer(VkBuffer buffer, VkDeviceSize offset, VkIndexType indexType) {
+        vkCmdBindIndexBuffer(commandBuffer, buffer, offset, indexType);
+    }
+    void drawIndirect(VkBuffer buffer, VkDeviceSize offset, uint drawCount, uint stride) {
+        vkCmdDrawIndirect(commandBuffer, buffer, offset, drawCount, stride);
+    }
+    void drawIndexedIndirect(VkBuffer buffer, VkDeviceSize offset, uint drawCount, uint stride) {
+        vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
+    }
     Result result;
     VkCommandBuffer commandBuffer;
     alias commandBuffer this;
