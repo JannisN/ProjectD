@@ -21,7 +21,6 @@ import std.stdio;
 // bei window resize etc. deviceWaitIdle verwenden
 
 /*
-funktionennamen auf klein
 variadic und aufräumen
 
 utils:
@@ -985,6 +984,39 @@ struct CommandBuffer {
     void drawIndexedIndirect(VkBuffer buffer, VkDeviceSize offset, uint drawCount, uint stride) {
         vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
     }
+    void setViewport(uint firstViewport, VkViewport[] viewports) {
+        vkCmdSetViewport(commandBuffer, firstViewport, cast(uint) viewports.length, viewports.ptr);
+    }
+    void setScissor(uint firstScissor, VkRect2D[] scissors) {
+        vkCmdSetScissor(commandBuffer, firstScissor, cast(uint) scissors.length, scissors.ptr);
+    }
+    void setDepthBounds(float minDepthBounds, float maxDepthBounds) {
+        vkCmdSetDepthBounds(commandBuffer, minDepthBounds, maxDepthBounds);
+    }
+    void setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) {
+        vkCmdSetDepthBias(commandBuffer, depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
+    }
+    void setStencilReference(VkStencilFaceFlags faceMask, uint reference) {
+        vkCmdSetStencilReference(commandBuffer, faceMask, reference);
+    }
+    void setStencilCompareMask(VkStencilFaceFlags faceMask, uint compareMask) {
+        vkCmdSetStencilCompareMask(commandBuffer, faceMask, compareMask);
+    }
+    void setStencilWriteMask(VkStencilFaceFlags faceMask, uint writeMask) {
+        vkCmdSetStencilWriteMask(commandBuffer, faceMask, writeMask);
+    }
+    void resolveImage(VkImage srcImage, VkImageLayout srcLayout, VkImage dstImage, VkImageLayout dstLayout, VkImageResolve[] regions) {
+        vkCmdResolveImage(commandBuffer, srcImage, srcLayout, dstImage, dstLayout, cast(uint) regions.length, regions.ptr);
+    }
+    void setBlendConstants(float[4] blendConstants) {
+        vkCmdSetBlendConstants(commandBuffer, blendConstants);
+    }
+    void nextSubpass(VkSubpassContents contents) {
+        vkCmdNextSubpass(commandBuffer, contents);
+    }
+    void clearAttachments(VkClearAttachment[] attachments, VkClearRect[] rects) {
+        vkCmdClearAttachments(commandBuffer, cast(uint) attachments.length, attachments.ptr, cast(uint) rects.length, rects.ptr);
+    }
     Result result;
     VkCommandBuffer commandBuffer;
     alias commandBuffer this;
@@ -1872,6 +1904,11 @@ struct RenderPass {
     }
     GraphicsPipeline createGraphicsPipeline(Args...)(in Args args) {
         return GraphicsPipeline(this, args);
+    }
+    VkExtent2D getRenderAreaGranularity() {
+        VkExtent2D granularity;
+        vkGetRenderAreaGranularity(device.device, renderPass, &granularity);
+        return granularity;
     }
     Result result;
     Device* device;
