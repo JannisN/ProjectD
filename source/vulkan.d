@@ -2269,10 +2269,15 @@ int* testret(int[] a) {
 }
 string testsource = import("test2.spv");
 
-string vertsource = import("a.spv");
+enum string vertsource = import("a.spv");
 string fragsource = import("frag.spv");
 
+void sometest(string s)() {
+
+}
+
 void main() {
+    sometest!vertsource();
     auto layers = getInstanceLayers();
     foreach (l; layers) {
         writeln(l.layerName);
