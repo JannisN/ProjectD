@@ -615,3 +615,27 @@ template multiplyArgs(Args...) {
     }
     enum auto multiplyArgs = multiplyArgsImpl!Args();
 }
+
+template methodToString(T, string methodName) {
+    string methodToStringImpl() {
+        string s;
+        import std.traits : ReturnType, Parameters;
+        s = (ReturnType!(__traits(getMember, T, methodName))).stringof ~ " " ~ methodName ~ "(";
+        import std.conv : to;
+        static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
+            s = s ~ (Parameters!(__traits(getMember, T, methodName))[i]).stringof ~ " a" ~ to!string(i) ~ ", ";
+        }
+        s = s ~ ")";
+        //https://dlang.org/spec/traits.html#getParameterStorageClasses
+        //https://dlang.org/spec/traits.html#getFunctionAttributes
+        return s;
+    }
+    enum string methodToString = methodToStringImpl();
+}
+
+class InterfaceAdapter(Interface, T) {
+    // member ist ein string
+    static foreach(member; __traits(allMembers, Interface)) {
+
+    }
+}

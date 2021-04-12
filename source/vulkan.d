@@ -2651,6 +2651,8 @@ void main() {
     fence.reset();
 
     // -----------------------------------
+    writeln(methodToString!(Device, "createCommandPool"));
+
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
     writeln(typesToArrayInGroup!(int, 1)(1, 2, 3, "bla", 3, 2, 1));
 
