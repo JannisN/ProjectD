@@ -623,19 +623,32 @@ template methodToString(T, string methodName) {
         s = (ReturnType!(__traits(getMember, T, methodName))).stringof ~ " " ~ methodName ~ "(";
         import std.conv : to;
         static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
+            static foreach (storageClass; __traits(getParameterStorageClasses, __traits(getMember, T, methodName), i)) {
+                s = s ~ storageClass ~ " ";
+            }
             s = s ~ (Parameters!(__traits(getMember, T, methodName))[i]).stringof ~ " a" ~ to!string(i) ~ ", ";
         }
         s = s ~ ")";
-        //https://dlang.org/spec/traits.html#getParameterStorageClasses
-        //https://dlang.org/spec/traits.html#getFunctionAttributes
+        static foreach (att; __traits(getFunctionAttributes, __traits(getMember, T, methodName))) {
+            s = s ~ att ~ " ";
+        }
+        s = s ~ "{ return t." ~ methodName ~ "(";
+        static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
+            s = s ~ "a" ~ to!string(i) ~ ", ";
+        }
+        s = s ~ ");}";
         return s;
     }
     enum string methodToString = methodToStringImpl();
 }
 
-class InterfaceAdapter(Interface, T) {
-    // member ist ein string
+class InterfaceAdapter(Interface, T) : Interface {
+    T t;
+    alias t this;
+    this(T t) {
+        this.t = t;
+    }
     static foreach(member; __traits(allMembers, Interface)) {
-
+        mixin(methodToString!(T, member));
     }
 }
