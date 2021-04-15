@@ -29,3 +29,13 @@ interface GLWindow : Window {
         @property void* glxDisplay();
     }
 }
+
+interface VulkanWindow {
+    void getSurface();
+}
+
+struct GlfwVulkanWindow {
+    void getSurface() {
+        
+    }
+}

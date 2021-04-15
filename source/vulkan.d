@@ -2651,6 +2651,8 @@ void main() {
     fence.reset();
 
     // -----------------------------------
+    //import window;
+    //InterfaceAdapter!(VulkanWindow, GlfwVulkanWindow) testadapter;
     writeln(methodToString!(CommandBuffer, "copyBuffer"));
 
     writeln(typesToArrayInGroup!(int, 0)(1, 2, 3, "bla", 3, 2, 1));
