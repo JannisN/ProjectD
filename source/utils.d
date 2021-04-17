@@ -64,6 +64,10 @@ struct H(T) if (is(T == class)) {
             free(cast(void*) data);
         }
 	}
+    // um runtime polymorphism als static polymorphism benutzbar machen
+    this(T t) {
+        data = t;
+    }
     static H!T opCall(Args...)(Args args) {
 		H!T value;
         if (__ctfe) {
@@ -642,10 +646,22 @@ template methodToString(T, string methodName) {
     enum string methodToString = methodToStringImpl();
 }
 
+// idee: static polymorphism benutzen wenn möglich. falls später nötig, aus runtime polymorphism umsteigen.
 class InterfaceAdapter(Interface, T) : Interface {
     T t;
     alias t this;
     this(T t) {
+        this.t = t;
+    }
+    static foreach(member; __traits(allMembers, Interface)) {
+        mixin(methodToString!(T, member));
+    }
+}
+
+class InterfaceAdapterPointer(Interface, T) : Interface {
+    T* t;
+    alias t this;
+    this(T* t) {
         this.t = t;
     }
     static foreach(member; __traits(allMembers, Interface)) {
