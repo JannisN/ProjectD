@@ -5744,7 +5744,7 @@ const(char*)* glfwGetRequiredInstanceExtensions (uint* count);
  * defined by some gl.h variants (OpenBSD) so define it after if needed.
  */
 
-enum GLAPIENTRY = APIENTRY;
+//enum GLAPIENTRY = APIENTRY;
 
 /* -------------------- END SYSTEM/COMPILER SPECIFIC --------------------- */
 

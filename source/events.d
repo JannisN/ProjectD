@@ -1,19 +1,21 @@
 module events;
 
 struct Sender(Receivers...) {
-    Receivers* receivers;
-    this(Receivers* receivers) {
+    Receivers receivers;
+    this(Receivers receivers) {
         static foreach (i; 0..Receivers.length) {
             this.receivers[i] = receivers[i];
         }
     }
     void send(Event)(Event event) {
-        static foreach (r; receivers) {
-            static if (__traits(compiles, r.receive(event)))
-                r.receive(event);
+        static foreach (i; 0..Receivers.length) {
+            static if (__traits(compiles, receivers[i].receive(event)))
+                receivers[i].receive(event);
         }
     }
 }
+
+// hier noch hilfsfunktionen hinzufügen, die erstellen von sendern erleichtern
 
 // man kann dies auch als runtime polymorphism benutzen. dazu einfach ein interface für einen receiver erstellen und dann zb.
 // vector!Interface als ArrayType benutzen
@@ -23,9 +25,9 @@ struct Sender(Receivers...) {
 // ArrayType kann entweder ein pointer auf ein array/vector(vector<bla>*) sein oder nicht
 struct ArrayReceiver(ArrayType) {
     ArrayType receivers;
-    alias arrayType this;
-    this(ArrayType arrayType) {
-        this.arrayType = arrayType;
+    alias receivers this;
+    this(ArrayType receivers) {
+        this.receivers = receivers;
     }
     void receive(Event)(Event event) {
         foreach (r; receivers) {
@@ -41,8 +43,8 @@ struct LayerEvent(Event) {
 
 // receive funktionen müssen ein (ref LayerEvent event) haben
 struct LayerReceiver(Receivers...) {
-    Receivers* receivers;
-    this(Receivers* receivers) {
+    Receivers receivers;
+    this(Receivers receivers) {
         static foreach (i; 0..Receivers.length) {
             this.receivers[i] = receivers[i];
         }

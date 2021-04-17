@@ -2651,6 +2651,16 @@ void main() {
     fence.reset();
 
     // -----------------------------------
+    import events;
+    struct TestReceiver {
+        void receive(string s) {
+            import std.stdio;
+            writeln(s);
+        }
+    }
+    TestReceiver testReceiver;
+    auto sender = Sender!(ArrayReceiver!(TestReceiver*[]))(ArrayReceiver!(TestReceiver*[])([&testReceiver, &testReceiver]));
+    sender.send("bla");
     //import window;
     //InterfaceAdapter!(VulkanWindow, GlfwVulkanWindow) testadapter;
     writeln(methodToString!(CommandBuffer, "copyBuffer"));
