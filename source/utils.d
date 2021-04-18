@@ -100,6 +100,11 @@ struct H(T) if (is(T == class)) {
         t.data = null;
         return this;
     }
+    auto toBase(U)() {
+        auto ret = H!U(data);
+        data = null;
+        return ret;
+    }
 }
 
 struct H(T) if (!is(T == class)) {
