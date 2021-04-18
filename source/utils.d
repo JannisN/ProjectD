@@ -55,7 +55,6 @@ struct S(T) if (!is(T == class)) {
     alias data this;
 }
 
-// hier ein cast hinzufügen zu H(BaseType). vlt aber nicht nötig da cast() reicht
 struct H(T) if (is(T == class)) {
 	T data;
     ~this() {
@@ -64,7 +63,6 @@ struct H(T) if (is(T == class)) {
             free(cast(void*) data);
         }
 	}
-    // um runtime polymorphism als static polymorphism benutzbar machen
     this(T t) {
         data = t;
     }
@@ -112,6 +110,9 @@ struct H(T) if (!is(T == class)) {
 	        free(data);
         }
 	}
+    this(T* t) {
+        data = t;
+    }
     static H!T opCall(Args...)(Args args) {
 		H!T value;
         if (__ctfe) {
@@ -153,7 +154,7 @@ struct H(T) if (!is(T == class)) {
     }
 }
 
-struct Ref(T) if (is(T == class)) {
+struct Ref(T) if (is(T == class) || is(T == interface)) {
     T data;
     T get() @property {
         return data;
@@ -182,7 +183,7 @@ struct Ref(T) if (is(T == class)) {
     }
 }
 
-struct Ref(T) if (!is(T == class)) {
+struct Ref(T) if (!is(T == class) && !is(T == interface)) {
     T* data;
     ref T get() @property {
         return *data;
@@ -649,7 +650,10 @@ template methodToString(T, string methodName) {
 // idee: static polymorphism benutzen wenn möglich. falls später nötig, aus runtime polymorphism umsteigen.
 class InterfaceAdapter(Interface, T) : Interface {
     T t;
-    alias t this;
+    @property Interface toInterface() {
+        return this;
+    }
+    alias toInterface this;
     this(T t) {
         this.t = t;
     }
@@ -660,7 +664,10 @@ class InterfaceAdapter(Interface, T) : Interface {
 
 class InterfaceAdapterPointer(Interface, T) : Interface {
     T* t;
-    alias t this;
+    @property Interface toInterface() {
+        return this;
+    }
+    alias toInterface this;
     this(T* t) {
         this.t = t;
     }

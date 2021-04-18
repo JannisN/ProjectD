@@ -15,6 +15,14 @@ struct Sender(Receivers...) {
     }
 }
 
+auto createSender(Receivers...)(Receivers receivers) {
+    return Sender!(Receivers)(receivers);
+}
+
+auto createArraySender(T)(T t) {
+    return Sender!(ArrayReceiver!T)(ArrayReceiver!T(t));
+}
+
 // hier noch hilfsfunktionen hinzufügen, die erstellen von sendern erleichtern
 
 // man kann dies auch als runtime polymorphism benutzen. dazu einfach ein interface für einen receiver erstellen und dann zb.
