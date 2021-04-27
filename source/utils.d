@@ -680,3 +680,29 @@ class InterfaceAdapterPointer(Interface, T) : Interface {
         mixin(methodToString!(T, member));
     }
 }
+
+struct Result(ResultType, ResultType successType) {
+    this(ResultType result) {
+        this.result = result;
+    }
+    bool success() immutable @property {
+        return result == successType;
+    }
+    void reset() {
+        result = successType;
+    }
+    ref Result opAssign(ResultType result) return {
+        if (result != successType) {
+            if (this.result == successType) {
+                this.result = result;
+            }
+            if (!(onError is null)) {
+                onError(result);
+            }
+        }
+        return this;
+    }
+    ResultType result = successType;
+    alias result this;
+    void delegate(ResultType) onError;
+}
