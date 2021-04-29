@@ -2651,7 +2651,9 @@ void main() {
     fence.reset();
 
     // -----------------------------------
+
     import events;
+    import glfw_vulkan_window;
     struct TestReceiver {
         void receive(string s) {
             import std.stdio;
@@ -2661,11 +2663,18 @@ void main() {
             import std.stdio;
             writeln(s);
         }
+        void receive(WindowResizeEvent e) {
+            import std.stdio;
+            writeln(e.width);
+        }
     }
     TestReceiver testReceiver;
     auto sender = createArraySender(array(&testReceiver, &testReceiver));//Sender!(ArrayReceiver!(TestReceiver*[]))(ArrayReceiver!(TestReceiver*[])([&testReceiver, &testReceiver]));
     sender.send("bla");
     sender.send(10);
+
+    auto vulkanWindow = GlfwVulkanWindow!(typeof(sender))(1000, 500, "bla");
+    vulkanWindow.sender = sender;
 
     //import window;
     //InterfaceAdapter!(VulkanWindow, GlfwVulkanWindow) testadapter;
