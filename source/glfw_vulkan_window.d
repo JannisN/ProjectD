@@ -11,24 +11,31 @@ private interface GlfwCallback {
     void onWindowResize(int width, int height);
 }
 
-private extern(C) void windowSizeCallback(GLFWwindow* window, int width, int height) {
-    if (glfwGetWindowUserPointer(window) != null) {
-        GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
-        callback.onWindowResize(width, height);
-    }
-}
-
 // sollte in einem allgemeineren file definitiert werden
 struct WindowResizeEvent {
     int width;
     int height;
 }
 
+private extern(C) {
+    import vulkan_core;
+    VkResult glfwCreateWindowSurface(VkInstance, void*, VkAllocationCallbacks*, VkSurfaceKHR*);
+
+    void windowSizeCallback(GLFWwindow* window, int width, int height) {
+        if (glfwGetWindowUserPointer(window) != null) {
+            GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
+            callback.onWindowResize(width, height);
+        }
+    }
+}
+
 // hier funktion um einfachere window erstellung mit sender
 
 struct GlfwVulkanWindow(Sender) {
+    import vk : Result, Instance, Surface;
     GLFWwindow* window;
     GlfwResult result;
+    Result vkResult;
     S!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow)) callbackPtr;
     Sender sender;
     this(int width, int height, string title) {
@@ -56,6 +63,18 @@ struct GlfwVulkanWindow(Sender) {
     void close() {
         glfwSetWindowUserPointer(window, null);
         glfwDestroyWindow(window);
+    }
+    Surface createVulkanSurface(ref Instance instance) {
+        string[] s;
+        //s.
+        VkSurfaceKHR vksurface;
+        vkResult = glfwCreateWindowSurface(instance.instance, window, null, &vksurface);
+        return instance.createSurface(vksurface);
+    }
+    const(char*)[] getRequiredExtensions() {
+        uint reqcount;
+        const(char*)* requiredExtensions = glfwGetRequiredInstanceExtensions(&reqcount);
+        return requiredExtensions[0 .. reqcount];
     }
     void onWindowResize(int width, int height) {
         sender.send(WindowResizeEvent(width, height));
