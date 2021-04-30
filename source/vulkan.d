@@ -2382,7 +2382,35 @@ void main() {
 
     // -------------------------------------------------------------
 
-    import glfw;
+    import events;
+    import glfw_vulkan_window;
+    struct TestReceiver {
+        void receive(string s) {
+            import std.stdio;
+            writeln(s);
+        }
+        void receive(int s) {
+            import std.stdio;
+            writeln(s);
+        }
+        void receive(WindowResizeEvent e) {
+            import std.stdio;
+            writeln(e.width);
+        }
+    }
+    TestReceiver testReceiver;
+    auto sender = createArraySender(array(&testReceiver, &testReceiver));//Sender!(ArrayReceiver!(TestReceiver*[]))(ArrayReceiver!(TestReceiver*[])([&testReceiver, &testReceiver]));
+    sender.send("bla");
+    sender.send(10);
+
+    auto vulkanWindow = GlfwVulkanWindow!(typeof(sender))(640, 480, "Hello");
+    vulkanWindow.sender = sender;
+
+    foreach (e; vulkanWindow.getRequiredExtensions()) {
+        printf(e);
+    }
+
+    /*import glfw;
     glfwInit();
     // GLFW_CLIENT_API, GLFW_NO_API
     glfwWindowHint(0x00022001, 0);
@@ -2395,9 +2423,10 @@ void main() {
     }
     VkSurfaceKHR vksurface;
     auto res = glfwCreateWindowSurface(instance, window, null, &vksurface);
-    writeln(res);
+    writeln(res);*/
 
-    Surface surface = instance.createSurface(vksurface);
+    //Surface surface = instance.createSurface(vksurface);
+    Surface surface = vulkanWindow.createVulkanSurface(instance);
     bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
     VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
     auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
@@ -2652,7 +2681,7 @@ void main() {
 
     // -----------------------------------
 
-    import events;
+    /*import events;
     import glfw_vulkan_window;
     struct TestReceiver {
         void receive(string s) {
@@ -2674,7 +2703,7 @@ void main() {
     sender.send(10);
 
     auto vulkanWindow = GlfwVulkanWindow!(typeof(sender))(1000, 500, "bla");
-    vulkanWindow.sender = sender;
+    vulkanWindow.sender = sender;*/
 
     //import window;
     //InterfaceAdapter!(VulkanWindow, GlfwVulkanWindow) testadapter;
@@ -2691,8 +2720,10 @@ void main() {
     import core.memory : GC;
     writeln(GC.stats().allocatedInCurrentThread);
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    import glfw3;
+    while (!glfwWindowShouldClose(vulkanWindow.window)) {
+        //glfwPollEvents();
+        vulkanWindow.update();
     }
 }
 

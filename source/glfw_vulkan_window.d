@@ -65,8 +65,6 @@ struct GlfwVulkanWindow(Sender) {
         glfwDestroyWindow(window);
     }
     Surface createVulkanSurface(ref Instance instance) {
-        string[] s;
-        //s.
         VkSurfaceKHR vksurface;
         vkResult = glfwCreateWindowSurface(instance.instance, window, null, &vksurface);
         return instance.createSurface(vksurface);
