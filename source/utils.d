@@ -706,3 +706,103 @@ struct Result(ResultType, ResultType successType) {
     alias result this;
     void delegate(ResultType) onError;
 }
+
+struct ListElement(T) {
+    T t;
+    alias t this;
+    ListElement!T* next;
+    ListElement!T* previous;
+}
+
+// für foreach
+struct LinkedListIterate(T) {
+    ListElement!T* current;
+    this(ListElement!T* e) {
+        current = e;
+    }
+    @property bool empty() {
+        return current == null;
+    }
+    @property ref T front() {
+        return current.t;
+    }
+    private void popFront() {
+        current = current.next;
+    }
+    @property ref T back() {
+        return current.t;
+    }
+    private void popBack() {
+        current = current.previous;
+    }
+}
+
+struct LinkedList(T) {
+    uint length;
+    ListElement!T* first;
+    ListElement!T* last;
+    ~this() {
+        for (int i = 0; i < length; i++) {
+            ListElement!T* current = last.previous;
+            destroy(last);
+            free(cast(void*)last);
+            last = current;
+        }
+    }
+    ref LinkedList!T add(T t) {
+        if (length == 0) {
+            last = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.t = t;
+            first = last;
+        } else {
+            last.next = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.next.previous = last;
+            last = last.next;
+            last.t = t;
+        }
+        length++;
+        return this;
+    }
+    ref LinkedList!T add() {
+        if (length == 0) {
+            last = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.t = t;
+            first = last;
+        } else {
+            last.next = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.next.previous = last;
+            last = last.next;
+        }
+        length++;
+        return this;
+    }
+    ref T get(uint index) {
+        assert(index < length);
+        ListElement!T* current = first;
+        for (int i = 0; i < cast(int)index - 1; i++) {
+            current = current.next;
+        }
+        return current.t;
+    }
+    ref LinkedList!T remove(uint index) {
+        assert(index < length);
+        ListElement!T* current = first;
+        for (int i = 0; i < cast(int)index - 1; i++) {
+            current = current.next;
+        }
+        if (current.previous != null)
+            current.previous.next = current.next;
+        if (current.next != null)
+            current.next.previous = current.previous;
+        destroy(current);
+        free(cast(void*)current);
+        length--;
+        return this;
+    }
+    LinkedListIterate!T iterate() {
+        return LinkedListIterate!T(first);
+    }
+    LinkedListIterate!T iterateBackwards() {
+        return LinkedListIterate!T(last);
+    }
+}
