@@ -752,17 +752,17 @@ struct LinkedList(T) {
             last = current;
         }
     }
-    ref LinkedList!T add(T t) {
+    ref LinkedList!T add(lazy T t) {
         if (length == 0) {
             last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
             import std.conv : emplace;
-            emplace(last, t);
+            emplace(last);
             last.t = t;
             first = last;
         } else {
             last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
             import std.conv : emplace;
-            emplace(last.next, t);
+            emplace(last.next);
             last.next.previous = last;
             last = last.next;
             last.t = t;
