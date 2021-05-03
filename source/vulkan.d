@@ -2284,9 +2284,7 @@ struct AllocatorList {
     bool tryAllocate(VkDeviceSize requiredSize) {
         if (entries.last != null) {
             if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
-                long length = entries.last.t.offset + entries.last.t.length;
-                // problem wegen lazy, length wird nicht richtig evaluiert... wieso?
-                entries.add(AllocatorListEntry(length, requiredSize));
+                entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
                 return true;
             }
             if (entries.first.offset >= requiredSize) {

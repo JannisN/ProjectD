@@ -754,18 +754,19 @@ struct LinkedList(T) {
     }
     ref LinkedList!T add(lazy T t) {
         if (length == 0) {
-            last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+            auto newLast = cast(ListElement!T*) malloc(ListElement!T.sizeof);
             import std.conv : emplace;
-            emplace(last);
-            last.t = t();
+            emplace(newLast);
+            newLast.t = t();
+            last = newLast;
             first = last;
         } else {
             last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
             import std.conv : emplace;
             emplace(last.next);
             last.next.previous = last;
+            last.next.t = t();
             last = last.next;
-            last.t = t();
         }
         length++;
         return this;
