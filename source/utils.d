@@ -712,7 +712,7 @@ struct ListElement(T) {
     alias t this;
     ListElement!T* next = null;
     ListElement!T* previous = null;
-    this(T t) {
+    this(lazy T t) {
         this.t = t;
     }
 }
@@ -809,10 +809,26 @@ struct LinkedList(T) {
         length--;
         return this;
     }
-    LinkedListIterate!T iterate() {
+    ref LinkedList!T insert(uint index, lazy T t) {
+        assert(index < length);
+        ListElement!T* current = first;
+        for (int i = 0; i < cast(int)index; i++) {
+            current = current.next;
+        }
+        ListElement!T* previousElement = current.previous;
+        previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+        import std.conv : emplace;
+        emplace(previousElement.next);
+        previousElement.next.t = t;
+        previousElement.next.previous = previousElement;
+        previousElement.next.next = current;
+        current.previous = previousElement.next;
+        return this;
+    }
+    @property LinkedListIterate!T iterate() {
         return LinkedListIterate!T(first);
     }
-    LinkedListIterate!T iterateBackwards() {
+    @property LinkedListIterate!T iterateBackwards() {
         return LinkedListIterate!T(last);
     }
 }

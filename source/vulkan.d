@@ -2262,6 +2262,104 @@ VkPipelineDynamicStateCreateInfo dynamicState(VkDynamicState[] dynamicStates) {
     return info;
 }
 
+struct AllocatorListEntry {
+    VkDeviceSize offset;
+    VkDeviceSize length;
+}
+
+struct AllocatorList {
+    Memory memory;
+    VkDeviceSize size;
+    uint heap;
+    LinkedList!AllocatorListEntry entries;
+    this(lazy Memory memory, VkDeviceSize size, uint heap) {
+        this.memory = memory;
+        this.size = size;
+        this.heap = heap;
+    }
+    // return true = wurde allocated
+    // aufteilen in zwei funktionen: zuerst bei allen AllocatorLists prüfen ob am schluss noch platz ist, sonst auf lücken überprüfen, wegen performance
+    bool tryAllocate(VkDeviceSize requiredSize) {
+        if (entries.last != null) {
+            if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
+                entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
+                return true;
+            }
+            if (entries.first.offset >= requiredSize) {
+                entries.insert(0, AllocatorListEntry(0, requiredSize));
+                return true;
+            }
+            int i = 0;
+            for (auto e = entries.iterate(); !e.empty; e.popFront) {
+                i++;
+                if (e.current != entries.last) {
+                    if (e.current.next.t.offset - e.current.t.offset - e.current.t.length >= requiredSize) {
+                        entries.insert(i, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } else {
+            if (size >= requiredSize) {
+                entries.add(AllocatorListEntry(0, requiredSize));
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+    void deallocate(uint index) {
+        entries.remove(index);
+    }
+}
+
+enum AllocationStrategy {
+    fast,
+    dense
+}
+
+struct AllocatedResource(T) {
+    T t;
+    AllocatorList* allocatorList;
+    ListElement!T* allocation;
+    alias t this;
+    this(lazy T resource) {
+        t = resource;
+    }
+    ~this() {
+        //deallocate
+    }
+    void deallocate() {
+        // bei LinkedList eine funktion hinzufügen um ein ListElement zu löschen für das man die referenz besitzt
+    }
+}
+
+// unbedingt auf fehler überprüfen, da speicher voll sein kann
+// allocation strategy fast hinzufügen
+struct MemoryAllocator {
+    Device* device;
+    AllocationStrategy allocationStrategy;
+    LinkedList!AllocatorList allocations;
+    VkDeviceSize defaultAllocationSize = 100_000_000;
+    void allocate(uint heap, VkDeviceSize requiredSize) {
+        foreach (ref e; allocations.iterate()) {
+            if (e.heap == heap) {
+                if (e.tryAllocate(requiredSize)) {
+                    return;
+                }
+            }
+        }
+        if (requiredSize <= defaultAllocationSize) {
+            allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap), defaultAllocationSize, heap));
+            allocations.last.tryAllocate(requiredSize);
+        } else {
+            allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap), requiredSize, heap));
+            allocations.last.tryAllocate(requiredSize);
+        }
+    }
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
@@ -2689,6 +2787,7 @@ void main() {
     writeln(ll.get(1));
     writeln(ll.get(2));
     ll.remove(1);
+    ll.insert(1, 4);
     foreach (ref e; ll.iterate()) {
         writeln(e);
     }
