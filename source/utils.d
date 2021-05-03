@@ -710,13 +710,16 @@ struct Result(ResultType, ResultType successType) {
 struct ListElement(T) {
     T t;
     alias t this;
-    ListElement!T* next;
-    ListElement!T* previous;
+    ListElement!T* next = null;
+    ListElement!T* previous = null;
+    this(T t) {
+        this.t = t;
+    }
 }
 
 // für foreach
 struct LinkedListIterate(T) {
-    ListElement!T* current;
+    ListElement!T* current = null;
     this(ListElement!T* e) {
         current = e;
     }
@@ -726,13 +729,13 @@ struct LinkedListIterate(T) {
     @property ref T front() {
         return current.t;
     }
-    private void popFront() {
+    @property void popFront() {
         current = current.next;
     }
     @property ref T back() {
         return current.t;
     }
-    private void popBack() {
+    @property void popBack() {
         current = current.previous;
     }
 }
@@ -751,11 +754,15 @@ struct LinkedList(T) {
     }
     ref LinkedList!T add(T t) {
         if (length == 0) {
-            last = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+            import std.conv : emplace;
+            emplace(last, t);
             last.t = t;
             first = last;
         } else {
-            last.next = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+            import std.conv : emplace;
+            emplace(last.next, t);
             last.next.previous = last;
             last = last.next;
             last.t = t;
@@ -765,11 +772,14 @@ struct LinkedList(T) {
     }
     ref LinkedList!T add() {
         if (length == 0) {
-            last = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
-            last.t = t;
+            last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+            import std.conv : emplace;
+            emplace(last);
             first = last;
         } else {
-            last.next = cast(ListElement!T*) malloc(sizeof(ListElement(T)));
+            last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+            import std.conv : emplace;
+            emplace(last.next);
             last.next.previous = last;
             last = last.next;
         }
@@ -779,7 +789,7 @@ struct LinkedList(T) {
     ref T get(uint index) {
         assert(index < length);
         ListElement!T* current = first;
-        for (int i = 0; i < cast(int)index - 1; i++) {
+        for (int i = 0; i < cast(int)index; i++) {
             current = current.next;
         }
         return current.t;
@@ -787,7 +797,7 @@ struct LinkedList(T) {
     ref LinkedList!T remove(uint index) {
         assert(index < length);
         ListElement!T* current = first;
-        for (int i = 0; i < cast(int)index - 1; i++) {
+        for (int i = 0; i < cast(int)index; i++) {
             current = current.next;
         }
         if (current.previous != null)

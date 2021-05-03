@@ -2681,6 +2681,18 @@ void main() {
 
     // -----------------------------------
 
+    LinkedList!int ll;
+    ll.add(1);
+    ll.add(2);
+    ll.add(3);
+    writeln(ll.get(0));
+    writeln(ll.get(1));
+    writeln(ll.get(2));
+    ll.remove(1);
+    foreach (ref e; ll.iterate()) {
+        writeln(e);
+    }
+
     /*import events;
     import glfw_vulkan_window;
     struct TestReceiver {
