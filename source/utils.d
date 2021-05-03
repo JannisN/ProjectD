@@ -747,7 +747,7 @@ struct LinkedList(T) {
     ~this() {
         for (int i = 0; i < length; i++) {
             ListElement!T* current = last.previous;
-            destroy(last);
+            destroy(*last);
             free(cast(void*)last);
             last = current;
         }
@@ -757,7 +757,7 @@ struct LinkedList(T) {
             last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
             import std.conv : emplace;
             emplace(last);
-            last.t = t;
+            last.t = t();
             first = last;
         } else {
             last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
@@ -765,7 +765,7 @@ struct LinkedList(T) {
             emplace(last.next);
             last.next.previous = last;
             last = last.next;
-            last.t = t;
+            last.t = t();
         }
         length++;
         return this;
@@ -804,7 +804,7 @@ struct LinkedList(T) {
             current.previous.next = current.next;
         if (current.next != null)
             current.next.previous = current.previous;
-        destroy(current);
+        destroy(*current);
         free(cast(void*)current);
         length--;
         return this;
@@ -819,7 +819,7 @@ struct LinkedList(T) {
         previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
         import std.conv : emplace;
         emplace(previousElement.next);
-        previousElement.next.t = t;
+        previousElement.next.t = t();
         previousElement.next.previous = previousElement;
         previousElement.next.next = current;
         current.previous = previousElement.next;

@@ -1247,7 +1247,8 @@ struct Memory {
     }
     @disable this(ref return scope Memory rhs);
     ~this() {
-        vkFreeMemory(device.device, memory, null);
+        if (memory != null)
+            vkFreeMemory(device.device, memory, null);
     }
     VkDeviceSize getCommitment() {
         VkDeviceSize commitment;
@@ -2279,10 +2280,13 @@ struct AllocatorList {
     }
     // return true = wurde allocated
     // aufteilen in zwei funktionen: zuerst bei allen AllocatorLists prüfen ob am schluss noch platz ist, sonst auf lücken überprüfen, wegen performance
+    // vlt auch die gelöschten entries als geordnete(nach grösse) liste abspeichern um schnell einen platz zu finden
     bool tryAllocate(VkDeviceSize requiredSize) {
         if (entries.last != null) {
             if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
-                entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
+                long length = entries.last.t.offset + entries.last.t.length;
+                // problem wegen lazy, length wird nicht richtig evaluiert... wieso?
+                entries.add(AllocatorListEntry(length, requiredSize));
                 return true;
             }
             if (entries.first.offset >= requiredSize) {
@@ -2791,7 +2795,11 @@ void main() {
     foreach (ref e; ll.iterate()) {
         writeln(e);
     }
-
+    auto memalloc = MemoryAllocator();
+    memalloc.device = &device;
+    memalloc.allocate(0, 100);
+    memalloc.allocate(0, 200);
+    memalloc.allocate(1, 200);
     /*import events;
     import glfw_vulkan_window;
     struct TestReceiver {

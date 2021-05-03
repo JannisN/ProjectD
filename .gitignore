@@ -40,6 +40,7 @@ dub.selections.json
 !.vscode/tasks.json
 !.vscode/launch.json
 *.code-workspace
+launch.json
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
