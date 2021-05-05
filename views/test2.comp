@@ -1,0 +1,11 @@
+#version 450 core
+
+layout (set = 0, binding = 0) buffer testbuffer_t {
+	int retvalue;
+	int data[8];
+} testbuffer;
+
+void main() {
+	int globalid = int(gl_GlobalInvocationID.x);
+	testbuffer.retvalue = testbuffer.data[0] + testbuffer.data[1] + globalid;
+}
