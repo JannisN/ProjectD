@@ -1052,7 +1052,8 @@ struct Buffer {
     }
     @disable this(ref return scope Buffer rhs);
     ~this() {
-        vkDestroyBuffer(device.device, buffer, null);
+        if (buffer != null)
+            vkDestroyBuffer(device.device, buffer, null);
     }
     BufferView createBufferView(VkFormat format, VkDeviceSize offset, VkDeviceSize range) {
         return BufferView(this, format, offset, range);
@@ -1120,7 +1121,8 @@ struct Image {
     }
     @disable this(ref return scope Image rhs);
     ~this() {
-        vkDestroyImage(device.device, image, null);
+        if (image != null)
+            vkDestroyImage(device.device, image, null);
     }
     VkSubresourceLayout getSubresourceLayout(VkImageAspectFlags aspectMask, uint mipLevel, uint arrayLayer) {
         VkImageSubresource subresource;
@@ -2281,6 +2283,7 @@ struct AllocatorList {
     // return true = wurde allocated
     // aufteilen in zwei funktionen: zuerst bei allen AllocatorLists prüfen ob am schluss noch platz ist, sonst auf lücken überprüfen, wegen performance
     // vlt auch die gelöschten entries als geordnete(nach grösse) liste abspeichern um schnell einen platz zu finden
+    // die indices sollten ersetzt werden durch pointer zu den entries für performance
     bool tryAllocate(VkDeviceSize requiredSize) {
         if (entries.last != null) {
             if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
@@ -2311,6 +2314,46 @@ struct AllocatorList {
             }
         }
     }
+    bool tryAllocate(VkDeviceSize requiredSize, ref AllocatedMemory allocatedMemory) {
+        if (entries.last != null) {
+            if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
+                entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
+                allocatedMemory.allocatorList = &this;
+                allocatedMemory.allocation = entries.last;
+                return true;
+            }
+            if (entries.first.offset >= requiredSize) {
+                entries.insert(0, AllocatorListEntry(0, requiredSize));
+                allocatedMemory.allocatorList = &this;
+                allocatedMemory.allocation = entries.first;
+                return true;
+            }
+            int i = 0;
+            for (auto e = entries.iterate(); !e.empty; e.popFront) {
+                i++;
+                if (e.current != entries.last) {
+                    if (e.current.next.t.offset - e.current.t.offset - e.current.t.length >= requiredSize) {
+                        //entries.insert(i, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
+                        entries.insertAfter(e.current, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
+                        allocatedMemory.allocatorList = &this;
+                        //allocatedMemory.allocation = entries.get(i);
+                        allocatedMemory.allocation = e.current.next;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } else {
+            if (size >= requiredSize) {
+                entries.add(AllocatorListEntry(0, requiredSize));
+                allocatedMemory.allocatorList = &this;
+                allocatedMemory.allocation = entries.first;
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
     void deallocate(uint index) {
         entries.remove(index);
     }
@@ -2321,19 +2364,25 @@ enum AllocationStrategy {
     dense
 }
 
+struct AllocatedMemory {
+    AllocatorList* allocatorList;
+    ListElement!AllocatorListEntry* allocation;
+}
+
 struct AllocatedResource(T) {
     T t;
-    AllocatorList* allocatorList;
-    ListElement!T* allocation;
+    AllocatedMemory allocatedMemory;
     alias t this;
+    @disable this(ref return scope AllocatedResource!T rhs);
     this(lazy T resource) {
         t = resource;
     }
     ~this() {
-        //deallocate
+        deallocate();
     }
     void deallocate() {
-        // bei LinkedList eine funktion hinzufügen um ein ListElement zu löschen für das man die referenz besitzt
+        if (allocatedMemory.allocatorList != null)
+            allocatedMemory.allocatorList.entries.remove(allocatedMemory.allocation);
     }
 }
 
@@ -2344,21 +2393,27 @@ struct MemoryAllocator {
     AllocationStrategy allocationStrategy;
     LinkedList!AllocatorList allocations;
     VkDeviceSize defaultAllocationSize = 100_000_000;
-    void allocate(uint heap, VkDeviceSize requiredSize) {
+    AllocatedMemory allocate(uint heap, VkDeviceSize requiredSize) {
+        AllocatedMemory allocatedMemory;
         foreach (ref e; allocations.iterate()) {
             if (e.heap == heap) {
-                if (e.tryAllocate(requiredSize)) {
-                    return;
+                if (e.tryAllocate(requiredSize, allocatedMemory)) {
+                    return allocatedMemory;
                 }
             }
         }
         if (requiredSize <= defaultAllocationSize) {
             allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap), defaultAllocationSize, heap));
-            allocations.last.tryAllocate(requiredSize);
+            allocations.last.tryAllocate(requiredSize, allocatedMemory);
         } else {
             allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap), requiredSize, heap));
-            allocations.last.tryAllocate(requiredSize);
+            allocations.last.tryAllocate(requiredSize, allocatedMemory);
         }
+        return allocatedMemory;
+    }
+    void allocate(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags) {
+        buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size);
+        buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
     }
 }
 
@@ -2426,11 +2481,17 @@ void main() {
     //auto commandBuffer = move(commandPool.allocateCommandBuffers(1, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY)[0]);
     CommandBuffer cmdBuffer = commandPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-    auto buffer = device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    
-    auto memory = device.allocateMemory(buffer.getMemoryRequirements().size, buffer.chooseHeap(VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+    auto memalloc2 = MemoryAllocator();
+    memalloc2.device = &device;
 
-    buffer.bind(memory, 0);
+    AllocatedResource!Buffer buffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+    
+    memalloc2.allocate(buffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    //auto memory = device.allocateMemory(buffer.getMemoryRequirements().size, buffer.chooseHeap(VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+    Memory* memory = &buffer.allocatedMemory.allocatorList.memory;
+
+    //buffer.bind(*memory, 0);
 
     auto fence = device.createFence();
     cmdBuffer.begin(0);
@@ -2674,7 +2735,7 @@ void main() {
     foreach (i, float f; vertex_positions) {
         floatptr[i] = f;
     }
-    memory.flush(array(mappedMemoryRange(memory, 0, 1024)));
+    memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
     memory.unmap();
 
     auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertShader, "main", [], 0, null);

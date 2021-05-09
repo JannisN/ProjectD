@@ -235,13 +235,32 @@ auto array() {
 // test ob typ kopierbar
 void copyTest(T)(T t) {
 }
+void copyTest2(T)() {
+    T t1;
+    T t2;
+    t1 = t2;
+}
+
+auto getCopyableType(T)() {
+    //pragma(msg, T.stringof);
+    static if (!__traits(compiles, copyTest2!T())) {
+        return getCopyableType!(typeof(__traits(getMember, T, __traits(getAliasThis, T)[0])))();
+    } else {
+        return T();
+    }
+}
 
 auto array(Args...)(in Args args) {
     import std.traits : Unqual;
     static foreach (i; 0 .. Args.length) {
-        static if (!__traits(compiles, copyTest(args[i]))) {
+        /*static if (!__traits(compiles, copyTest(args[i]))) {
             static if (!__traits(compiles, arrayType)) {
                 alias arrayType = Unqual!(typeof(__traits(getMember, Args[0], __traits(getAliasThis, Args[0])[0])));
+            }
+        }*/
+        static if (!__traits(compiles, arrayType)) {
+            static if (__traits(compiles, getCopyableType!(Args[i])())) {
+                alias arrayType = Unqual!(typeof(getCopyableType!(Args[i])()));
             }
         }
     }
@@ -795,6 +814,14 @@ struct LinkedList(T) {
         }
         return current.t;
     }
+    ListElement!T* getListElement(uint index) {
+        assert(index < length);
+        ListElement!T* current = first;
+        for (int i = 0; i < cast(int)index; i++) {
+            current = current.next;
+        }
+        return current;
+    }
     ref LinkedList!T remove(uint index) {
         assert(index < length);
         ListElement!T* current = first;
@@ -808,6 +835,18 @@ struct LinkedList(T) {
         destroy(*current);
         free(cast(void*)current);
         length--;
+        return this;
+    }
+    ref LinkedList!T remove(ListElement!T* current) {
+        if (current != null) {
+            if (current.previous != null)
+                current.previous.next = current.next;
+            if (current.next != null)
+                current.next.previous = current.previous;
+            destroy(*current);
+            free(cast(void*)current);
+            length--;
+        }
         return this;
     }
     ref LinkedList!T insert(uint index, lazy T t) {
@@ -824,6 +863,28 @@ struct LinkedList(T) {
         previousElement.next.previous = previousElement;
         previousElement.next.next = current;
         current.previous = previousElement.next;
+        return this;
+    }
+    ref LinkedList!T insertBefore(ListElement!T* current, lazy T t) {
+        ListElement!T* previousElement = current.previous;
+        previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+        import std.conv : emplace;
+        emplace(previousElement.next);
+        previousElement.next.t = t();
+        previousElement.next.previous = previousElement;
+        previousElement.next.next = current;
+        current.previous = previousElement.next;
+        return this;
+    }
+    ref LinkedList!T insertAfter(ListElement!T* current, lazy T t) {
+        ListElement!T* nextElement = current.next;
+        nextElement.previous = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+        import std.conv : emplace;
+        emplace(nextElement.previous);
+        nextElement.previous.t = t();
+        nextElement.previous.previous = current;
+        nextElement.previous.next = nextElement;
+        current.next = nextElement.previous;
         return this;
     }
     @property LinkedListIterate!T iterate() {
