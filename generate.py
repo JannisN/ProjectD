@@ -5,14 +5,17 @@ if platform == "win32":
 	glfwLib = input("Glfw Lib:")
 	openclLib = input("OpenCL Lib:")
 	cLib = input("C Lib directory:")
+	stbimage = imput("stb_image Lib:")
 
 if platform == "darwin":
 	vulkanLib = input("Vulkan SDK:")
 	glfwLib = input("Glfw Lib:")
+	stbimage = imput("stb_image Lib:")
 
 if platform == "linux":
 	vulkanLib = input("Vulkan Lib:")
 	glfwLib = input("Glfw Lib:")
+	stbimage = imput("stb_image Lib:")
 
 #C://Users/Admin/Desktop/dlang/dubtest/lib/vulkan-1.lib
 #C://Users/Admin/Desktop/dlang/dubtest/lib/glfw.lib
@@ -49,11 +52,12 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		#f.write('"' + cLib + '/uuid.lib" ')
 		#f.write('"' + cLib + '/comdlg32.lib" ')
 		#f.write('"' + cLib + '/advapi32.lib" ')
-		f.write('"' + vulkanLib + '" "' + glfwLib + '" "' + openclLib + '" "/NODEFAULTLIB:libvcruntime.lib" "/NODEFAULTLIB:libcmt.lib" platform="windows"\n')
+		f.write('"' + vulkanLib + '"' + stbimage + '" "' + glfwLib + '" "' + openclLib + '" "/NODEFAULTLIB:libvcruntime.lib" "/NODEFAULTLIB:libcmt.lib" platform="windows"\n')
 	if platform == "darwin":
 		f.write('lflags ')
 		#f.write('"' + vulkanLib + '/vulkan.framework" ')
 		f.write('"' + glfwLib + '" ')
+		f.write('"' + stbimage + '" ')
 		f.write('"/System/Library/Frameworks/OpenGL.framework/OpenGL" ')
 		f.write('"/System/Library/Frameworks/OpenCL.framework/OpenCL" ')
 		f.write('"/System/Library/Frameworks/Cocoa.framework/Cocoa" ')
@@ -71,6 +75,7 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		f.write('lflags ')
 		f.write('"' + glfwLib + '" ')
 		f.write('"' + vulkanLib + '" ')
+		f.write('"' + stbimage + '" ')
 		f.write('"/usr/lib/libOpenCL.so" platform="linux"\n')
 		f.write('libs "GL" "X11" platform="linux"\n')
 	f.close()

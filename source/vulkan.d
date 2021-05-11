@@ -2431,6 +2431,8 @@ void sometest(string s)() {
 
 }
 
+string pngfile = import("free_pixel_regular_16test.PNG");
+
 void main() {
     sometest!vertsource();
     auto layers = getInstanceLayers();
@@ -2841,6 +2843,9 @@ void main() {
     fence.reset();
 
     // -----------------------------------
+
+    import png;
+    pngtest(pngfile);
 
     LinkedList!int ll;
     ll.add(1);
