@@ -19,3 +19,18 @@ void pngtest(string data) {
     }
     stbi_image_free(cast(void*) content);
 }
+
+struct Png {
+    int width, height, byteCount;
+    char* content;
+    this(string data) {
+        content = stbi_load_from_memory(cast(char*) data.ptr, cast(int)data.length, &width, &height, &byteCount, 0);
+    }
+    ~this() {
+        stbi_image_free(cast(void*) content);
+    }
+    ref char getColor(uint x, uint y, uint n) {
+        return *(content + (y * width + x) * byteCount + n);
+    }
+    // funktion um png zu speichern zum test
+}

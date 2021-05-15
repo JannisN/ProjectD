@@ -2432,6 +2432,7 @@ void sometest(string s)() {
 }
 
 string pngfile = import("free_pixel_regular_16test.PNG");
+string fontfile = import("free_pixel_regular_16test.xml");
 
 void main() {
     sometest!vertsource();
