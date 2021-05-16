@@ -2848,6 +2848,9 @@ void main() {
     import png;
     pngtest(pngfile);
 
+    import font;
+    AsciiBitfont fonttest = AsciiBitfont(fontfile);
+
     LinkedList!int ll;
     ll.add(1);
     ll.add(2);
