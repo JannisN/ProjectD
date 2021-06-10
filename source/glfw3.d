@@ -1530,24 +1530,24 @@ alias GLFWjoystickfun = void function (int, int);
  */
 struct GLFWvidmode
 {
-    /*! The width, in screen coordinates, of the video mode.
-     */
-    int width;
-    /*! The height, in screen coordinates, of the video mode.
-     */
-    int height;
-    /*! The bit depth of the red channel of the video mode.
-     */
-    int redBits;
-    /*! The bit depth of the green channel of the video mode.
-     */
-    int greenBits;
-    /*! The bit depth of the blue channel of the video mode.
-     */
-    int blueBits;
-    /*! The refresh rate, in Hz, of the video mode.
-     */
-    int refreshRate;
+	/*! The width, in screen coordinates, of the video mode.
+	 */
+	int width;
+	/*! The height, in screen coordinates, of the video mode.
+	 */
+	int height;
+	/*! The bit depth of the red channel of the video mode.
+	 */
+	int redBits;
+	/*! The bit depth of the green channel of the video mode.
+	 */
+	int greenBits;
+	/*! The bit depth of the blue channel of the video mode.
+	 */
+	int blueBits;
+	/*! The refresh rate, in Hz, of the video mode.
+	 */
+	int refreshRate;
 }
 
 /*! @brief Gamma ramp.
@@ -1564,18 +1564,18 @@ struct GLFWvidmode
  */
 struct GLFWgammaramp
 {
-    /*! An array of value describing the response of the red channel.
-     */
-    ushort* red;
-    /*! An array of value describing the response of the green channel.
-     */
-    ushort* green;
-    /*! An array of value describing the response of the blue channel.
-     */
-    ushort* blue;
-    /*! The number of elements in each array.
-     */
-    uint size;
+	/*! An array of value describing the response of the red channel.
+	 */
+	ushort* red;
+	/*! An array of value describing the response of the green channel.
+	 */
+	ushort* green;
+	/*! An array of value describing the response of the blue channel.
+	 */
+	ushort* blue;
+	/*! The number of elements in each array.
+	 */
+	uint size;
 }
 
 /*! @brief Image data.
@@ -1593,15 +1593,15 @@ struct GLFWgammaramp
  */
 struct GLFWimage
 {
-    /*! The width, in pixels, of this image.
-     */
-    int width;
-    /*! The height, in pixels, of this image.
-     */
-    int height;
-    /*! The pixel data of this image, arranged left-to-right, top-to-bottom.
-     */
-    ubyte* pixels;
+	/*! The width, in pixels, of this image.
+	 */
+	int width;
+	/*! The height, in pixels, of this image.
+	 */
+	int height;
+	/*! The pixel data of this image, arranged left-to-right, top-to-bottom.
+	 */
+	ubyte* pixels;
 }
 
 /*! @brief Gamepad input state
@@ -1617,14 +1617,14 @@ struct GLFWimage
  */
 struct GLFWgamepadstate
 {
-    /*! The states of each [gamepad button](@ref gamepad_buttons), `GLFW_PRESS`
-     *  or `GLFW_RELEASE`.
-     */
-    ubyte[15] buttons;
-    /*! The states of each [gamepad axis](@ref gamepad_axes), in the range -1.0
-     *  to 1.0 inclusive.
-     */
-    float[6] axes;
+	/*! The states of each [gamepad button](@ref gamepad_buttons), `GLFW_PRESS`
+	 *  or `GLFW_RELEASE`.
+	 */
+	ubyte[15] buttons;
+	/*! The states of each [gamepad axis](@ref gamepad_axes), in the range -1.0
+	 *  to 1.0 inclusive.
+	 */
+	float[6] axes;
 }
 
 /*************************************************************************
