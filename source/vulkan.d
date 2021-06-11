@@ -253,7 +253,8 @@ struct Instance {
 	}
 	@disable this(ref return scope Instance rhs);
 	~this() {
-		vkDestroyInstance(instance, null);
+		if (instance != null)
+			vkDestroyInstance(instance, null);
 	}
 	Surface createSurface(VkSurfaceKHR surface) {
 		return Surface(this, surface);
@@ -2916,5 +2917,5 @@ void main0() {
 	}
 }
 
-extern(C) __gshared bool rt_cmdline_enabled = false;
-extern(C) __gshared string[] rt_options = ["gcopt=gc:manual disable:1"];
+//extern(C) __gshared bool rt_cmdline_enabled = false;
+//extern(C) __gshared string[] rt_options = ["gcopt=gc:manual disable:1"];

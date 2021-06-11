@@ -46,3 +46,6 @@ void main() {
 	TestApp testapp;
 	testapp.run();
 }
+
+extern(C) __gshared bool rt_cmdline_enabled = false;
+extern(C) __gshared string[] rt_options = ["gcopt=gc:manual disable:1"];
