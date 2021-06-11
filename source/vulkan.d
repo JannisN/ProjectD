@@ -214,7 +214,6 @@ struct Instance {
 		instanceCreateInfo.enabledExtensionCount = cast(uint) extensions.length;
 		instanceCreateInfo.ppEnabledExtensionNames = extensions.ptr;
 		result = vkCreateInstance(&instanceCreateInfo, null, &instance);
-		writeln(result.result);
 
 		uint physicalDeviceCount;
 		result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, null);
@@ -437,8 +436,10 @@ struct Device {
 	}
 	@disable this(ref return scope Device rhs);
 	~this() {
-		vkDeviceWaitIdle(device);
-		vkDestroyDevice(device, null);
+		if (device != null) {
+			vkDeviceWaitIdle(device);
+			vkDestroyDevice(device, null);
+		}
 	}
 	CommandPool createCommandPool(uint queueFamilyIndex, VkCommandPoolCreateFlags flags) {
 		return CommandPool(this, queueFamilyIndex, flags);
@@ -687,7 +688,8 @@ struct CommandPool {
 	}
 	@disable this(ref return scope CommandPool rhs);
 	~this() {
-		vkDestroyCommandPool(*device, commandPool, null);
+		if (commandPool != null)
+			vkDestroyCommandPool(*device, commandPool, null);
 	}
 	Vector!CommandBuffer allocateCommandBuffers(uint count, VkCommandBufferLevel level) {
 		Vector!CommandBuffer buffers = Vector!CommandBuffer(count);
@@ -2434,7 +2436,7 @@ void sometest(string s)() {
 string pngfile = import("free_pixel_regular_16test.PNG");
 string fontfile = import("free_pixel_regular_16test.xml");
 
-void main() {
+void main0() {
 	sometest!vertsource();
 	auto layers = getInstanceLayers();
 	foreach (l; layers) {

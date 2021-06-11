@@ -50,11 +50,13 @@ struct GlfwVulkanWindow(Sender) {
 		glfwSetWindowUserPointer(window, cast(void*)callbackPtr.toInterface());
 	}
 	~this() {
-		glfwSetWindowUserPointer(window, null);
-		glfwDestroyWindow(window);
-		initCount--;
-		if (initCount == 0) {
-			glfwTerminate();
+		if (window != null) {
+			glfwSetWindowUserPointer(window, null);
+			glfwDestroyWindow(window);
+			initCount--;
+			if (initCount == 0) {
+				glfwTerminate();
+			}
 		}
 	}
 	void update() {

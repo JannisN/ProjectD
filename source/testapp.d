@@ -42,7 +42,7 @@ struct TestApp {
 	Queue* queue;
 }
 
-void main0() {
+void main() {
 	TestApp testapp;
 	testapp.run();
 }
