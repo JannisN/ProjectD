@@ -1,6 +1,7 @@
 module glfw_window;
 
 import glfw;
+import glfw3;
 import core.thread.osthread;
 import utils;
 import std.stdio;
@@ -64,16 +65,16 @@ class GLFWWindow : GLWindow {
 		while (!running) {}
 	}
 	void aquireContext() {
-		glfwMakeContextCurrent(window);
+		glfwMakeContextCurrent(cast(GLFWwindow*) window);
 	}
 	void releaseContext() {
 		glfwMakeContextCurrent(null);
 	}
 	private void start() {
 		window = glfwCreateWindow(640, 480, "Hello", null, null);
-		glfwMakeContextCurrent(window);
-		glfwGetFramebufferSize(window, &width, &height);
-		glfwSetFramebufferSizeCallback(window, &setFramebufferSizeCallback);
+		glfwMakeContextCurrent(cast(GLFWwindow*) window);
+		glfwGetFramebufferSize(cast(GLFWwindow*) window, &width, &height);
+		glfwSetFramebufferSizeCallback(cast(GLFWwindow*) window, &setFramebufferSizeCallback);
 		v1[0] = window;
 		v2[0] = &test;
 		version(Windows) {
@@ -117,10 +118,10 @@ class GLFWWindow : GLWindow {
 		glVertex3f(-1f, -1f, 0.0f);
 		glEnd();
 		glFinish();
-		glfwSwapBuffers(window);
+		glfwSwapBuffers(cast(GLFWwindow*) window);
 		glfwPollEvents();
 
-		if (glfwWindowShouldClose(window)) {
+		if (glfwWindowShouldClose(cast(GLFWwindow*) window)) {
 			running = false;
 		}
 	}

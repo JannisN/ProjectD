@@ -64,6 +64,9 @@ struct GlfwVulkanWindow(Sender) {
 		glfwSetWindowUserPointer(window, null);
 		glfwDestroyWindow(window);
 	}
+	bool shouldClose() {
+		return cast(bool) glfwWindowShouldClose(window);
+	}
 	Surface createVulkanSurface(ref Instance instance) {
 		VkSurfaceKHR vksurface;
 		vkResult = glfwCreateWindowSurface(instance.instance, window, null, &vksurface);

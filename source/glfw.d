@@ -1,6 +1,6 @@
 module glfw;
 
-extern(C) {
+/*extern(C) {
 	bool glfwInit();
 	void glfwTerminate();
 	void* glfwCreateWindow(int, int, const char*, void*, void*);
@@ -10,7 +10,7 @@ extern(C) {
 	void glfwSwapBuffers(void*);
 	void glfwGetFramebufferSize(void*, int*, int*);
 	void glfwSetFramebufferSizeCallback(void*, void function(void*, int, int));
-}
+}*/
 
 extern(C) {
 	version(Windows) {
@@ -29,8 +29,8 @@ extern(C) {
 	import vulkan_core;
 	VkResult glfwCreateWindowSurface(VkInstance, void*, VkAllocationCallbacks*, VkSurfaceKHR*);
 	char** glfwGetRequiredInstanceExtensions(uint*);
-	void glfwWindowHint(int, int);
-	void glfwSetWindowAttrib(void*, int, int);
+	//void glfwWindowHint(int, int);
+	//void glfwSetWindowAttrib(void*, int, int);
 }
 
 extern(C) {
