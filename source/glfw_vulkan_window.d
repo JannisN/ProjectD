@@ -58,7 +58,7 @@ struct GlfwVulkanWindow(Sender) {
 	GLFWwindow* window;
 	GlfwResult result;
 	Result vkResult;
-	S!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow)) callbackPtr;
+	H!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow)) callbackPtr;
 	Sender sender;
 	this(int width, int height, string title) {
 		if (initCount == 0) {
@@ -69,9 +69,7 @@ struct GlfwVulkanWindow(Sender) {
 		window = glfwCreateWindow(width, height, title.ptr, null, null);
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
 		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
-		callbackPtr = S!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow))(&this);
-		void* test = cast(void*) callbackPtr.toInterface();
-		(cast(GlfwCallback) test).onMouseButton(0,0,0);
+		callbackPtr = H!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow))(&this);
 		glfwSetWindowUserPointer(window, cast(void*)callbackPtr.toInterface());
 	}
 	~this() {

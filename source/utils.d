@@ -63,9 +63,9 @@ struct H(T) if (is(T == class)) {
 			free(cast(void*) data);
 		}
 	}
-	this(T t) {
+	/*this(T t) {
 		data = t;
-	}
+	}*/
 	static H!T opCall(Args...)(Args args) {
 		H!T value;
 		if (__ctfe) {

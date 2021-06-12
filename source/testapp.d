@@ -10,10 +10,8 @@ struct TestApp {
 	void run() {
 		initVulkan();
 		// komisch: wenn man den code der initWindow funktion direkt hineinschreibt gibt es keine fehler wegem dem callback...
+		// problem geösst: man darf klassen nicht verschieben, also auch keine S! klasse...
 		initWindow();
-		//window.sender = createSender(&this);
-		GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window.window);
-			callback.onMouseButton(0,0,0);
 		while (!window.shouldClose()) {
 			window.update();
 		}
