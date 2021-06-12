@@ -7,14 +7,30 @@ alias GlfwResult = Result!(uint, GLFW_TRUE);
 
 private uint initCount = 0;
 
-private interface GlfwCallback {
+interface GlfwCallback {
 	void onWindowResize(int width, int height);
+	void onMouseButton(int button, int action, int mods);
 }
 
 // sollte in einem allgemeineren file definitiert werden
 struct WindowResizeEvent {
 	int width;
 	int height;
+}
+
+enum MouseButton {
+	left,
+	right
+}
+
+enum MouseButtonAction {
+	press,
+	release
+}
+
+struct MouseButtonEvent {
+	MouseButton button;
+	MouseButtonAction action;
 }
 
 private extern(C) {
@@ -25,6 +41,12 @@ private extern(C) {
 		if (glfwGetWindowUserPointer(window) != null) {
 			GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
 			callback.onWindowResize(width, height);
+		}
+	}
+	void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+		if (glfwGetWindowUserPointer(window) != null) {
+			GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
+			callback.onMouseButton(button, action, mods);
 		}
 	}
 }
@@ -46,7 +68,10 @@ struct GlfwVulkanWindow(Sender) {
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		window = glfwCreateWindow(width, height, title.ptr, null, null);
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
+		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
 		callbackPtr = S!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow))(&this);
+		void* test = cast(void*) callbackPtr.toInterface();
+		(cast(GlfwCallback) test).onMouseButton(0,0,0);
 		glfwSetWindowUserPointer(window, cast(void*)callbackPtr.toInterface());
 	}
 	~this() {
@@ -81,5 +106,8 @@ struct GlfwVulkanWindow(Sender) {
 	}
 	void onWindowResize(int width, int height) {
 		sender.send(WindowResizeEvent(width, height));
+	}
+	void onMouseButton(int button, int action, int mods) {
+		sender.send(MouseButtonEvent(button == GLFW_MOUSE_BUTTON_RIGHT ? MouseButton.right : MouseButton.left, action == GLFW_PRESS ? MouseButtonAction.press : MouseButtonAction.release));
 	}
 }
