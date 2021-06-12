@@ -14,7 +14,7 @@ string source = import("pathtrace.cl");
 
 void main1()
 {
-	auto window = S!GLFWWindow();
+	auto window = new GLFWWindow();
 	window.open();
 	{
 		import opencl;

@@ -8,7 +8,9 @@ import core.stdc.string : memcpy;
 
 // thread struct hinzfügen: mit createLowLevelThread https://dlang.org/phobos/core_thread_osthread.html#.createLowLevelThread
 
-struct S(T) if (is(T == class)) {
+// vorsicht: man darf klassen nicht verschieben, auch kein S!$
+// soll heissen: immer H! verwenden
+/*struct S(T) if (is(T == class)) {
 	byte[__traits(classInstanceSize, T)] data;
 	static S!T opCall(Args...)(Args args) {
 		S!T value;
@@ -53,7 +55,7 @@ struct S(T) if (!is(T == class)) {
 		return &data;
 	}
 	alias data this;
-}
+}*/
 
 struct H(T) if (is(T == class)) {
 	T data;
@@ -73,7 +75,7 @@ struct H(T) if (is(T == class)) {
 		} else {
 			import std.conv : emplace;
 			value.data = cast(T) malloc(__traits(classInstanceSize, T));
-			emplace!(T, Args)((cast(void*) value.data)[0 .. T.sizeof], args);
+			emplace!(T, Args)((cast(void*) value.data)[0 .. __traits(classInstanceSize, T)], args);
 		}
 		return value;
 	}
@@ -91,7 +93,7 @@ struct H(T) if (is(T == class)) {
 				(cast(byte*) data)[i] = (cast(byte*) t.data)[i];
 			}
 		} else {
-			memcpy(cast(void*) data, cast(void*) t.data, T.sizeof);
+			memcpy(cast(void*) data, cast(void*) t.data, __traits(classInstanceSize, T));
 		}
 		return this;
 	}
