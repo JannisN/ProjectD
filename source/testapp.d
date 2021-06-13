@@ -5,13 +5,25 @@ import events;
 import utils;
 import vulkan_core;
 import std.stdio;
+import core.thread.osthread;
+import core.time;
 
 struct TestApp {
 	void run() {
 		initVulkan();
 		initWindow();
+		Timer timer;
+		timer.update();
+		double time = 0;
 		while (!window.shouldClose()) {
 			window.update();
+			time = timer.update();
+			writeln(1 / time);
+			auto milstosleep = 10;
+			if (time < 1.0 / 60.0)
+				milstosleep = cast(int)(1000 * (1.0 / 60.0 - time));	
+			if (milstosleep > 0)
+				Thread.sleep(dur!("msecs")(milstosleep));
 		}
 	}
 	void receive(MouseButtonEvent event) {

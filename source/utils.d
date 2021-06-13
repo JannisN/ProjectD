@@ -896,3 +896,14 @@ struct LinkedList(T) {
 		return LinkedListIterate!T(last);
 	}
 }
+
+struct Timer {
+	import core.time;
+	long ticks;
+	double update() {
+		long newTicks = MonoTime.currTime().ticks();
+		double dt = cast(double)(newTicks - ticks) / cast(double)MonoTime().ticksPerSecond;
+		ticks = newTicks;
+		return dt;
+	}
+}
