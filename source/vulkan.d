@@ -610,7 +610,8 @@ struct Fence {
 	}
 	@disable this(ref return scope Fence rhs);
 	~this() {
-		vkDestroyFence(device.device, fence, null);
+		if (fence != null)
+			vkDestroyFence(device.device, fence, null);
 	}
 	bool isSignaled() {
 		return vkGetFenceStatus(device.device, fence) == VkResult.VK_SUCCESS;
@@ -641,7 +642,8 @@ struct Event {
 	}
 	@disable this(ref return scope Event rhs);
 	~this() {
-		vkDestroyEvent(device.device, event, null);
+		if (event != null)
+			vkDestroyEvent(device.device, event, null);
 	}
 	VkResult set() {
 		return result = vkSetEvent(device.device, event);
@@ -669,7 +671,8 @@ struct Semaphore {
 	}
 	@disable this(ref return scope Semaphore rhs);
 	~this() {
-		vkDestroySemaphore(device.device, semaphore, null);
+		if (semaphore != null)
+			vkDestroySemaphore(device.device, semaphore, null);
 	}
 	Result result;
 	VkSemaphore semaphore;
@@ -780,8 +783,7 @@ struct CommandBuffer {
 	}
 	@disable this(ref return scope CommandBuffer rhs);
 	~this() {
-		//if sollte man entfernen können
-		if (commandBuffer != VkCommandBuffer())
+		if (commandBuffer != null)
 			vkFreeCommandBuffers(commandPool.device.device, commandPool.commandPool, 1, &commandBuffer);
 	}
 	void begin(VkCommandBufferUsageFlags flags, VkRenderPass renderPass, uint subpass, VkFramebuffer framebuffer, VkBool32 occlusionQueryEnable, VkQueryControlFlags queryFlags, VkQueryPipelineStatisticFlags pipelineStatistics) {
@@ -1181,7 +1183,8 @@ struct BufferView {
 	}
 	@disable this(ref return scope BufferView rhs);
 	~this() {
-		vkDestroyBufferView(buffer.device.device, bufferView, null);
+		if (bufferView != null)
+			vkDestroyBufferView(buffer.device.device, bufferView, null);
 	}
 	Result result;
 	VkBufferView bufferView;
@@ -1205,7 +1208,8 @@ struct ImageView {
 	}
 	@disable this(ref return scope ImageView rhs);
 	~this() {
-		vkDestroyImageView(image.device.device, imageView, null);
+		if (imageView != null)
+			vkDestroyImageView(image.device.device, imageView, null);
 	}
 	Result result;
 	VkImageView imageView;
@@ -1296,7 +1300,8 @@ struct Surface {
 	}
 	@disable this(ref return scope Surface rhs);
 	~this() {
-		vkDestroySurfaceKHR(instance.instance, surface, null);
+		if (surface != null)
+			vkDestroySurfaceKHR(instance.instance, surface, null);
 	}
 	Result result;
 	Instance* instance;
@@ -1338,7 +1343,8 @@ struct Swapchain {
 	//}
 	@disable this(ref return scope Swapchain rhs);
 	~this() {
-		vkDestroySwapchainKHR(device.device, swapchain, null);
+		if (swapchain != null)
+			vkDestroySwapchainKHR(device.device, swapchain, null);
 	}
 	uint aquireNextImage(ulong timeout, VkSemaphore semaphore, VkFence fence) {
 		result = vkAcquireNextImageKHR(device.device, swapchain, timeout, semaphore, fence, &currentIndex);
@@ -1369,7 +1375,8 @@ struct Shader {
 	}
 	@disable this(ref return scope Shader rhs);
 	~this() {
-		vkDestroyShaderModule(device.device, shader, null);
+		if (shader != null)
+			vkDestroyShaderModule(device.device, shader, null);
 	}
 	Result result;
 	Device* device;
@@ -1390,7 +1397,8 @@ struct DescriptorSetLayout {
 	}
 	@disable this(ref return scope DescriptorSetLayout rhs);
 	~this() {
-		vkDestroyDescriptorSetLayout(device.device, descriptorSetLayout, null);
+		if (descriptorSetLayout != null)
+			vkDestroyDescriptorSetLayout(device.device, descriptorSetLayout, null);
 	}
 	Result result;
 	Device* device;
@@ -1425,7 +1433,8 @@ struct PipelineLayout {
 	//}
 	@disable this(ref return scope PipelineLayout rhs);
 	~this() {
-		vkDestroyPipelineLayout(device.device, pipelineLayout, null);
+		if (pipelineLayout != null)
+			vkDestroyPipelineLayout(device.device, pipelineLayout, null);
 	}
 	Result result;
 	VkPipelineLayout pipelineLayout;
@@ -1557,7 +1566,8 @@ struct ComputePipeline {
 	//}
 	@disable this(ref return scope ComputePipeline rhs);
 	~this() {
-		vkDestroyPipeline(device.device, pipeline, null);
+		if (pipeline != null)
+			vkDestroyPipeline(device.device, pipeline, null);
 	}
 	Result result;
 	Device* device;
@@ -1580,7 +1590,8 @@ struct DescriptorPool {
 	}
 	@disable this(ref return scope DescriptorPool rhs);
 	~this() {
-		vkDestroyDescriptorPool(device.device, descriptorPool, null);
+		if (descriptorPool != null)
+			vkDestroyDescriptorPool(device.device, descriptorPool, null);
 	}
 	Vector!DescriptorSet allocateSets(VkDescriptorSetLayout[] layouts) {
 		VkDescriptorSetAllocateInfo info;
@@ -1787,7 +1798,8 @@ struct PipelineCache {
 	}
 	@disable this(ref return scope PipelineCache rhs);
 	~this() {
-		vkDestroyPipelineCache(device.device, pipelineCache, null);
+		if (pipelineCache != null)
+			vkDestroyPipelineCache(device.device, pipelineCache, null);
 	}
 	String getData() {
 		size_t size;
@@ -1848,7 +1860,8 @@ struct Sampler {
 	}
 	@disable this(ref return scope Sampler rhs);
 	~this() {
-		vkDestroySampler(device.device, sampler, null);
+		if (sampler != null)
+			vkDestroySampler(device.device, sampler, null);
 	}
 	Result result;
 	Device* device;
@@ -1870,7 +1883,8 @@ struct QueryPool {
 	}
 	@disable this(ref return scope QueryPool rhs);
 	~this() {
-		vkDestroyQueryPool(device.device, queryPool, null);
+		if (queryPool != null)
+			vkDestroyQueryPool(device.device, queryPool, null);
 	}
 	VkResult getResults(uint firstQuery, uint queryCount, size_t dataSize, void* data, VkDeviceSize stride, VkQueryResultFlags flags) {
 		return result = vkGetQueryPoolResults(device.device, queryPool, firstQuery, queryCount, dataSize, data, stride, flags);
@@ -1903,7 +1917,8 @@ struct RenderPass {
 	}
 	@disable this(ref return scope RenderPass rhs);
 	~this() {
-		vkDestroyRenderPass(device.device, renderPass, null);
+		if (renderPass != null)
+			vkDestroyRenderPass(device.device, renderPass, null);
 	}
 	Framebuffer createFramebuffer(VkImageView[] views, uint width, uint height, uint layers) {
 		return Framebuffer(this, views, width, height, layers);
@@ -1939,7 +1954,8 @@ struct Framebuffer {
 	}
 	@disable this(ref return scope Framebuffer rhs);
 	~this() {
-		vkDestroyFramebuffer(renderPass.device.device, framebuffer, null);
+		if (framebuffer != null)
+			vkDestroyFramebuffer(renderPass.device.device, framebuffer, null);
 	}
 	Result result;
 	RenderPass* renderPass;
@@ -2074,7 +2090,8 @@ struct GraphicsPipeline {
 	}
 	@disable this(ref return scope GraphicsPipeline rhs);
 	~this() {
-		vkDestroyPipeline(renderPass.device.device, pipeline, null);
+		if (pipeline != null)
+			vkDestroyPipeline(renderPass.device.device, pipeline, null);
 	}
 	Result result;
 	RenderPass* renderPass;
