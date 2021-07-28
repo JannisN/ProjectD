@@ -44,15 +44,16 @@ struct TestApp {
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
 		queue = &device.queues[0];
+	}
+	void initWindow() {
+		window = GlfwVulkanWindow!(Sender!(TestApp*))(640, 480, "Hello");
+		window.sender = createSender(&this);
+		
 		surface = window.createVulkanSurface(instance);
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
 		VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
 		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
-	}
-	void initWindow() {
-		window = GlfwVulkanWindow!(Sender!(TestApp*))(640, 480, "Hello");
-		window.sender = createSender(&this);
 	}
 	GlfwVulkanWindow!(Sender!(TestApp*)) window;
 	Instance instance;

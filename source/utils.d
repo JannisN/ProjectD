@@ -673,6 +673,7 @@ template methodToString(T, string methodName) {
 	enum string methodToString = methodToStringImpl();
 }
 
+// mehrere interfaces müssen noch hinzugef\ugt werden
 // idee: static polymorphism benutzen wenn möglich. falls später nötig, aus runtime polymorphism umsteigen.
 class InterfaceAdapter(Interface, T) : Interface {
 	T t;
