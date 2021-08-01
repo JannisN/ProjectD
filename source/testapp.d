@@ -8,8 +8,6 @@ import std.stdio;
 import core.thread.osthread;
 import core.time;
 
-// besser: mit interfaces, klassen arbeiten als mit zu vielen templates.
-// H! umbenennen zu Box!?
 // es muss auch nicht alles abstrahiert/runtime mässig gemacht werden. zb. für memory allocation reicht eine malloc funktion die dann je nach version definition was anderes ausführt.
 
 struct TestApp {
