@@ -8,7 +8,21 @@ import std.stdio;
 import core.thread.osthread;
 import core.time;
 
+// für ein ECS sollte zb glfwwindow ohne template parameter ans ECS übergeben werden, damit keine unendliche referenz entsteht
 // es muss auch nicht alles abstrahiert/runtime mässig gemacht werden. zb. für memory allocation reicht eine malloc funktion die dann je nach version definition was anderes ausführt.
+
+interface I1 {
+	void bla1();
+}
+
+interface I2 {
+	void bla2();
+}
+
+struct SomeStruct {
+	void bla1() {writeln("bla1");}
+	void bla2() {writeln("bla2");}
+}
 
 struct TestApp {
 	void run() {
@@ -68,6 +82,10 @@ struct TestApp {
 }
 
 void main() {
+	SomeStruct somestruct;
+	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
+	tstruct.bla1();
+	tstruct.bla2();
 	TestApp testapp;
 	testapp.run();
 }

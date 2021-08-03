@@ -51,14 +51,14 @@ private extern(C) {
 	}
 }
 
-// hier funktion um einfachere window erstellung mit sender
+// hier funktion um einfachere window erstellung mit sender?
 
 struct GlfwVulkanWindow(Sender) {
 	import vk : Result, Instance, Surface;
 	GLFWwindow* window;
 	GlfwResult result;
 	Result vkResult;
-	H!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow)) callbackPtr;
+	Box!(GlfwVulkanWindow*, GlfwCallback) callbackPtr;
 	Sender sender;
 	this(int width, int height, string title) {
 		if (initCount == 0) {
@@ -69,8 +69,9 @@ struct GlfwVulkanWindow(Sender) {
 		window = glfwCreateWindow(width, height, title.ptr, null, null);
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
 		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
-		callbackPtr = H!(InterfaceAdapterPointer!(GlfwCallback, GlfwVulkanWindow))(&this);
-		glfwSetWindowUserPointer(window, cast(void*)callbackPtr.toInterface());
+		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
+		// doppel cast notwendig
+		glfwSetWindowUserPointer(window, cast(void*)cast(GlfwCallback)callbackPtr.data);
 	}
 	~this() {
 		if (window != null) {

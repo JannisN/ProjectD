@@ -673,33 +673,45 @@ template methodToString(T, string methodName) {
 	enum string methodToString = methodToStringImpl();
 }
 
-// mehrere interfaces müssen noch hinzugef\ugt werden
-// idee: static polymorphism benutzen wenn möglich. falls später nötig, aus runtime polymorphism umsteigen.
-class InterfaceAdapter(Interface, T) : Interface {
-	T t;
-	@property Interface toInterface() {
-		return this;
+template methodToStringTest(T, string methodName) {
+	string methodToStringTestImpl() {
+		string s;
+		import std.traits : ReturnType, Parameters;
+		s = methodName ~ "(";
+		import std.conv : to;
+		static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
+			static foreach (storageClass; __traits(getParameterStorageClasses, __traits(getMember, T, methodName), i)) {
+				s = s ~ storageClass ~ "(), ";
+			}
+		}
+		s = s ~ ")";
+		return s;
 	}
-	alias toInterface this;
+	enum string methodToStringTest = methodToStringTestImpl();
+}
+
+class InterfaceAdapter(T, Interface...) : Interface {
+	T t;
 	this(T t) {
 		this.t = t;
 	}
-	static foreach(member; __traits(allMembers, Interface)) {
-		mixin(methodToString!(T, member));
+	static foreach(I; Interface) {
+		static foreach(member; __traits(allMembers, I)) {
+			static if (!__traits(compiles, mixin(methodToStringTest!(T, member)))) {
+				mixin(methodToString!(T, member));
+			}
+		}
 	}
 }
 
-class InterfaceAdapterPointer(Interface, T) : Interface {
-	T* t;
-	@property Interface toInterface() {
-		return this;
+struct Box(T, Interface...) {
+	H!(InterfaceAdapter!(T, Interface)) data;
+	alias data this;
+	this(H!(InterfaceAdapter!(T, Interface)) data) {
+		this.data = data;
 	}
-	alias toInterface this;
-	this(T* t) {
-		this.t = t;
-	}
-	static foreach(member; __traits(allMembers, Interface)) {
-		mixin(methodToString!(T, member));
+	this(Args...)(Args args) {
+		data = H!(InterfaceAdapter!(T, Interface))(args);
 	}
 }
 
