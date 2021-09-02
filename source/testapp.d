@@ -34,7 +34,7 @@ struct TestApp {
 		while (!window.shouldClose()) {
 			window.update();
 			time = timer.update();
-			writeln(1 / time);
+			//writeln(1 / time);
 			auto milstosleep = 10;
 			if (time < 1.0 / 60.0)
 				milstosleep = cast(int)(1000 * (1.0 / 60.0 - time));	
