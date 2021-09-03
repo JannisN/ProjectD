@@ -81,7 +81,25 @@ struct TestApp {
 	Surface surface;
 }
 
+template TypeSeq(Args...) {
+	alias TypeSeq = Args;
+}
+template Recursive(alias Func, Args...) {
+	static if (Args.length == 0) {
+		alias Recursive = TypeSeq!(Args);
+	} else static if (Args.length == 1) {
+		alias Recursive = Func!(Args[0]);
+	} else {
+		alias Recursive = TypeSeq!(Func!(Args[0]), Recursive!(Func, Args[1 .. Args.length]));
+	}
+}
+alias TestFunc(T) = TypeSeq!(T);
+
+struct T234(Args...) {
+	Recursive!(TestFunc, Args) args;
+}
 void main() {
+	T234!(int, double, char) t234;
 	SomeStruct somestruct;
 	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
 	tstruct.bla1();
