@@ -81,25 +81,27 @@ struct TestApp {
 	Surface surface;
 }
 
-template TypeSeq(Args...) {
-	alias TypeSeq = Args;
-}
-template Recursive(alias Func, Args...) {
-	static if (Args.length == 0) {
-		alias Recursive = TypeSeq!(Args);
-	} else static if (Args.length == 1) {
-		alias Recursive = Func!(Args[0]);
-	} else {
-		alias Recursive = TypeSeq!(Func!(Args[0]), Recursive!(Func, Args[1 .. Args.length]));
-	}
-}
 alias TestFunc(T) = TypeSeq!(T);
 
 struct T234(Args...) {
-	Recursive!(TestFunc, Args) args;
+	ApplyTypeSeq!(TestFunc, Args) args;
 }
 void main() {
 	T234!(int, double, char) t234;
+	import ecs;
+	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
+	someEcs.staticComponents[0].resize(10);
+	someEcs.staticComponents[0][0] = 1;
+	someEcs.staticComponents[1] = 1.23;
+	someEcs.staticComponents[2] = 2.23;
+	static foreach (e; someEcs.tags) {
+		static foreach (s; e) {
+			writeln(s);
+		}
+	}
+	someEcs.applyTo!(function double(double c) { return c + 1.23; }, double)();
+	auto someVar = seqToArray!(someEcs.findStaticTypes!(double));
+
 	SomeStruct somestruct;
 	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
 	tstruct.bla1();

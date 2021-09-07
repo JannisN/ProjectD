@@ -225,7 +225,12 @@ struct Ref(T) if (!is(T == class) && !is(T == interface)) {
 	}
 }
 
-struct StaticArray(T, uint size) {
+struct StaticArray(T, size_t size) {
+	this(Args...)(Args args) {
+		static foreach (e, i; Args) {
+			elements[e] = args[e];
+		}
+	}
 	T[size] elements;
 	alias elements this;
 }
@@ -919,4 +924,26 @@ struct Timer {
 		ticks = newTicks;
 		return dt;
 	}
+}
+
+template TypeSeq(Args...) {
+	alias TypeSeq = Args;
+}
+
+struct TypeSeqStruct(Args...) {
+	alias TypeSeq = Args;
+}
+
+template ApplyTypeSeq(alias Func, Args...) {
+	static if (Args.length == 0) {
+		alias ApplyTypeSeq = TypeSeq!(Args);
+	} else static if (Args.length == 1) {
+		alias ApplyTypeSeq = Func!(Args[0]);
+	} else {
+		alias ApplyTypeSeq = TypeSeq!(Func!(Args[0]), ApplyTypeSeq!(Func, Args[1 .. Args.length]));
+	}
+}
+
+auto seqToArray(Args...)() {
+	return array(Args);
 }
