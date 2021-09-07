@@ -58,8 +58,9 @@ struct GlfwVulkanWindow(Sender) {
 	GLFWwindow* window;
 	GlfwResult result;
 	Result vkResult;
-	Box!(GlfwVulkanWindow*, GlfwCallback) callbackPtr;
-	Sender sender;
+	Box!(GlfwVulkanWindow!Sender*, GlfwCallback) callbackPtr;
+	//Sender sender;
+	Sender* sender;
 	this(int width, int height, string title) {
 		if (initCount == 0) {
 			result = glfwInit();
@@ -72,6 +73,100 @@ struct GlfwVulkanWindow(Sender) {
 		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
 		// doppel cast notwendig
 		glfwSetWindowUserPointer(window, cast(void*)cast(GlfwCallback)callbackPtr.data);
+	}
+	~this() {
+		if (window != null) {
+			glfwSetWindowUserPointer(window, null);
+			glfwDestroyWindow(window);
+			initCount--;
+			if (initCount == 0) {
+				glfwTerminate();
+			}
+		}
+	}
+	void initialize(ref Sender ecs) {
+		sender = &ecs;
+		if (initCount == 0) {
+			result = glfwInit();
+		}
+		initCount++;
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		window = glfwCreateWindow(800, 800, "bla", null, null);
+		glfwSetWindowSizeCallback(window, &windowSizeCallback);
+		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
+		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
+		// doppel cast notwendig
+		glfwSetWindowUserPointer(window, cast(void*)cast(GlfwCallback)callbackPtr.data);
+
+	}
+	void update() {
+		glfwPollEvents();
+	}
+	void close() {
+		glfwSetWindowUserPointer(window, null);
+		glfwDestroyWindow(window);
+	}
+	bool shouldClose() {
+		return cast(bool) glfwWindowShouldClose(window);
+	}
+	Surface createVulkanSurface(ref Instance instance) {
+		VkSurfaceKHR vksurface;
+		vkResult = glfwCreateWindowSurface(instance.instance, window, null, &vksurface);
+		return instance.createSurface(vksurface);
+	}
+	const(char*)[] getRequiredExtensions() {
+		uint reqcount;
+		const(char*)* requiredExtensions = glfwGetRequiredInstanceExtensions(&reqcount);
+		return requiredExtensions[0 .. reqcount];
+	}
+	void onWindowResize(int width, int height) {
+		sender.send(WindowResizeEvent(width, height));
+	}
+	void onMouseButton(int button, int action, int mods) {
+		sender.send(MouseButtonEvent(button == GLFW_MOUSE_BUTTON_RIGHT ? MouseButton.right : MouseButton.left, action == GLFW_PRESS ? MouseButtonAction.press : MouseButtonAction.release));
+	}
+}
+/*
+// das hier verwerfen und einfach ecs als template argument mitgeben. beim ecs prüfen ob so kompiliert, sonst ecs als template argument
+private extern(C) {
+	import vulkan_core;
+	void windowSizeCallbackECS(ECS)(GLFWwindow* window, int width, int height) {
+		if (glfwGetWindowUserPointer(window) != null) {
+			GlfwVulkanWindowECS!ECS callback = cast(GlfwVulkanWindowECS!ECS)glfwGetWindowUserPointer(window);
+			callback.onWindowResize(width, height);
+		}
+	}
+	void mouseButtonCallbackECS(ECS)(GLFWwindow* window, int button, int action, int mods) {
+		if (glfwGetWindowUserPointer(window) != null) {
+			GlfwVulkanWindowECS!ECS callback = cast(GlfwVulkanWindowECS!ECS)glfwGetWindowUserPointer(window);
+			callback.onMouseButton(button, action, mods);
+		}
+	}
+}
+
+class GlfwVulkanWindowECS(ECS) {
+	import vk : Result, Instance, Surface;
+	GLFWwindow* window;
+	GlfwResult result;
+	Result vkResult;
+	ECS* ecs;
+	//Box!(GlfwVulkanWindowECS*, GlfwCallback) callbackPtr;
+	void initialize(ref ECS ecs) {
+		this.ecs = &ecs;
+		//auto func = &onWindowResize!ecs;
+		//auto func2 = &onMouseButton!ecs;
+		if (initCount == 0) {
+			result = glfwInit();
+		}
+		initCount++;
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		window = glfwCreateWindow(800, 800, "bla", null, null);
+		glfwSetWindowSizeCallback(window, &windowSizeCallbackECS!(ecs));
+		glfwSetMouseButtonCallback(window, &mouseButtonCallbackECS!(ecs));
+		// doppel cast notwendig
+		glfwSetWindowUserPointer(window, cast(void*)this);
+		import std.stdio;
+		writeln("blablabla");
 	}
 	~this() {
 		if (window != null) {
@@ -104,9 +199,9 @@ struct GlfwVulkanWindow(Sender) {
 		return requiredExtensions[0 .. reqcount];
 	}
 	void onWindowResize(int width, int height) {
-		sender.send(WindowResizeEvent(width, height));
+		ecs.sendEvent(WindowResizeEvent(width, height));
 	}
 	void onMouseButton(int button, int action, int mods) {
-		sender.send(MouseButtonEvent(button == GLFW_MOUSE_BUTTON_RIGHT ? MouseButton.right : MouseButton.left, action == GLFW_PRESS ? MouseButtonAction.press : MouseButtonAction.release));
+		ecs.sendEvent(MouseButtonEvent(button == GLFW_MOUSE_BUTTON_RIGHT ? MouseButton.right : MouseButton.left, action == GLFW_PRESS ? MouseButtonAction.press : MouseButtonAction.release));
 	}
-}
+}*/

@@ -7,6 +7,7 @@ import vulkan_core;
 import std.stdio;
 import core.thread.osthread;
 import core.time;
+import ecs;
 
 // für ein ECS sollte zb glfwwindow ohne template parameter ans ECS übergeben werden, damit keine unendliche referenz entsteht
 // es muss auch nicht alles abstrahiert/runtime mässig gemacht werden. zb. für memory allocation reicht eine malloc funktion die dann je nach version definition was anderes ausführt.
@@ -63,7 +64,8 @@ struct TestApp {
 	}
 	void initWindow() {
 		window = GlfwVulkanWindow!(Sender!(TestApp*))(640, 480, "Hello");
-		window.sender = createSender(&this);
+		sender = createSender(&this);
+		window.sender = &sender;
 
 		surface = window.createVulkanSurface(instance);
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -80,20 +82,29 @@ struct TestApp {
 	Queue* queue;
 	Surface surface;
 }
-
-alias TestFunc(T) = TypeSeq!(T);
-
-struct T234(Args...) {
-	ApplyTypeSeq!(TestFunc, Args) args;
+Sender!(TestApp*) sender;
+struct TetsController(Args...) {
+	StaticECS!(Args) ecs;
+	void initialize() {
+		static foreach (i; 0 .. Args.length) {
+			//ecs.entities[i][0].initialize(ecs);
+			static if (__traits(compiles, ecs.entities[i][0].initialize(ecs))) {
+				//ecs.entities[0][0].initialize(ecs);
+				foreach (ref e; ecs.entities[i]) {
+					e.initialize(ecs);
+				}
+			}
+		}
+	}
 }
+
 void main() {
-	T234!(int, double, char) t234;
 	import ecs;
 	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
 	someEcs.entities[0].resize(10);
 	someEcs.entities[0][0] = 1;
-	someEcs.entities[1] = 1.23;
-	someEcs.entities[2] = 2.23;
+	someEcs.entities[1][0] = 1.23;
+	someEcs.entities[2][0] = 2.23;
 	static foreach (e; someEcs.tags) {
 		static foreach (s; e) {
 			writeln(s);
@@ -101,13 +112,15 @@ void main() {
 	}
 	someEcs.applyTo!(double, function double(double c) { return c + 1.23; })();
 	auto someVar = seqToArray!(someEcs.findStaticTypes!(double));
-
+	
 	SomeStruct somestruct;
 	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
 	tstruct.bla1();
 	tstruct.bla2();
 	TestApp testapp;
 	testapp.run();
+	TetsController!(Info!(GlfwVulkanWindow, DefaultDataStructure)) controller;
+	controller.initialize();
 }
 
 extern(C) __gshared bool rt_cmdline_enabled = false;

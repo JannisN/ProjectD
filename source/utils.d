@@ -937,8 +937,6 @@ struct TypeSeqStruct(Args...) {
 template ApplyTypeSeq(alias Func, Args...) {
 	static if (Args.length == 0) {
 		alias ApplyTypeSeq = TypeSeq!(Args);
-	} else static if (Args.length == 1) {
-		alias ApplyTypeSeq = Func!(Args[0]);
 	} else {
 		alias ApplyTypeSeq = TypeSeq!(Func!(Args[0]), ApplyTypeSeq!(Func, Args[1 .. Args.length]));
 	}

@@ -8,16 +8,29 @@ struct Info(Args...) {
 	alias Type = Args[0];
 	alias DataStructure = Args[1];
 	alias CompatibleTypes = Args[2 .. Args.length];
-	DataStructure!Type instance;
 }
 
-template GetTypesFromInfo(Info) {
-	alias GetTypesFromInfo = Info.Type;
+/*template GetTypesFromInfo(ECS, Info) {
+	static if (__traits(compiles, Info.Type!ECS())) {
+		alias GetTypesFromInfo = Info.Type!ECS;
+	} else {
+		alias GetTypesFromInfo = Info.Type;
+	}
+}
+template TypesFromInfo(ECS) {
+	alias TypesFromInfo(Info) = GetTypesFromInfo!(ECS, Info);
 }
 
-template GetTypeDataStructureFromInfo(Info) {
-	alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
+template GetTypeDataStructureFromInfo(ECS, Info) {
+	static if (__traits(compiles, Info.DataStructure!(Info.Type!ECS))) {
+		alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type!ECS);
+	} else {
+		alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
+	}
 }
+template TypeDataStructureFromInfo(ECS) {
+	alias TypeDataStructureFromInfo(Info) = GetTypeDataStructureFromInfo!(ECS, Info);
+}*/
 
 template GetTypeIfString(alias T) {
 	static if (is(typeof(T) == string)) {
@@ -65,6 +78,20 @@ template FindCompatibleTypes(U, size_t index, Args...) {
 }
 
 struct StaticECS(Args...) {
+	template GetTypesFromInfo(Info) {
+		static if (__traits(compiles, Info.Type!(StaticECS!Args)())) {
+			alias GetTypesFromInfo = Info.Type!(StaticECS!Args);
+		} else {
+			alias GetTypesFromInfo = Info.Type;
+		}
+	}
+	template GetTypeDataStructureFromInfo(Info) {
+		static if (__traits(compiles, Info.DataStructure!(Info.Type!(StaticECS!Args)))) {
+			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type!(StaticECS!Args));
+		} else {
+			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
+		}
+	}
 	enum int entitiesCount = Args.length;
 	alias Types = ApplyTypeSeq!(GetTypesFromInfo, Args);
 	alias CompatibleTypes = ApplyTypeSeq!(GetCompatibleTypesFromInfo, Args);
@@ -96,9 +123,10 @@ struct StaticECS(Args...) {
 		}
 	}
 
-	void sendEvent(Event)(Event event) {
-		static foreach (ref e; entities) {
-			static if (__traits(compiles, e[0].receive(event))) {
+	void send(Event)(Event event) {
+		static foreach (i; 0 .. Args.length) {
+			static if (__traits(compiles, entities[i].receive(event))) {
+				entities[i].receive(event);
 				foreach (ref i; e) {
 					i.receive(event);
 				}

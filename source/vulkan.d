@@ -2588,7 +2588,7 @@ void main0() {
 	sender.send(10);
 
 	auto vulkanWindow = GlfwVulkanWindow!(typeof(sender))(640, 480, "Hello");
-	vulkanWindow.sender = sender;
+	vulkanWindow.sender = &sender;
 
 	foreach (e; vulkanWindow.getRequiredExtensions()) {
 		printf(e);
