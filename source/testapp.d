@@ -90,16 +90,16 @@ void main() {
 	T234!(int, double, char) t234;
 	import ecs;
 	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
-	someEcs.staticComponents[0].resize(10);
-	someEcs.staticComponents[0][0] = 1;
-	someEcs.staticComponents[1] = 1.23;
-	someEcs.staticComponents[2] = 2.23;
+	someEcs.entities[0].resize(10);
+	someEcs.entities[0][0] = 1;
+	someEcs.entities[1] = 1.23;
+	someEcs.entities[2] = 2.23;
 	static foreach (e; someEcs.tags) {
 		static foreach (s; e) {
 			writeln(s);
 		}
 	}
-	someEcs.applyTo!(function double(double c) { return c + 1.23; }, double)();
+	someEcs.applyTo!(double, function double(double c) { return c + 1.23; })();
 	auto someVar = seqToArray!(someEcs.findStaticTypes!(double));
 
 	SomeStruct somestruct;
