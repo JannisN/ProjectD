@@ -9,8 +9,9 @@ struct Sender(Receivers...) {
 	}
 	void send(Event)(Event event) {
 		static foreach (i; 0..Receivers.length) {
-			static if (__traits(compiles, receivers[i].receive(event)))
+			static if (__traits(compiles, receivers[i].receive(event))) {
 				receivers[i].receive(event);
+			}
 		}
 	}
 }
