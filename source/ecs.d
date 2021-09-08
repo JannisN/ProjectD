@@ -89,6 +89,7 @@ struct StaticECS(Args...) {
 		}
 	}
 	// hier noch die funktion für mehrere T's hinzufügen. wahrscheinlich auch nach direkten Types suchen
+	// und noch eine simple funktion um das erste passende element zurückzugeben
 	enum auto findCompatibleTypes(T) = array(FindCompatibleTypes!(T, 0, CompatibleTypes));
 	
 	void apply(alias Func)() {
