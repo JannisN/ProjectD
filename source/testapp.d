@@ -63,9 +63,11 @@ struct TestApp {
 		queue = &device.queues[0];
 	}
 	void initWindow() {
-		window = GlfwVulkanWindow!(Sender!(TestApp*))(640, 480, "Hello");
+		//window = GlfwVulkanWindow!(Sender!(TestApp*))(640, 480, "Hello");
+		
 		sender = createSender(&this);
-		window.sender = &sender;
+		//window.sender = &sender;
+		window.initialize(sender);
 
 		surface = window.createVulkanSurface(instance);
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
