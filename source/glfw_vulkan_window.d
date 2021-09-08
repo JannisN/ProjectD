@@ -71,6 +71,7 @@ struct GlfwVulkanWindow(Sender) {
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
 		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
 		//funktioniert bei dmd nicht, da nach dem konstruktor das objekt im speicher verschoben wird -> &this zeigt an falsche stelle
+		// zumindest wenn nicht bei deklaration verwendet
 		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
 		// doppel cast notwendig
 		glfwSetWindowUserPointer(window, cast(void*)cast(GlfwCallback)callbackPtr.data);

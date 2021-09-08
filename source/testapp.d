@@ -75,6 +75,7 @@ struct TestApp {
 		VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
 		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
 	}
+	Sender!(TestApp*) sender;
 	GlfwVulkanWindow!(Sender!(TestApp*)) window;
 	Instance instance;
 	Device device;
@@ -84,7 +85,7 @@ struct TestApp {
 	Queue* queue;
 	Surface surface;
 }
-Sender!(TestApp*) sender;
+
 struct TetsController(Args...) {
 	StaticECS!(Args) ecs;
 	void initialize() {
