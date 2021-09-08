@@ -53,6 +53,10 @@ template StringSeq(Info) {
 
 alias GetCompatibleTypesFromInfo(Info) = TypeSeqStruct!(ApplyTypeSeq!(GetTypeIfNotString, Info.CompatibleTypes));
 
+/*template CheckIfTypesEqual(alias T, alias U, Args...) {
+	enum bool CheckIfTypesEqual = is(T!(StaticECS!Args) == U!(StaticECS!Args));
+}*/
+// könnte man statt U alias U nötig haben in gewissen situationen?`
 template FindMatchingTypes(U, size_t index, Args...) {
 	static if (Args.length == 0) {
 		alias FindMatchingTypes = TypeSeq!();
@@ -92,15 +96,25 @@ struct StaticECS(Args...) {
 			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
 		}
 	}
+	template GetTypesWithoutArgsFromInfo(Info) {
+		alias GetTypesWithoutArgsFromInfo = Info.Type;
+	}
 	enum int entitiesCount = Args.length;
 	alias Types = ApplyTypeSeq!(GetTypesFromInfo, Args);
 	alias CompatibleTypes = ApplyTypeSeq!(GetCompatibleTypesFromInfo, Args);
 	enum string[][] tags = [ApplyTypeSeq!(StringSeq, Args)];
 
 	ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args) entities;
+
+	template findTypes(alias T) {
+		static if(__traits(compiles, FindMatchingTypes!(T, 0, Types))) {
+			enum auto findTypes = array(FindMatchingTypes!(T, 0, Types));
+		} else {
+			enum auto findTypes = array(FindMatchingTypes!(T!(StaticECS!Args), 0, Types));
+		}
+	}
+	enum auto findCompatibleTypes(T) = array(FindCompatibleTypes!(T, 0, CompatibleTypes));
 	
-	alias findStaticTypes(T) = FindMatchingTypes!(T, 0, Types);
-	alias findStaticCompatibleTypes(T) = FindCompatibleTypes!(T, 0, CompatibleTypes);
 	void apply(alias Func)() {
 		static foreach(ref e; entities) {
 			foreach (ref i; e) {
@@ -109,14 +123,14 @@ struct StaticECS(Args...) {
 		}
 	}
 	void applyTo(T, alias Func)() {
-		static foreach(e; findStaticTypes!(T)) {
+		static foreach(e; findTypes!(T)) {
 			foreach (ref i; entities[e]) {
 				i = Func(i);
 			}
 		}
 	}
 	void applyToCompatible(T, alias Func)() {
-		static foreach(e; TypeSeq!(findStaticTypes!(T), findStaticCompatibleTypes!(T))) {
+		static foreach(e; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
 			foreach (ref i; entities[e]) {
 				i = Func(i);
 			}
@@ -134,7 +148,7 @@ struct StaticECS(Args...) {
 		}
 	}
 	void sendEventTo(T, Event)(Event event) {
-		static foreach(e; findStaticTypes!(T)) {
+		static foreach(e; findTypes!(T)) {
 			static if (__traits(compiles, e[0].receive(event))) {
 				foreach (ref i; entities[e]) {
 					i.receive(event);
@@ -143,7 +157,7 @@ struct StaticECS(Args...) {
 		}
 	}
 	void sendEventToCompatible(T, Event)(Event event) {
-		static foreach(e; TypeSeq!(findStaticTypes!(T), findStaticCompatibleTypes!(T))) {
+		static foreach(e; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
 			static if (__traits(compiles, e[0].receive(event))) {
 				foreach (ref i; entities[e]) {
 					i.receive(event);

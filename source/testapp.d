@@ -90,11 +90,24 @@ struct TetsController(Args...) {
 	StaticECS!(Args) ecs;
 	void initialize() {
 		static foreach (i; 0 .. Args.length) {
-			//ecs.entities[i][0].initialize(ecs);
 			static if (__traits(compiles, ecs.entities[i][0].initialize(ecs))) {
-				//ecs.entities[0][0].initialize(ecs);
 				foreach (ref e; ecs.entities[i]) {
 					e.initialize(ecs);
+				}
+			}
+		}
+	}
+	void run() {
+		while (!ecs.entities[ecs.findTypes!(GlfwVulkanWindow)[0]][0].shouldClose()) {
+			static foreach(j; 0 .. Args.length) {
+				static if (__traits(compiles, ecs.entities[j][0].update())) {
+					foreach (ref e; ecs.entities[j]) {
+						e.update();
+					}
+				} else static if (__traits(compiles, ecs.entities[j][0].update(ecs))) {
+					foreach (ref e; ecs.entities[j]) {
+						e.update(ecs);
+					}
 				}
 			}
 		}
@@ -114,16 +127,17 @@ void main() {
 		}
 	}
 	someEcs.applyTo!(double, function double(double c) { return c + 1.23; })();
-	auto someVar = seqToArray!(someEcs.findStaticTypes!(double));
+	auto someVar = seqToArray!(someEcs.findTypes!(double));
 	
 	SomeStruct somestruct;
 	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
 	tstruct.bla1();
 	tstruct.bla2();
-	TestApp testapp;
-	testapp.run();
+	//TestApp testapp;
+	//testapp.run();
 	TetsController!(Info!(GlfwVulkanWindow, DefaultDataStructure)) controller;
 	controller.initialize();
+	controller.run();
 }
 
 extern(C) __gshared bool rt_cmdline_enabled = false;
