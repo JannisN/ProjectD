@@ -9,9 +9,6 @@ import core.thread.osthread;
 import core.time;
 import ecs;
 
-// für ein ECS sollte zb glfwwindow ohne template parameter ans ECS übergeben werden, damit keine unendliche referenz entsteht
-// es muss auch nicht alles abstrahiert/runtime mässig gemacht werden. zb. für memory allocation reicht eine malloc funktion die dann je nach version definition was anderes ausführt.
-
 interface I1 {
 	void bla1();
 }
@@ -86,6 +83,46 @@ struct TestApp {
 	Surface surface;
 }
 
+struct TestApp2 {
+	void initialize(ECS)(ref ECS ecs) {
+		initVulkan();
+		initWindow(ecs);
+	}
+	void receive(MouseButtonEvent event) {
+		writeln("event");
+	}
+	void initVulkan() {
+		version(Windows) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
+		}
+		version(OSX) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_EXT_metal_surface"));
+		}
+		version(linux) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
+		}
+		device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+		memoryAllocator.device = &device;
+		queue = &device.queues[0];
+	}
+	void initWindow(ECS)(ref ECS ecs) {
+		surface = ecs.entities[ecs.findTypes!GlfwVulkanWindow[0]][0].createVulkanSurface(instance);
+		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
+		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
+		VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
+		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
+	}
+	Instance instance;
+	Device device;
+	CommandPool cmdPool;
+	CommandBuffer cmdBuffer;
+	MemoryAllocator memoryAllocator;
+	Queue* queue;
+	Surface surface;
+}
+
 struct TetsController(Args...) {
 	StaticECS!(Args) ecs;
 	void initialize() {
@@ -135,7 +172,10 @@ void main() {
 	tstruct.bla2();
 	//TestApp testapp;
 	//testapp.run();
-	TetsController!(Info!(GlfwVulkanWindow, DefaultDataStructure)) controller;
+	TetsController!(
+		Info!(GlfwVulkanWindow, DefaultDataStructure),
+		Info!(TestApp2, DefaultDataStructure)
+	) controller;
 	controller.initialize();
 	controller.run();
 }

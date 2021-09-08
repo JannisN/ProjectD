@@ -10,28 +10,6 @@ struct Info(Args...) {
 	alias CompatibleTypes = Args[2 .. Args.length];
 }
 
-/*template GetTypesFromInfo(ECS, Info) {
-	static if (__traits(compiles, Info.Type!ECS())) {
-		alias GetTypesFromInfo = Info.Type!ECS;
-	} else {
-		alias GetTypesFromInfo = Info.Type;
-	}
-}
-template TypesFromInfo(ECS) {
-	alias TypesFromInfo(Info) = GetTypesFromInfo!(ECS, Info);
-}
-
-template GetTypeDataStructureFromInfo(ECS, Info) {
-	static if (__traits(compiles, Info.DataStructure!(Info.Type!ECS))) {
-		alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type!ECS);
-	} else {
-		alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
-	}
-}
-template TypeDataStructureFromInfo(ECS) {
-	alias TypeDataStructureFromInfo(Info) = GetTypeDataStructureFromInfo!(ECS, Info);
-}*/
-
 template GetTypeIfString(alias T) {
 	static if (is(typeof(T) == string)) {
 		alias GetTypeIfString = T;
@@ -53,9 +31,6 @@ template StringSeq(Info) {
 
 alias GetCompatibleTypesFromInfo(Info) = TypeSeqStruct!(ApplyTypeSeq!(GetTypeIfNotString, Info.CompatibleTypes));
 
-/*template CheckIfTypesEqual(alias T, alias U, Args...) {
-	enum bool CheckIfTypesEqual = is(T!(StaticECS!Args) == U!(StaticECS!Args));
-}*/
 // könnte man statt U alias U nötig haben in gewissen situationen?`
 template FindMatchingTypes(U, size_t index, Args...) {
 	static if (Args.length == 0) {
@@ -113,54 +88,54 @@ struct StaticECS(Args...) {
 			enum auto findTypes = array(FindMatchingTypes!(T!(StaticECS!Args), 0, Types));
 		}
 	}
+	// hier noch die funktion für mehrere T's hinzufügen. wahrscheinlich auch nach direkten Types suchen
 	enum auto findCompatibleTypes(T) = array(FindCompatibleTypes!(T, 0, CompatibleTypes));
 	
 	void apply(alias Func)() {
-		static foreach(ref e; entities) {
-			foreach (ref i; e) {
-				i = Func(i);
+		static foreach(i; 0 .. Types.length) {
+			foreach (ref e; entities[i]) {
+				e = Func(e);
 			}
 		}
 	}
 	void applyTo(T, alias Func)() {
-		static foreach(e; findTypes!(T)) {
-			foreach (ref i; entities[e]) {
-				i = Func(i);
+		static foreach(i; findTypes!(T)) {
+			foreach (ref e; entities[i]) {
+				e = Func(e);
 			}
 		}
 	}
 	void applyToCompatible(T, alias Func)() {
-		static foreach(e; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
-			foreach (ref i; entities[e]) {
-				i = Func(i);
+		static foreach(i; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
+			foreach (ref e; entities[i]) {
+				e = Func(e);
 			}
 		}
 	}
 
 	void send(Event)(Event event) {
 		static foreach (i; 0 .. Args.length) {
-			static if (__traits(compiles, entities[i].receive(event))) {
-				entities[i].receive(event);
-				foreach (ref i; e) {
-					i.receive(event);
+			static if (__traits(compiles, entities[i][0].receive(event))) {
+				foreach (ref e; entities[i]) {
+					e.receive(event);
 				}
 			}
 		}
 	}
-	void sendEventTo(T, Event)(Event event) {
-		static foreach(e; findTypes!(T)) {
-			static if (__traits(compiles, e[0].receive(event))) {
-				foreach (ref i; entities[e]) {
-					i.receive(event);
+	void sendTo(T, Event)(Event event) {
+		static foreach(i; findTypes!(T)) {
+			static if (__traits(compiles, entities[i][0].receive(event))) {
+				foreach (ref e; entities[i]) {
+					e.receive(event);
 				}
 			}
 		}
 	}
-	void sendEventToCompatible(T, Event)(Event event) {
-		static foreach(e; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
-			static if (__traits(compiles, e[0].receive(event))) {
-				foreach (ref i; entities[e]) {
-					i.receive(event);
+	void sendToCompatible(T, Event)(Event event) {
+		static foreach(i; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
+			static if (__traits(compiles, entities[i][0].receive(event))) {
+				foreach (ref e; entities[i]) {
+					e.receive(event);
 				}
 			}
 		}
