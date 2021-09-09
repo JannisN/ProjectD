@@ -108,7 +108,8 @@ struct TestApp2 {
 		queue = &device.queues[0];
 	}
 	void initWindow(ECS)(ref ECS ecs) {
-		surface = ecs.entities[ecs.findTypes!GlfwVulkanWindow[0]][0].createVulkanSurface(instance);
+		surface = ecs.createView!(GlfwVulkanWindow)[0][0].createVulkanSurface(instance);
+		//surface = ecs.entities[ecs.findTypes!GlfwVulkanWindow[0]][0].createVulkanSurface(instance);
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
 		VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
@@ -153,7 +154,7 @@ struct TetsController(Args...) {
 
 void main() {
 	import ecs;
-	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
+	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, int, long, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
 	someEcs.entities[0].resize(10);
 	someEcs.entities[0][0] = 1;
 	someEcs.entities[1][0] = 1.23;
@@ -163,9 +164,13 @@ void main() {
 			writeln(s);
 		}
 	}
-	someEcs.applyTo!(double, function double(double c) { return c + 1.23; })();
+	someEcs.applyTo!(function double(double c) { return c + 1.23; }, double)();
 	auto someVar = seqToArray!(someEcs.findTypes!(double));
-	
+	auto someVar2 = seqToArray!(someEcs.findCompatibleTypesMultiple!(int, long));
+	auto someVar3 = seqToArray!(someEcs.findCompatibleTypesMultipleWithType!(int, double));
+	auto view = someEcs.createView!(int, double);
+	view[1][0] = 3.14;
+
 	SomeStruct somestruct;
 	auto tstruct = Box!(SomeStruct*, I1, I2)(&somestruct);
 	tstruct.bla1();

@@ -930,6 +930,7 @@ template TypeSeq(Args...) {
 	alias TypeSeq = Args;
 }
 
+// hier noch viele compile time funktionen hinzufügen um die Args zu bearbeiten
 struct TypeSeqStruct(Args...) {
 	alias TypeSeq = Args;
 }

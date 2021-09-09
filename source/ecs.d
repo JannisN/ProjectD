@@ -56,6 +56,79 @@ template FindCompatibleTypes(U, size_t index, Args...) {
 	}
 }
 
+template CheckIfAllTypesContained(TS, Args...) {
+	bool impl(TS, Args...)() {
+		bool found = false;
+		static foreach (E; TS.TypeSeq) {
+			found = false;
+			static foreach (F; Args) {
+				static if (is(F == E)) {
+					found = true;
+				}
+			}
+			if (found == false) {
+				return false;
+			}
+		}
+		return true;
+	}
+	enum bool CheckIfAllTypesContained = impl!(TS, Args);
+}
+
+template FindCompatibleTypesMultiple(U, size_t index, Args...) {
+	static if (Args.length == 0) {
+		alias FindCompatibleTypesMultiple = TypeSeq!();
+	} else {
+		static if (CheckIfAllTypesContained!(U, Args[0].TypeSeq)) {
+			alias FindCompatibleTypesMultiple = TypeSeq!(index, FindCompatibleTypesMultiple!(U, index + 1, Args[1 .. Args.length]));
+		} else {
+			alias FindCompatibleTypesMultiple = FindCompatibleTypesMultiple!(U, index + 1, Args[1 .. Args.length]);
+		}
+	}
+}
+
+template CheckIfAllTypesContainedWithType(ECS, TS, MainType, Args...) {
+	bool impl() {
+		bool found = false;
+		static foreach (E; TS.TypeSeq) {
+			found = false;
+			static foreach (F; Args) {
+				static if (is(F == E)) {
+					found = true;
+				}
+			}
+			static if (is(MainType!ECS == E!ECS)) {
+				found = true;
+			}
+			static if (is(MainType == E)) {
+				found = true;
+			}
+			if (found == false) {
+				return false;
+			}
+		}
+		return true;
+	}
+	enum bool CheckIfAllTypesContainedWithType = impl();
+}
+
+template FindCompatibleTypesMultipleWithType(ECS, TS, size_t index, MainTypes, Args...) {
+	static if (Args.length == 0) {
+		alias FindCompatibleTypesMultipleWithType = TypeSeq!();
+	} else {
+		static if (CheckIfAllTypesContainedWithType!(ECS, TS, MainTypes.TypeSeq[0], Args[0].TypeSeq)) {
+			alias FindCompatibleTypesMultipleWithType = TypeSeq!(index, FindCompatibleTypesMultipleWithType!(ECS, TS, index + 1, TypeSeqStruct!(MainTypes.TypeSeq[1 .. Args.length]), Args[1 .. Args.length]));
+		} else {
+			alias FindCompatibleTypesMultipleWithType = FindCompatibleTypesMultipleWithType!(ECS, TS, index + 1, TypeSeqStruct!(MainTypes.TypeSeq[1 .. Args.length]), Args[1 .. Args.length]);
+		}
+	}
+}
+
+struct StaticView(Args...) {
+	Args args;
+	alias args this;
+}
+
 struct StaticECS(Args...) {
 	template GetTypesFromInfo(Info) {
 		static if (__traits(compiles, Info.Type!(StaticECS!Args)())) {
@@ -91,6 +164,26 @@ struct StaticECS(Args...) {
 	// hier noch die funktion für mehrere T's hinzufügen. wahrscheinlich auch nach direkten Types suchen
 	// und noch eine simple funktion um das erste passende element zurückzugeben
 	enum auto findCompatibleTypes(T) = array(FindCompatibleTypes!(T, 0, CompatibleTypes));
+
+	// view funktion erstellen die struct erstellt mit pointern zu allen passenden elementen
+	enum auto findCompatibleTypesMultiple(Args...) = array(FindCompatibleTypesMultiple!(TypeSeqStruct!(Args), 0, CompatibleTypes));
+	enum auto findCompatibleTypesMultipleWithType(T...) = array(FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes));
+
+	template FoundTypesToPointer(alias First, T...) {
+		static if (T.length == 0) {
+			alias FoundTypesToPointer = typeof(entities[First])*;
+		} else {
+			alias FoundTypesToPointer = TypeSeq!(typeof(entities[First])*, FoundTypesToPointer!(T));
+		}
+	}
+	auto createView(T...)() {
+		alias foundTypes = FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes);
+		StaticView!(FoundTypesToPointer!(foundTypes)) sv;
+		static foreach (i; foundTypes) {
+			sv.args[i] = &entities[i];
+		}
+		return sv;
+	}
 	
 	void apply(alias Func)() {
 		static foreach(i; 0 .. Types.length) {
@@ -99,15 +192,15 @@ struct StaticECS(Args...) {
 			}
 		}
 	}
-	void applyTo(T, alias Func)() {
+	void applyTo(alias Func, T)() {
 		static foreach(i; findTypes!(T)) {
 			foreach (ref e; entities[i]) {
 				e = Func(e);
 			}
 		}
 	}
-	void applyToCompatible(T, alias Func)() {
-		static foreach(i; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
+	void applyToCompatible(alias Func, T...)() {
+		static foreach(i; FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes)) {
 			foreach (ref e; entities[i]) {
 				e = Func(e);
 			}
@@ -123,7 +216,7 @@ struct StaticECS(Args...) {
 			}
 		}
 	}
-	void sendTo(T, Event)(Event event) {
+	void sendTo(Event, T)(Event event) {
 		static foreach(i; findTypes!(T)) {
 			static if (__traits(compiles, entities[i][0].receive(event))) {
 				foreach (ref e; entities[i]) {
@@ -132,8 +225,8 @@ struct StaticECS(Args...) {
 			}
 		}
 	}
-	void sendToCompatible(T, Event)(Event event) {
-		static foreach(i; TypeSeq!(findTypes!(T), findCompatibleTypes!(T))) {
+	void sendToCompatible(Event, T...)(Event event) {
+		static foreach(i; FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes)) {
 			static if (__traits(compiles, entities[i][0].receive(event))) {
 				foreach (ref e; entities[i]) {
 					e.receive(event);
