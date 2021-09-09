@@ -136,6 +136,7 @@ struct TetsController(Args...) {
 		}
 	}
 	void run() {
+		// statt window.shouldClose command struct erstellen die events zum schliessen von app entgegen nimmt, und dann von window aus close event schicken
 		while (!ecs.entities[ecs.findTypes!(GlfwVulkanWindow)[0]][0].shouldClose()) {
 			static foreach(j; 0 .. Args.length) {
 				static if (__traits(compiles, ecs.entities[j][0].update())) {
@@ -177,6 +178,8 @@ void main() {
 	tstruct.bla2();
 	//TestApp testapp;
 	//testapp.run();
+
+	// template erstellen dass man controller auch in trivialen fällen ohne Info! erstellen kann
 	TetsController!(
 		Info!(GlfwVulkanWindow, DefaultDataStructure),
 		Info!(TestApp2, DefaultDataStructure)

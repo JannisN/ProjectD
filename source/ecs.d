@@ -161,11 +161,7 @@ struct StaticECS(Args...) {
 			enum auto findTypes = array(FindMatchingTypes!(T!(StaticECS!Args), 0, Types));
 		}
 	}
-	// hier noch die funktion für mehrere T's hinzufügen. wahrscheinlich auch nach direkten Types suchen
-	// und noch eine simple funktion um das erste passende element zurückzugeben
 	enum auto findCompatibleTypes(T) = array(FindCompatibleTypes!(T, 0, CompatibleTypes));
-
-	// view funktion erstellen die struct erstellt mit pointern zu allen passenden elementen
 	enum auto findCompatibleTypesMultiple(Args...) = array(FindCompatibleTypesMultiple!(TypeSeqStruct!(Args), 0, CompatibleTypes));
 	enum auto findCompatibleTypesMultipleWithType(T...) = array(FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes));
 
