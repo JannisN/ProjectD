@@ -154,6 +154,11 @@ struct TetsController(Args...) {
 }
 
 void main() {
+	Vector!double testVec = Vector!double(3);
+	testVec[0] = 1;
+	testVec[1] = 2;
+	testVec.resize(32);
+
 	import ecs;
 	StaticECS!(Info!(int, Vector, double), Info!(double, DefaultDataStructure, int, long, "hallo"), Info!(double, DefaultDataStructure, "hallo123")) someEcs;
 	someEcs.entities[0].resize(10);

@@ -327,10 +327,17 @@ struct Vector(T) if (!is(T == class)) {
 	}
 	void resize(size_t size) {
 		if (__ctfe) {
-			t = new T[size];
+			t.length = size;
 		} else {
-			t = cast(T[]) (cast(void[]) realloc(t.ptr, size * T.sizeof)[0 .. size * T.sizeof]);
-			foreach (i; 0 .. size) {
+			T[] u = cast(T[]) (cast(void[]) malloc(size * T.sizeof)[0 .. size * T.sizeof]);
+			memcpy(cast(void*) u.ptr, cast(void*) t.ptr, t.length < size ? t.length : size);
+			foreach (i; (t.length > size ? t.length : size) .. t.length) {
+				t[i].destroy();
+			}
+			size_t oldLength = t.length;
+			free(t.ptr);
+			t = u;
+			foreach (i; oldLength .. size) {
 				import std.conv : emplace;
 				emplace(&t[i]);
 			}
@@ -340,8 +347,12 @@ struct Vector(T) if (!is(T == class)) {
 		if (__ctfe) {
 			t = v.t;
 		} else {
-			resize(v.size);
-			memcpy(cast(void*) t.ptr, cast(void*) v.ptr, v.size);
+			foreach (i; 0 .. t.length) {
+				t[i].destroy();
+			}
+			free(t.ptr);
+			t = cast(T[]) (cast(void[]) malloc(v.length * T.sizeof)[0 .. v.length * T.sizeof]);
+			memcpy(cast(void*) t.ptr, cast(void*) v.ptr, v.length);
 		}
 		return this;
 	}
