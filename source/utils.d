@@ -10,12 +10,12 @@ import core.stdc.string : memcpy;
 
 // vorsicht: man darf klassen nicht verschieben, auch kein S!$
 // soll heissen: immer H! verwenden
-/*struct S(T) if (is(T == class)) {
+struct S(T) if (is(T == class)) {
 	byte[__traits(classInstanceSize, T)] data;
 	static S!T opCall(Args...)(Args args) {
 		S!T value;
 		import std.conv : emplace;
-		emplace!(T, Args)(cast(void[T.sizeof]) value.data[0 .. T.sizeof], args);
+		emplace!(T, Args)(cast(void[T.sizeof]) value.data[0 .. __traits(classInstanceSize, T)], args);
 		return value;
 	}
 	~this() {
@@ -41,7 +41,7 @@ import core.stdc.string : memcpy;
 	alias get this;
 }
 
-struct S(T) if (!is(T == class)) {
+/*struct S(T) if (!is(T == class)) {
 	T data;
 	static S!T opCall(Args...)(Args args) {
 		S!T value;

@@ -154,6 +154,18 @@ struct TetsController(Args...) {
 }
 
 void main() {
+	ECS dynEcs;
+	dynEcs.add().add!int(4).add!double(1.23);
+	dynEcs.add().add!char.add!bool;
+	dynEcs.add().add!int(4).add!SomeStruct;
+	dynEcs.add().add!int(1).add!double(7.23);
+	dynEcs.add().add!string.add!long;
+	dynEcs.add().add!int(4).add!double(1.23);
+	auto element = dynEcs.get(0).get!(double);
+	auto elementSearch = dynEcs.get!(int, double);
+	foreach (i; elementSearch) {
+		writeln(i);
+	}
 	Vector!double testVec = Vector!double(3);
 	testVec[0] = 1;
 	testVec[1] = 2;

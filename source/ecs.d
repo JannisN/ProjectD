@@ -231,3 +231,164 @@ struct StaticECS(Args...) {
 		}
 	}
 }
+
+struct Component {
+	string type;
+	bool isRef = false;
+	void* data;
+	this(string type, bool isRef, void* data) {
+		this.type = type;
+		this.isRef = isRef;
+		this.data = data;
+	}
+	~this() {
+		if (!isRef && data != null) {
+			import core.stdc.stdlib : free;
+			free(data);
+		}
+	}
+}
+
+struct ECSEntry {
+	size_t id;
+	LinkedList!Component components;
+	ref ECSEntry add(T)() if (!is(T == class) && !is(T == interface)) {
+		import core.stdc.stdlib : malloc;
+		import std.conv : emplace;
+		void* data = malloc(T.sizeof);
+		emplace(cast(T*)data);
+		components.add(Component(T.stringof, false, data));
+		return this;
+	}
+	ref ECSEntry add(T)() if (is(T == class)) {
+		import core.stdc.stdlib : malloc;
+		import std.conv : emplace;
+		void* data = malloc(S!T.sizeof);
+		emplace(cast(S!T*)data);
+		components.add(Component(T.stringof, false, data));
+		return this;
+	}
+	ref ECSEntry add(T)(T t) if (!is(T == class) && !is(T == interface)) {
+		import core.stdc.stdlib : malloc;
+		void* data = malloc(T.sizeof);
+		*(cast(T*)data) = t;
+		components.add(Component(T.stringof, false, data));
+		return this;
+	}
+	ref ECSEntry addRef(T)() if (!is(T == class) && !is(T == interface)) {
+		components.add(Component(T.stringof, true, null));
+		return this;
+	}
+	ref ECSEntry addRef(T)() if (is(T == class) || is(T == interface)) {
+		components.add(Component(T.stringof, true, null));
+		return this;
+	}
+	ref ECSEntry addRef(T)(t*) if (!is(T == class) && !is(T == interface)) {
+		components.add(Component(T.stringof, true, cast(void*) t));
+		return this;
+	}
+	ref ECSEntry addRef(T)(t) if (is(T == class) || is(T == interface)) {
+		components.add(Component(T.stringof, true, cast(void*) t));
+		return this;
+	}
+	ref T get(T)() if (!is(T == class) && !is(T == interface)) {
+		foreach (ref e; components.iterate) {
+			if (e.type == T.stringof) {
+				return *(cast(T*) e.data);
+			}
+		}
+		assert(false, "Component not found");
+	}
+	ref T get(T)() if (is(T == class) || is(T == interface)) {
+		foreach (ref e; components.iterate) {
+			if (e.type == T.stringof) {
+				return cast(T) e.data;
+			}
+		}
+		assert(false, "Component not found");
+	}
+	bool has(T)() {
+		foreach (ref e; components.iterate) {
+			if (e.type == T.stringof) {
+				return true;
+			}
+		}
+		return false;
+	}
+	// am besten ohne i, sondern mit pointer zum entry, sonst wird doppelt gesucht
+	ref ECSEntry remove(T)() {
+		foreach (i, ref e; components.iterate) {
+			if (e.type == T.stringof) {
+				components.remove(i);
+			}
+		}
+		return this;
+	}
+}
+
+// verbessern mit views für performance, und erstellung von StaticECS
+// vlt views erstellen mit funktionen die ausgeführt werden falls element hinzugefügt oder gelöscht wird
+// performance kann auch verbessert werden wenn man mehrere objekte mit gleichen components austattet
+struct ECS {
+	enum size_t sizeIncrement = 100;
+	size_t length;
+	Vector!ECSEntry entities;
+	LinkedList!size_t emptyEntries;
+	ref ECSEntry add() {
+		if (emptyEntries.length == 0) {
+			if (length >= entities.length) {
+				entities.resize(entities.length + sizeIncrement);
+			}
+			entities[length].id = length;
+			length++;
+			return entities[length - 1];
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			entities[id].id = id;
+			return entities[id];
+		}
+	}
+	void remove(size_t id) {
+		entities[id] = ECSEntry();
+		emptyEntries.add(id);
+	}
+	ref ECSEntry get(size_t id) {
+		return entities[id];
+	}
+	// hier ebenfalls ändern um nur einmal zu suchen
+	Vector!size_t get(T...)() {
+		size_t foundSize;
+		foreach (i; 0 .. length) {
+			int found = 0;
+			foreach (ref e; entities[i].components.iterate) {
+				static foreach (E; T) {
+					if (e.type == E.stringof) {
+						found++;
+					}
+				}
+			}
+			if (found == T.length) {
+				foundSize++;
+			}
+		}
+		Vector!size_t foundEntries;
+		foundEntries.resize(foundSize);
+		size_t index;
+		foreach (i; 0 .. length) {
+			int found = 0;
+			foreach (ref e; entities[i].components.iterate) {
+				static foreach (E; T) {
+					if (e.type == E.stringof) {
+						found++;
+					}
+				}
+			}
+			if (found == T.length) {
+				foundEntries[index] = i;
+				index++;
+			}
+		}
+		return foundEntries;
+	}
+}
