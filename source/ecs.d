@@ -124,6 +124,14 @@ template FindCompatibleTypesMultipleWithType(ECS, TS, size_t index, MainTypes, A
 	}
 }
 
+template ExtractInterfaces(T) {
+	static if (is(T.TypeSeq[0] == interface)) {
+		alias ExtractInterfaces = T.TypeSeq[0];
+	} else {
+		alias ExtractInterfaces = TypeSeq!();
+	}
+}
+
 struct StaticView(Args...) {
 	Args args;
 	alias args this;
@@ -148,6 +156,7 @@ struct StaticECS(Args...) {
 		alias GetTypesWithoutArgsFromInfo = Info.Type;
 	}
 	enum int entitiesCount = Args.length;
+	alias RawTypes = ApplyTypeSeq!(GetTypesWithoutArgsFromInfo, Args);
 	alias Types = ApplyTypeSeq!(GetTypesFromInfo, Args);
 	alias CompatibleTypes = ApplyTypeSeq!(GetCompatibleTypesFromInfo, Args);
 	enum string[][] tags = [ApplyTypeSeq!(StringSeq, Args)];
@@ -230,6 +239,33 @@ struct StaticECS(Args...) {
 			}
 		}
 	}
+
+	ECS createDynamicECS() {
+		ECS ecs;
+		static foreach(i; 0 .. Types.length) {
+			foreach (ref e; entities[i]) {
+				ECSEntry* entry = &ecs.add();
+				static if (!is(Types[i] == class) && !is(Types[i] == interface)) {
+					// nur zum test, später rausnehmen
+					entry.addRef!(Types[i])(&e);
+					static if (ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i]).length > 0) {
+						entry.add!(InterfaceAdapter!(Types[i]*, ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])));
+						auto adapterClass = entry.get!(InterfaceAdapter!(Types[i]*, ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])));
+						adapterClass.t = &e;
+						static foreach (E; ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])) {
+							entry.addRef!(E)(adapterClass);
+						}
+					}
+				} else {
+					entry.addRef!(Types[i])(e);
+					static foreach (E; ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])) {
+						entry.addRef!(E)(e);
+					}
+				}
+			}
+		}
+		return ecs;
+	}
 }
 
 struct Component {
@@ -283,11 +319,11 @@ struct ECSEntry {
 		components.add(Component(T.stringof, true, null));
 		return this;
 	}
-	ref ECSEntry addRef(T)(t*) if (!is(T == class) && !is(T == interface)) {
+	ref ECSEntry addRef(T)(T* t) if (!is(T == class) && !is(T == interface)) {
 		components.add(Component(T.stringof, true, cast(void*) t));
 		return this;
 	}
-	ref ECSEntry addRef(T)(t) if (is(T == class) || is(T == interface)) {
+	ref ECSEntry addRef(T)(T t) if (is(T == class) || is(T == interface)) {
 		components.add(Component(T.stringof, true, cast(void*) t));
 		return this;
 	}
@@ -299,10 +335,14 @@ struct ECSEntry {
 		}
 		assert(false, "Component not found");
 	}
-	ref T get(T)() if (is(T == class) || is(T == interface)) {
+	T get(T)() if (is(T == class) || is(T == interface)) {
 		foreach (ref e; components.iterate) {
 			if (e.type == T.stringof) {
-				return cast(T) e.data;
+				if (e.isRef) {
+					return cast(T) e.data;
+				} else {
+					return (cast(S!T*)e.data).get;
+				}
 			}
 		}
 		assert(false, "Component not found");

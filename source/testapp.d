@@ -122,6 +122,9 @@ struct TestApp2 {
 	MemoryAllocator memoryAllocator;
 	Queue* queue;
 	Surface surface;
+	void bla1() {
+
+	}
 }
 
 struct TetsController(Args...) {
@@ -199,10 +202,17 @@ void main() {
 	// template erstellen dass man controller auch in trivialen fällen ohne Info! erstellen kann
 	TetsController!(
 		Info!(GlfwVulkanWindow, DefaultDataStructure),
-		Info!(TestApp2, DefaultDataStructure)
+		Info!(TestApp2, DefaultDataStructure, I1)
 	) controller;
 	controller.initialize();
 	controller.run();
+	ECS newEcs = controller.ecs.createDynamicECS();
+	foreach (ref e; newEcs.entities[0 .. newEcs.length]) {
+		writeln(e.id);
+		foreach (ref f; e.components.iterate) {
+			writeln(f.type);
+		}
+	}
 }
 
 extern(C) __gshared bool rt_cmdline_enabled = false;
