@@ -127,11 +127,21 @@ struct TestApp2 {
 	}
 }
 
-struct TetsController(Args...) {
-	StaticECS!(Args) ecs;
+struct TestController(Args...) {
+	struct CloseReceiver {
+		bool running = true;
+		void receive(WindowCloseEvent) {
+			running = false;
+		}
+	}
+	StaticECS!(Args, Info!(CloseReceiver, DefaultDataStructure)) ecs;
 	void initialize() {
 		static foreach (i; 0 .. Args.length) {
-			static if (__traits(compiles, ecs.entities[i][0].initialize(ecs))) {
+			static if (__traits(compiles, ecs.entities[i][0].initialize())) {
+				foreach (ref e; ecs.entities[i]) {
+					e.initialize();
+				}
+			} else static if (__traits(compiles, ecs.entities[i][0].initialize(ecs))) {
 				foreach (ref e; ecs.entities[i]) {
 					e.initialize(ecs);
 				}
@@ -139,15 +149,14 @@ struct TetsController(Args...) {
 		}
 	}
 	void run() {
-		// statt window.shouldClose command struct erstellen die events zum schliessen von app entgegen nimmt, und dann von window aus close event schicken
-		while (!ecs.entities[ecs.findTypes!(GlfwVulkanWindow)[0]][0].shouldClose()) {
-			static foreach(j; 0 .. Args.length) {
-				static if (__traits(compiles, ecs.entities[j][0].update())) {
-					foreach (ref e; ecs.entities[j]) {
+		while (ecs.entities[ecs.findTypes!(CloseReceiver)[0]][0].running) {
+			static foreach(i; 0 .. Args.length) {
+				static if (__traits(compiles, ecs.entities[i][0].update())) {
+					foreach (ref e; ecs.entities[i]) {
 						e.update();
 					}
-				} else static if (__traits(compiles, ecs.entities[j][0].update(ecs))) {
-					foreach (ref e; ecs.entities[j]) {
+				} else static if (__traits(compiles, ecs.entities[i][0].update(ecs))) {
+					foreach (ref e; ecs.entities[i]) {
 						e.update(ecs);
 					}
 				}
@@ -200,7 +209,7 @@ void main() {
 	//testapp.run();
 
 	// template erstellen dass man controller auch in trivialen fällen ohne Info! erstellen kann
-	TetsController!(
+	TestController!(
 		Info!(GlfwVulkanWindow, DefaultDataStructure),
 		Info!(TestApp2, DefaultDataStructure, I1)
 	) controller;

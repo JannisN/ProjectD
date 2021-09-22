@@ -10,6 +10,7 @@ private uint initCount = 0;
 interface GlfwCallback {
 	void onWindowResize(int width, int height);
 	void onMouseButton(int button, int action, int mods);
+	void onWindowClose();
 }
 
 // sollte in einem allgemeineren file definitiert werden
@@ -33,6 +34,9 @@ struct MouseButtonEvent {
 	MouseButtonAction action;
 }
 
+struct WindowCloseEvent {
+}
+
 private extern(C) {
 	import vulkan_core;
 	VkResult glfwCreateWindowSurface(VkInstance, void*, VkAllocationCallbacks*, VkSurfaceKHR*);
@@ -47,6 +51,12 @@ private extern(C) {
 		if (glfwGetWindowUserPointer(window) != null) {
 			GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
 			callback.onMouseButton(button, action, mods);
+		}
+	}
+	void windowCloseCallback(GLFWwindow* window) {
+		if (glfwGetWindowUserPointer(window) != null) {
+			GlfwCallback callback = cast(GlfwCallback)glfwGetWindowUserPointer(window);
+			callback.onWindowClose();
 		}
 	}
 }
@@ -67,6 +77,7 @@ struct GlfwVulkanWindow(Sender) {
 		window = glfwCreateWindow(width, height, title.ptr, null, null);
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
 		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
+		glfwSetWindowCloseCallback(window, &windowCloseCallback);
 		//funktioniert bei dmd nicht, da nach dem konstruktor das objekt im speicher verschoben wird -> &this zeigt an falsche stelle
 		// zumindest wenn nicht bei deklaration verwendet
 		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
@@ -93,6 +104,7 @@ struct GlfwVulkanWindow(Sender) {
 		window = glfwCreateWindow(800, 800, "bla", null, null);
 		glfwSetWindowSizeCallback(window, &windowSizeCallback);
 		glfwSetMouseButtonCallback(window, &mouseButtonCallback);
+		glfwSetWindowCloseCallback(window, &windowCloseCallback);
 		callbackPtr = Box!(GlfwVulkanWindow*, GlfwCallback)(&this);
 		// doppel cast notwendig
 		glfwSetWindowUserPointer(window, cast(void*)cast(GlfwCallback)callbackPtr.data);
@@ -123,5 +135,8 @@ struct GlfwVulkanWindow(Sender) {
 	}
 	void onMouseButton(int button, int action, int mods) {
 		sender.send(MouseButtonEvent(button == GLFW_MOUSE_BUTTON_RIGHT ? MouseButton.right : MouseButton.left, action == GLFW_PRESS ? MouseButtonAction.press : MouseButtonAction.release));
+	}
+	void onWindowClose() {
+		sender.send(WindowCloseEvent());
 	}
 }
