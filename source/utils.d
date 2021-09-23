@@ -1,7 +1,8 @@
 module utils;
 
-import core.stdc.stdlib : malloc, free, realloc;
-import core.stdc.string : memcpy;
+import functions;
+//import core.stdc.stdlib : malloc, free, realloc;
+//import core.stdc.string : memcpy;
 
 // alignment hinzufügen
 // unit tests
@@ -14,7 +15,6 @@ struct S(T) if (is(T == class)) {
 	byte[__traits(classInstanceSize, T)] data;
 	static S!T opCall(Args...)(Args args) {
 		S!T value;
-		import std.conv : emplace;
 		emplace!(T, Args)(cast(void[T.sizeof]) value.data[0 .. __traits(classInstanceSize, T)], args);
 		return value;
 	}
@@ -73,7 +73,6 @@ struct H(T) if (is(T == class)) {
 		if (__ctfe) {
 			value.data = new T(args);
 		} else {
-			import std.conv : emplace;
 			value.data = cast(T) malloc(__traits(classInstanceSize, T));
 			emplace!(T, Args)((cast(void*) value.data)[0 .. __traits(classInstanceSize, T)], args);
 		}
@@ -125,8 +124,6 @@ struct H(T) if (!is(T == class)) {
 		if (__ctfe) {
 			value.data = new T(args);
 		} else {
-			static import core.memory;
-			import std.conv : emplace;
 			value.data = cast(T*) malloc(T.sizeof);
 			emplace(value.data, args);
 		}
@@ -258,7 +255,6 @@ auto getCopyableType(T)() {
 }
 
 auto array(Args...)(in Args args) {
-	import std.traits : Unqual;
 	static foreach (i; 0 .. Args.length) {
 		/*static if (!__traits(compiles, copyTest(args[i]))) {
 			static if (!__traits(compiles, arrayType)) {
@@ -299,7 +295,6 @@ auto array(T, Args...)(ref Args args) {
 
 auto move(T)(ref T t) {
 	T moved = t;
-	import std.conv : emplace;
 	emplace(&t);
 	return moved;
 }
@@ -312,7 +307,6 @@ struct Vector(T) if (!is(T == class)) {
 		} else {
 			t = cast(T[]) (cast(void[]) malloc(size * T.sizeof)[0 .. size * T.sizeof]);
 			foreach (i; 0 .. size) {
-				import std.conv : emplace;
 				emplace(&t[i]);
 			}
 		}
@@ -338,7 +332,6 @@ struct Vector(T) if (!is(T == class)) {
 			free(t.ptr);
 			t = u;
 			foreach (i; oldLength .. size) {
-				import std.conv : emplace;
 				emplace(&t[i]);
 			}
 		}
@@ -666,9 +659,7 @@ template multiplyArgs(Args...) {
 template methodToString(T, string methodName) {
 	string methodToStringImpl() {
 		string s;
-		import std.traits : ReturnType, Parameters;
 		s = (ReturnType!(__traits(getMember, T, methodName))).stringof ~ " " ~ methodName ~ "(";
-		import std.conv : to;
 		static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
 			static foreach (storageClass; __traits(getParameterStorageClasses, __traits(getMember, T, methodName), i)) {
 				s = s ~ storageClass ~ " ";
@@ -692,9 +683,7 @@ template methodToString(T, string methodName) {
 template methodToStringTest(T, string methodName) {
 	string methodToStringTestImpl() {
 		string s;
-		import std.traits : ReturnType, Parameters;
 		s = methodName ~ "(";
-		import std.conv : to;
 		static foreach (i; 0 .. Parameters!(__traits(getMember, T, methodName)).length) {
 			static foreach (storageClass; __traits(getParameterStorageClasses, __traits(getMember, T, methodName), i)) {
 				s = s ~ storageClass ~ "(), ";
@@ -805,14 +794,12 @@ struct LinkedList(T) {
 	ref LinkedList!T add(lazy T t) {
 		if (length == 0) {
 			auto newLast = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-			import std.conv : emplace;
 			emplace(newLast);
 			newLast.t = t();
 			last = newLast;
 			first = last;
 		} else {
 			last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-			import std.conv : emplace;
 			emplace(last.next);
 			last.next.previous = last;
 			last.next.t = t();
@@ -824,12 +811,10 @@ struct LinkedList(T) {
 	ref LinkedList!T add() {
 		if (length == 0) {
 			last = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-			import std.conv : emplace;
 			emplace(last);
 			first = last;
 		} else {
 			last.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-			import std.conv : emplace;
 			emplace(last.next);
 			last.next.previous = last;
 			last = last.next;
@@ -888,7 +873,6 @@ struct LinkedList(T) {
 		}
 		ListElement!T* previousElement = current.previous;
 		previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-		import std.conv : emplace;
 		emplace(previousElement.next);
 		previousElement.next.t = t();
 		previousElement.next.previous = previousElement;
@@ -899,7 +883,6 @@ struct LinkedList(T) {
 	ref LinkedList!T insertBefore(ListElement!T* current, lazy T t) {
 		ListElement!T* previousElement = current.previous;
 		previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-		import std.conv : emplace;
 		emplace(previousElement.next);
 		previousElement.next.t = t();
 		previousElement.next.previous = previousElement;
@@ -910,7 +893,6 @@ struct LinkedList(T) {
 	ref LinkedList!T insertAfter(ListElement!T* current, lazy T t) {
 		ListElement!T* nextElement = current.next;
 		nextElement.previous = cast(ListElement!T*) malloc(ListElement!T.sizeof);
-		import std.conv : emplace;
 		emplace(nextElement.previous);
 		nextElement.previous.t = t();
 		nextElement.previous.previous = current;
@@ -927,11 +909,10 @@ struct LinkedList(T) {
 }
 
 struct Timer {
-	import core.time;
 	long ticks;
 	double update() {
-		long newTicks = MonoTime.currTime().ticks();
-		double dt = cast(double)(newTicks - ticks) / cast(double)MonoTime().ticksPerSecond;
+		long newTicks = functions.ticks();
+		double dt = cast(double)(newTicks - ticks) / cast(double)functions.ticksPerSecond();
 		ticks = newTicks;
 		return dt;
 	}

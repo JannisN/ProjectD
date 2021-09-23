@@ -1,10 +1,106 @@
 import vk;
 import glfw_vulkan_window;
+import utils;
+import vulkan_core;
+import functions;
+import ecs;
+
+struct TestApp {
+	void initialize(ECS)(ref ECS ecs) {
+		initVulkan();
+		initWindow(ecs);
+	}
+	void receive(MouseButtonEvent event) {
+		writeln("event");
+	}
+	void initVulkan() {
+		version(Windows) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
+		}
+		version(OSX) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_EXT_metal_surface"));
+		}
+		version(linux) {
+			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
+		}
+		device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+		memoryAllocator.device = &device;
+		queue = &device.queues[0];
+	}
+	void initWindow(ECS)(ref ECS ecs) {
+		surface = ecs.createView!(GlfwVulkanWindow)[0][0].createVulkanSurface(instance);
+		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
+		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
+		VkSurfaceCapabilitiesKHR capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
+		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
+	}
+	Instance instance;
+	Device device;
+	CommandPool cmdPool;
+	CommandBuffer cmdBuffer;
+	MemoryAllocator memoryAllocator;
+	Queue* queue;
+	Surface surface;
+}
+
+struct TestController(Args...) {
+	struct CloseReceiver {
+		bool running = true;
+		void receive(WindowCloseEvent) {
+			running = false;
+		}
+	}
+	StaticECS!(Args, Info!(CloseReceiver, DefaultDataStructure)) ecs;
+	void initialize() {
+		static foreach (i; 0 .. Args.length) {
+			static if (__traits(compiles, ecs.entities[i][0].initialize())) {
+				foreach (ref e; ecs.entities[i]) {
+					e.initialize();
+				}
+			} else static if (__traits(compiles, ecs.entities[i][0].initialize(ecs))) {
+				foreach (ref e; ecs.entities[i]) {
+					e.initialize(ecs);
+				}
+			}
+		}
+	}
+	void run() {
+		while (ecs.entities[ecs.findTypes!(CloseReceiver)[0]][0].running) {
+			static foreach(i; 0 .. Args.length) {
+				static if (__traits(compiles, ecs.entities[i][0].update())) {
+					foreach (ref e; ecs.entities[i]) {
+						e.update();
+					}
+				} else static if (__traits(compiles, ecs.entities[i][0].update(ecs))) {
+					foreach (ref e; ecs.entities[i]) {
+						e.update(ecs);
+					}
+				}
+			}
+		}
+	}
+}
+
+void main() {
+	TestController!(
+		Info!(GlfwVulkanWindow, DefaultDataStructure),
+		Info!(TestApp, DefaultDataStructure)
+	) controller;
+	controller.initialize();
+	controller.run();
+}
+
+
+/* tests:
+import vk;
+import glfw_vulkan_window;
 import glfw3;
 import events;
 import utils;
 import vulkan_core;
-import std.stdio;
+import functions;
 import core.thread.osthread;
 import core.time;
 import ecs;
@@ -226,3 +322,4 @@ void main() {
 
 extern(C) __gshared bool rt_cmdline_enabled = false;
 extern(C) __gshared string[] rt_options = ["gcopt=gc:manual disable:1"];
+*/

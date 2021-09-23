@@ -1,6 +1,7 @@
 module ecs;
 
 import utils;
+import functions;
 
 alias DefaultDataStructure(T) = T[1];
 
@@ -279,7 +280,6 @@ struct Component {
 	}
 	~this() {
 		if (!isRef && data != null) {
-			import core.stdc.stdlib : free;
 			free(data);
 		}
 	}
@@ -289,23 +289,18 @@ struct ECSEntry {
 	size_t id;
 	LinkedList!Component components;
 	ref ECSEntry add(T)() if (!is(T == class) && !is(T == interface)) {
-		import core.stdc.stdlib : malloc;
-		import std.conv : emplace;
 		void* data = malloc(T.sizeof);
 		emplace(cast(T*)data);
 		components.add(Component(T.stringof, false, data));
 		return this;
 	}
 	ref ECSEntry add(T)() if (is(T == class)) {
-		import core.stdc.stdlib : malloc;
-		import std.conv : emplace;
 		void* data = malloc(S!T.sizeof);
 		emplace(cast(S!T*)data);
 		components.add(Component(T.stringof, false, data));
 		return this;
 	}
 	ref ECSEntry add(T)(T t) if (!is(T == class) && !is(T == interface)) {
-		import core.stdc.stdlib : malloc;
 		void* data = malloc(T.sizeof);
 		*(cast(T*)data) = t;
 		components.add(Component(T.stringof, false, data));
