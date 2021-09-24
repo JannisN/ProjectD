@@ -1205,16 +1205,33 @@ struct ImageView {
 		info.subresourceRange = subresourceRange;
 		result = vkCreateImageView(image.device.device, &info, null, &imageView);
 		this.image = &image;
+		this.device = image.device;
+	}
+	// wird benötigt für swapchain images... vlt in swapchain integrierbar statt das hier?
+	this(ref Device device, VkImage image, VkImageViewType viewType, VkFormat format, VkComponentMapping components, VkImageSubresourceRange subresourceRange) {
+		VkImageViewCreateInfo info;
+		info.sType = VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		info.pNext = null;
+		info.flags = 0;
+		info.image = image;
+		info.viewType = viewType;
+		info.format = format;
+		info.components = components;
+		info.subresourceRange = subresourceRange;
+		result = vkCreateImageView(device.device, &info, null, &imageView);
+		//this.image = &image;
+		this.device = &device;
 	}
 	@disable this(ref return scope ImageView rhs);
 	~this() {
 		if (imageView != null)
-			vkDestroyImageView(image.device.device, imageView, null);
+			vkDestroyImageView(device.device, imageView, null);
 	}
 	Result result;
 	VkImageView imageView;
 	alias imageView this;
 	Image* image;
+	Device* device;
 }
 
 VkMappedMemoryRange mappedMemoryRange(ref Memory memory, VkDeviceSize offset, VkDeviceSize size) {

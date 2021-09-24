@@ -928,10 +928,13 @@ struct TypeSeqStruct(Args...) {
 }
 
 template ApplyTypeSeq(alias Func, Args...) {
+	pragma(msg, Func);
 	static if (Args.length == 0) {
-		alias ApplyTypeSeq = TypeSeq!(Args);
+		alias ApplyTypeSeq = TypeSeq!();
+		//pragma(msg, ApplyTypeSeq);
 	} else {
 		alias ApplyTypeSeq = TypeSeq!(Func!(Args[0]), ApplyTypeSeq!(Func, Args[1 .. Args.length]));
+		//pragma(msg, ApplyTypeSeq);
 	}
 }
 

@@ -98,12 +98,15 @@ template CheckIfAllTypesContainedWithType(ECS, TS, MainType, Args...) {
 					found = true;
 				}
 			}
-			static if (is(MainType!ECS == E!ECS)) {
-				found = true;
-			}
-			static if (is(MainType == E)) {
-				found = true;
-			}
+			//static if (__traits(compiles, is(MainType!ECS == E!ECS)))
+				static if (is(MainType!ECS == E!ECS)) {
+					found = true;
+				}
+			//static if (__traits(compiles, is(MainType == E)))
+			// das nochmal überprüfen, eigentlich war MainType == E
+				else static if (is(MainType == E!ECS)) {
+					found = true;
+				}
 			if (found == false) {
 				return false;
 			}
@@ -147,10 +150,19 @@ struct StaticECS(Args...) {
 		}
 	}
 	template GetTypeDataStructureFromInfo(Info) {
+		/*pragma(msg, Info);
+		pragma(msg, Info.DataStructure!(Info.Type!(StaticECS!Args)));
+		pragma(msg, Info.Type!(StaticECS!Args));
+		pragma(msg, "..............");*///Info.DataStructure!(Info.Type!(StaticECS!Args)) test123;
+		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(Info.Type!(StaticECS!Args))));
 		static if (__traits(compiles, Info.DataStructure!(Info.Type!(StaticECS!Args)))) {
 			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type!(StaticECS!Args));
+			pragma(msg, "template");
+			//pragma(msg, GetTypeDataStructureFromInfo);
 		} else {
 			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
+			pragma(msg, "ohne");
+			//pragma(msg, GetTypeDataStructureFromInfo);
 		}
 	}
 	template GetTypesWithoutArgsFromInfo(Info) {
@@ -163,6 +175,9 @@ struct StaticECS(Args...) {
 	enum string[][] tags = [ApplyTypeSeq!(StringSeq, Args)];
 
 	ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args) entities;
+	alias totest = ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args);
+	pragma(msg, "type of ", totest);
+	pragma(msg, "raw types ", RawTypes);
 
 	template findTypes(alias T) {
 		static if(__traits(compiles, FindMatchingTypes!(T, 0, Types))) {
@@ -184,11 +199,13 @@ struct StaticECS(Args...) {
 	}
 	auto createView(T...)() {
 		alias foundTypes = FindCompatibleTypesMultipleWithType!(StaticECS!Args, TypeSeqStruct!(T), 0, TypeSeqStruct!(Types), CompatibleTypes);
-		StaticView!(FoundTypesToPointer!(foundTypes)) sv;
-		static foreach (i; foundTypes) {
-			sv.args[i] = &entities[i];
+		static if (foundTypes.length > 0) {
+			StaticView!(FoundTypesToPointer!(foundTypes)) sv;
+			static foreach (i; foundTypes) {
+				sv.args[i] = &entities[i];
+			}
+			return sv;
 		}
-		return sv;
 	}
 	
 	void apply(alias Func)() {
@@ -248,7 +265,7 @@ struct StaticECS(Args...) {
 				ECSEntry* entry = &ecs.add();
 				static if (!is(Types[i] == class) && !is(Types[i] == interface)) {
 					// nur zum test, später rausnehmen
-					entry.addRef!(Types[i])(&e);
+					entry.addRef(&e);
 					static if (ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i]).length > 0) {
 						entry.add!(InterfaceAdapter!(Types[i]*, ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])));
 						auto adapterClass = entry.get!(InterfaceAdapter!(Types[i]*, ApplyTypeSeq!(ExtractInterfaces, CompatibleTypes[i])));
