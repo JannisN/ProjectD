@@ -55,9 +55,9 @@ struct TestApp(ECS) {
 			0, 0, 0.6, 1,
 			0, 0.5, 0.6, 1,
 			0.5, 0.5, 0.6, 1,
-			0, 0, 0.1, 1,
-			0, -0.5, 0.1, 1,
-			-0.5, -0.5, 0.1, 1,
+			0, 0, 0.6, 1,
+			0, -0.5, 0.6, 1,
+			-0.5, -0.5, 0.6, 1,
 		];
 		float* floatptr = cast(float*) memory.map(0, 1024);
 		foreach (i, float f; vertex_positions) {
@@ -147,7 +147,11 @@ struct TestApp(ECS) {
 			array(VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0))
 		);
 		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
-		auto dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.height, 0.1f, 1.0f);
+		VkViewport dummyViewport;
+		if (capabilities.currentExtent.width < capabilities.currentExtent.height)
+			dummyViewport = VkViewport(0.0f, (capabilities.currentExtent.height - capabilities.currentExtent.width) * 0.5, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
+		else
+			dummyViewport = VkViewport((capabilities.currentExtent.width - capabilities.currentExtent.height) * 0.5, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
 		auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
 		auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
 		auto rasterizationStateCreateInfo = rasterizationState(
@@ -179,7 +183,6 @@ struct TestApp(ECS) {
 		);
 	}
 	void update() {
-		fence.isSignaled();
 		uint imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
 		fence.wait();
 		fence.reset();
