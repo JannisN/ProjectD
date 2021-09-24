@@ -23,8 +23,6 @@ struct TestApp(ECS) {
 	void receive(WindowResizeEvent event) {
 		writeln("resize");
 		initWindow();
-
-		//ecs.createView!(GlfwVulkanWindow);
 	}
 	void initVulkan() {
 		version(Windows) {
@@ -117,13 +115,9 @@ struct TestApp(ECS) {
 			[]
 		);
 		
-		// das hier verbessern: imageviews sollen von swapchain automatisch erstellt
-		if (swapchainViews.length == 0) {
 		swapchainViews.resize(swapchain.images.length);
 		framebuffers.resize(swapchain.images.length);
-		}
 		foreach (i; 0 .. swapchain.images.length) {
-			swapchainViews[i].destroy();
 			swapchainViews[i] = ImageView(
 				device,
 				swapchain.images[i],
@@ -143,7 +137,6 @@ struct TestApp(ECS) {
 					1
 				)
 			);
-			framebuffers[i].destroy();
 			framebuffers[i] = renderPass.createFramebuffer(array(swapchainViews[i].imageView), capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		}
 		
@@ -289,13 +282,11 @@ struct TestController(Args...) {
 	}
 }
 
-struct DebugStruct(ECS) {
-	ECS* ecs;
+struct DebugStruct() {
 	this(int bla) {
 
 	}
-	void initialize(ref ECS ecs) {
-		this.ecs = &ecs;
+	void initialize() {
 	}
 }
 struct DebugStruct1(ECS) {

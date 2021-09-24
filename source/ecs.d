@@ -147,7 +147,7 @@ struct StaticView(Args...) {
 
 struct StaticECS(Args...) {
 	template GetTypesFromInfo(Info) {
-		static if (__traits(compiles, Info.Type())) {
+		static if (__traits(compiles, Info.Type!())) {
 			alias GetTypesFromInfo = Info.Type;
 		} else {
 			alias GetTypesFromInfo = Info.Type!(StaticECS!Args);
@@ -159,9 +159,11 @@ struct StaticECS(Args...) {
 		pragma(msg, Info.Type!(StaticECS!Args));
 		pragma(msg, "..............");*///Info.Type!(StaticECS!Args) test123;
 		alias InfoType = Info.Type;
-		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(InfoType)));
-		static if (__traits(compiles, Info.DataStructure!(InfoType))) {
-			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType);
+		alias DataStruct = Info.DataStructure;
+		//alias Together = Info.DataStructure!(InfoType!());
+		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(InfoType!())));
+		static if (__traits(compiles, Info.DataStructure!(InfoType!()))) {
+			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType!());
 			pragma(msg, "ohne");
 			//pragma(msg, GetTypeDataStructureFromInfo);
 		} else {
