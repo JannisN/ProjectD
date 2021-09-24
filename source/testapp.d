@@ -184,15 +184,14 @@ struct TestApp(ECS) {
 		fence.wait();
 		fence.reset();
 		
-		// parameter sollten angepasst werden um synchronisation zu optimieren
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 			0, [], [],
 			array(imageMemoryBarrier(
+				0,
 				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
 				VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
 				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
 				swapchain.images[imageIndex],
@@ -210,7 +209,7 @@ struct TestApp(ECS) {
 			0, [], [],
 			array(imageMemoryBarrier(
 				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				VkAccessFlagBits.VK_ACCESS_MEMORY_READ_BIT,
+				0,
 				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				swapchain.images[imageIndex],
