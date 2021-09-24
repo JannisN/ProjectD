@@ -88,7 +88,7 @@ template FindCompatibleTypesMultiple(U, size_t index, Args...) {
 	}
 }
 
-template CheckIfAllTypesContainedWithType(ECS, TS, MainType, Args...) {
+template CheckIfAllTypesContainedWithType(alias ECS, alias TS, alias MainType, Args...) {
 	bool impl() {
 		bool found = false;
 		static foreach (E; TS.TypeSeq) {
@@ -98,15 +98,15 @@ template CheckIfAllTypesContainedWithType(ECS, TS, MainType, Args...) {
 					found = true;
 				}
 			}
-			//static if (__traits(compiles, is(MainType!ECS == E!ECS)))
-				static if (is(MainType!ECS == E!ECS)) {
+			static if (__traits(compiles, E!ECS)) {
+				static if (is(MainType == E!ECS)) {
 					found = true;
 				}
-			//static if (__traits(compiles, is(MainType == E)))
-			// das nochmal überprüfen, eigentlich war MainType == E
-				else static if (is(MainType == E!ECS)) {
+			} else {
+				static if (is(MainType == E)) {
 					found = true;
 				}
+			}
 			if (found == false) {
 				return false;
 			}
@@ -116,11 +116,15 @@ template CheckIfAllTypesContainedWithType(ECS, TS, MainType, Args...) {
 	enum bool CheckIfAllTypesContainedWithType = impl();
 }
 
-template FindCompatibleTypesMultipleWithType(ECS, TS, size_t index, MainTypes, Args...) {
+template FindCompatibleTypesMultipleWithType(alias ECS, alias TS, size_t index, alias MainTypes, Args...) {
 	static if (Args.length == 0) {
 		alias FindCompatibleTypesMultipleWithType = TypeSeq!();
 	} else {
+
+		//alias FindCompatibleTypesMultipleWithType = TypeSeq!();
+		pragma(msg, "blablabla", ECS, TS, MainTypes.TypeSeq[0], Args[0].TypeSeq);
 		static if (CheckIfAllTypesContainedWithType!(ECS, TS, MainTypes.TypeSeq[0], Args[0].TypeSeq)) {
+			//alias FindCompatibleTypesMultipleWithType = TypeSeq!();
 			alias FindCompatibleTypesMultipleWithType = TypeSeq!(index, FindCompatibleTypesMultipleWithType!(ECS, TS, index + 1, TypeSeqStruct!(MainTypes.TypeSeq[1 .. Args.length]), Args[1 .. Args.length]));
 		} else {
 			alias FindCompatibleTypesMultipleWithType = FindCompatibleTypesMultipleWithType!(ECS, TS, index + 1, TypeSeqStruct!(MainTypes.TypeSeq[1 .. Args.length]), Args[1 .. Args.length]);
@@ -143,25 +147,26 @@ struct StaticView(Args...) {
 
 struct StaticECS(Args...) {
 	template GetTypesFromInfo(Info) {
-		static if (__traits(compiles, Info.Type!(StaticECS!Args)())) {
-			alias GetTypesFromInfo = Info.Type!(StaticECS!Args);
-		} else {
+		static if (__traits(compiles, Info.Type())) {
 			alias GetTypesFromInfo = Info.Type;
+		} else {
+			alias GetTypesFromInfo = Info.Type!(StaticECS!Args);
 		}
 	}
 	template GetTypeDataStructureFromInfo(Info) {
 		/*pragma(msg, Info);
 		pragma(msg, Info.DataStructure!(Info.Type!(StaticECS!Args)));
 		pragma(msg, Info.Type!(StaticECS!Args));
-		pragma(msg, "..............");*///Info.DataStructure!(Info.Type!(StaticECS!Args)) test123;
-		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(Info.Type!(StaticECS!Args))));
-		static if (__traits(compiles, Info.DataStructure!(Info.Type!(StaticECS!Args)))) {
-			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type!(StaticECS!Args));
-			pragma(msg, "template");
+		pragma(msg, "..............");*///Info.Type!(StaticECS!Args) test123;
+		alias InfoType = Info.Type;
+		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(InfoType)));
+		static if (__traits(compiles, Info.DataStructure!(InfoType))) {
+			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType);
+			pragma(msg, "ohne");
 			//pragma(msg, GetTypeDataStructureFromInfo);
 		} else {
-			alias GetTypeDataStructureFromInfo = Info.DataStructure!(Info.Type);
-			pragma(msg, "ohne");
+			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType!(StaticECS!Args));
+			pragma(msg, "template");
 			//pragma(msg, GetTypeDataStructureFromInfo);
 		}
 	}
@@ -178,6 +183,7 @@ struct StaticECS(Args...) {
 	alias totest = ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args);
 	pragma(msg, "type of ", totest);
 	pragma(msg, "raw types ", RawTypes);
+	pragma(msg, "the types ", Types);
 
 	template findTypes(alias T) {
 		static if(__traits(compiles, FindMatchingTypes!(T, 0, Types))) {

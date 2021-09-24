@@ -7,19 +7,25 @@ import ecs;
 
 struct TestApp(ECS) {
 	ECS* ecs;
+	~this() {
+
+	}
 	void initialize(ref ECS ecs) {
 		//pragma(msg, Sender);
 		this.ecs = &ecs;
 		initVulkan();
+		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 		initWindow();
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
 	}
-	/*void receive(WindowResizeEvent event) {
+	void receive(WindowResizeEvent event) {
 		writeln("resize");
 		initWindow();
-	}*/
+
+		//ecs.createView!(GlfwVulkanWindow);
+	}
 	void initVulkan() {
 		version(Windows) {
 			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
@@ -63,7 +69,6 @@ struct TestApp(ECS) {
 		memory.unmap();
 	}
 	void initWindow() {
-		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
 		capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
@@ -113,9 +118,12 @@ struct TestApp(ECS) {
 		);
 		
 		// das hier verbessern: imageviews sollen von swapchain automatisch erstellt
+		if (swapchainViews.length == 0) {
 		swapchainViews.resize(swapchain.images.length);
 		framebuffers.resize(swapchain.images.length);
+		}
 		foreach (i; 0 .. swapchain.images.length) {
+			swapchainViews[i].destroy();
 			swapchainViews[i] = ImageView(
 				device,
 				swapchain.images[i],
@@ -135,6 +143,7 @@ struct TestApp(ECS) {
 					1
 				)
 			);
+			framebuffers[i].destroy();
 			framebuffers[i] = renderPass.createFramebuffer(array(swapchainViews[i].imageView), capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		}
 		
