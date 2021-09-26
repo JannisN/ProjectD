@@ -34,7 +34,9 @@ struct TestApp(ECS) {
 		version(linux) {
 			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
 		}
-		device = Device(instance.physicalDevices[0], VkPhysicalDeviceFeatures(), array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+		VkPhysicalDeviceFeatures features;
+		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
+		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
@@ -45,7 +47,7 @@ struct TestApp(ECS) {
 		vertexShader = device.createShader(vertexSource);
 		fragmentShader = device.createShader(fragmentSource);
 		fence = device.createFence();
-		writeln(fence.result.result);
+		createComputeShader();
 	}
 	void uploadVertexData() {
 		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -66,6 +68,24 @@ struct TestApp(ECS) {
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
 		memory.unmap();
 	}
+	void createComputeShader() {
+		enum string computeSource = import("testimage.spv");
+		computeShader = Shader(device, computeSource);
+		descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		)));
+		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), []);
+		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, [], 0, null, null, null);
+		descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1
+		)));
+		descriptorSet = descriptorPool.allocateSet(descriptorSetLayout);
+	}
 	void initWindow() {
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
@@ -78,7 +98,7 @@ struct TestApp(ECS) {
 			VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 			capabilities.currentExtent,
 			1,
-			VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT,
 			VkSharingMode.VK_SHARING_MODE_EXCLUSIVE,
 			[],
 			VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
@@ -208,12 +228,29 @@ struct TestApp(ECS) {
 		cmdBuffer.endRenderPass();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0, [], [],
 			array(imageMemoryBarrier(
 				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				0,
+				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
 				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				swapchain.images[imageIndex],
+				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+			))
+		);
+		descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
+		cmdBuffer.dispatch(1, 1, 1);
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+			0, [], [],
+			array(imageMemoryBarrier(
+				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+				0,
+				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
 				VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				swapchain.images[imageIndex],
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
@@ -244,6 +281,13 @@ struct TestApp(ECS) {
 	GraphicsPipeline graphicsPipeline;
 	Fence fence;
 	VkSurfaceCapabilitiesKHR capabilities;
+	
+	Shader computeShader;
+	DescriptorSetLayout descriptorSetLayout;
+	PipelineLayout pipelineLayout;
+	ComputePipeline computePipeline;
+	DescriptorPool descriptorPool;
+	DescriptorSet descriptorSet;
 }
 
 struct TestController(Args...) {

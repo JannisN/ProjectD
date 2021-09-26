@@ -1763,8 +1763,10 @@ struct DescriptorSet {
 	}
 	@disable this(ref return scope DescriptorSet rhs);
 	~this() {
-		if (descriptorPool.setsFreeable && descriptorSet != null) {
-			vkFreeDescriptorSets(descriptorPool.device.device, descriptorPool.descriptorPool, 1, &descriptorSet);
+		if (descriptorPool != null && descriptorSet != null) {
+			if (descriptorPool.setsFreeable) {
+				vkFreeDescriptorSets(descriptorPool.device.device, descriptorPool.descriptorPool, 1, &descriptorSet);
+			}
 		}
 	}
 	void write(VkWriteDescriptorSet[] writes) {
