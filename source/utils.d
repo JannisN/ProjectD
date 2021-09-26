@@ -246,7 +246,6 @@ void copyTest2(T)() {
 }
 
 auto getCopyableType(T)() {
-	//pragma(msg, T.stringof);
 	static if (!__traits(compiles, copyTest2!T())) {
 		return getCopyableType!(typeof(__traits(getMember, T, __traits(getAliasThis, T)[0])))();
 	} else {
@@ -930,13 +929,10 @@ struct TypeSeqStruct(Args...) {
 }
 
 template ApplyTypeSeq(alias Func, Args...) {
-	pragma(msg, Func);
 	static if (Args.length == 0) {
 		alias ApplyTypeSeq = TypeSeq!();
-		//pragma(msg, ApplyTypeSeq);
 	} else {
 		alias ApplyTypeSeq = TypeSeq!(Func!(Args[0]), ApplyTypeSeq!(Func, Args[1 .. Args.length]));
-		//pragma(msg, ApplyTypeSeq);
 	}
 }
 

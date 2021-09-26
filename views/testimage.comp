@@ -1,16 +1,10 @@
 #version 450 core
+
+layout (push_constant) uniform mypc_t {
+	float t;
+} mypc;
 layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
 
 void main() {
-	//texelFetch(texelBuffer, 6) = ivec4(255, 255, 255, 255);
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(sin(int(gl_GlobalInvocationID.x) * 0.01 + int(gl_GlobalInvocationID.y) * 0.01), 1.0, 1.0, 1.0));
-	/*
-	imageStore(texelBuffer, ivec2(2, 3), vec4(1, 1, 1, 0));
-	imageStore(texelBuffer, ivec2(3, 2), vec4(0, 0, 1, 1));
-	imageStore(texelBuffer, ivec2(3, 3), vec4(1, 1, 1, 255));;
-	imageStore(texelBuffer, ivec2(4, 2), vec4(1.0, 1.0, 1.0, 1.0));
-	imageStore(texelBuffer, ivec2(4, 3), vec4(1, 1, 1, 0));
-	imageStore(texelBuffer, ivec2(4, 2), vec4(0, 0, 1, 1));
-	imageStore(texelBuffer, ivec2(4, 3), vec4(1, 1, 1, 255));
-	*/
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(sin(int(gl_GlobalInvocationID.x) * 0.01 + int(gl_GlobalInvocationID.y) * 0.01 + mypc.t * 5), 1.0, 1.0, 1.0));
 }

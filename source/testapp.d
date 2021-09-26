@@ -7,11 +7,7 @@ import ecs;
 
 struct TestApp(ECS) {
 	ECS* ecs;
-	~this() {
-
-	}
 	void initialize(ref ECS ecs) {
-		//pragma(msg, Sender);
 		this.ecs = &ecs;
 		initVulkan();
 		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
@@ -21,7 +17,6 @@ struct TestApp(ECS) {
 		writeln("event");
 	}
 	void receive(WindowResizeEvent event) {
-		writeln("resize");
 		initWindow();
 	}
 	void initVulkan() {
@@ -48,6 +43,7 @@ struct TestApp(ECS) {
 		fragmentShader = device.createShader(fragmentSource);
 		fence = device.createFence();
 		createComputeShader();
+		timer.update();
 	}
 	void uploadVertexData() {
 		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -78,7 +74,7 @@ struct TestApp(ECS) {
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
 		)));
-		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), []);
+		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)));
 		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, [], 0, null, null, null);
 		descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -112,7 +108,7 @@ struct TestApp(ECS) {
 				0,
 				VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
 				VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
-				VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
+				VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,//VK_ATTACHMENT_LOAD_OP_CLEAR
 				VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
 				VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 				VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -210,13 +206,32 @@ struct TestApp(ECS) {
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0, [], [],
 			array(imageMemoryBarrier(
 				0,
-				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
 				VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
 				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				swapchain.images[imageIndex],
+				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+			))
+		);
+		passedTime += timer.update();
+		descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
+		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof, &passedTime);
+		cmdBuffer.dispatch(capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, [], [],
+			array(imageMemoryBarrier(
+				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				swapchain.images[imageIndex],
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
@@ -228,29 +243,12 @@ struct TestApp(ECS) {
 		cmdBuffer.endRenderPass();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0, [], [],
-			array(imageMemoryBarrier(
-				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-				swapchain.images[imageIndex],
-				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-			))
-		);
-		descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
-		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
-		cmdBuffer.dispatch(capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
-		cmdBuffer.pipelineBarrier(
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			0, [], [],
 			array(imageMemoryBarrier(
-				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+				VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				0,
-				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				swapchain.images[imageIndex],
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
@@ -288,6 +286,8 @@ struct TestApp(ECS) {
 	ComputePipeline computePipeline;
 	DescriptorPool descriptorPool;
 	DescriptorSet descriptorSet;
+	Timer timer;
+	float passedTime = 0;
 }
 
 struct TestController(Args...) {

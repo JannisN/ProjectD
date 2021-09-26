@@ -122,7 +122,6 @@ template FindCompatibleTypesMultipleWithType(alias ECS, alias TS, size_t index, 
 	} else {
 
 		//alias FindCompatibleTypesMultipleWithType = TypeSeq!();
-		pragma(msg, "blablabla", ECS, TS, MainTypes.TypeSeq[0], Args[0].TypeSeq);
 		static if (CheckIfAllTypesContainedWithType!(ECS, TS, MainTypes.TypeSeq[0], Args[0].TypeSeq)) {
 			//alias FindCompatibleTypesMultipleWithType = TypeSeq!();
 			alias FindCompatibleTypesMultipleWithType = TypeSeq!(index, FindCompatibleTypesMultipleWithType!(ECS, TS, index + 1, TypeSeqStruct!(MainTypes.TypeSeq[1 .. Args.length]), Args[1 .. Args.length]));
@@ -161,14 +160,11 @@ struct StaticECS(Args...) {
 		alias InfoType = Info.Type;
 		alias DataStruct = Info.DataStructure;
 		//alias Together = Info.DataStructure!(InfoType!());
-		pragma(msg, "compiles: ", __traits(compiles, Info.DataStructure!(InfoType!())));
 		static if (__traits(compiles, Info.DataStructure!(InfoType!()))) {
 			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType!());
-			pragma(msg, "ohne");
 			//pragma(msg, GetTypeDataStructureFromInfo);
 		} else {
 			alias GetTypeDataStructureFromInfo = Info.DataStructure!(InfoType!(StaticECS!Args));
-			pragma(msg, "template");
 			//pragma(msg, GetTypeDataStructureFromInfo);
 		}
 	}
@@ -183,9 +179,6 @@ struct StaticECS(Args...) {
 
 	ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args) entities;
 	alias totest = ApplyTypeSeq!(GetTypeDataStructureFromInfo, Args);
-	pragma(msg, "type of ", totest);
-	pragma(msg, "raw types ", RawTypes);
-	pragma(msg, "the types ", Types);
 
 	template findTypes(alias T) {
 		static if(__traits(compiles, FindMatchingTypes!(T, 0, Types))) {
