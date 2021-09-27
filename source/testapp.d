@@ -44,6 +44,10 @@ struct TestApp(ECS) {
 		fence = device.createFence();
 		createComputeShader();
 		timer.update();
+		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
+		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[0]);
+		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[1]);
+		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 	}
 	void uploadVertexData() {
 		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -75,7 +79,13 @@ struct TestApp(ECS) {
 			null
 		)));
 		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)));
-		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, [], 0, null, null, null);
+		import core.stdc.math : sqrt;
+		int size2D = cast(int) sqrt(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
+		localWorkGroupSize[0] = size2D;
+		localWorkGroupSize[1] = size2D;
+		localWorkGroupSize[2] = 1;
+		writeln(localWorkGroupSize);
+		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
 		descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1
@@ -218,11 +228,14 @@ struct TestApp(ECS) {
 			))
 		);
 		passedTime += timer.update();
+		//writeln(passedTime);
 		descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
 		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof, &passedTime);
-		cmdBuffer.dispatch(capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		int borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
+		int borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
+		cmdBuffer.dispatch(capabilities.currentExtent.width / localWorkGroupSize[0] + borderX, capabilities.currentExtent.height / localWorkGroupSize[1] + borderY, 1);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -288,6 +301,7 @@ struct TestApp(ECS) {
 	DescriptorSet descriptorSet;
 	Timer timer;
 	float passedTime = 0;
+	int[3] localWorkGroupSize;
 }
 
 struct TestController(Args...) {
