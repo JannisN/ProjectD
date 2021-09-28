@@ -191,9 +191,15 @@ struct TestApp(ECS) {
 		);
 		auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
 		VkPipelineColorBlendAttachmentState blendAttachment;
-		blendAttachment.blendEnable = false;
+		blendAttachment.blendEnable = VK_TRUE;
 		blendAttachment.colorWriteMask = 0xf;
-		auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_COPY, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+		blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+		blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+		//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+		//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
+		//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+		auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
 
 		auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
 		graphicsPipeline = renderPass.createGraphicsPipeline(
