@@ -36,12 +36,16 @@ struct TestApp(ECS) {
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
 		queue = &device.queues[0];
+		fence = device.createFence();
+
+		uploadBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		memoryAllocator.allocate(uploadBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
 		uploadVertexData();
 		enum string vertexSource = import("a.spv");
 		enum string fragmentSource = import("frag.spv");
 		vertexShader = device.createShader(vertexSource);
 		fragmentShader = device.createShader(fragmentSource);
-		fence = device.createFence();
 		createComputeShader();
 		timer.update();
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
@@ -50,9 +54,10 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 	}
 	void uploadVertexData() {
-		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
-		memoryAllocator.allocate(vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
+		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
+		//Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
 		float[] vertex_positions = [
 			0, 0, 0.6, 1,
 			0, 0.5, 0.6, 1,
@@ -67,6 +72,14 @@ struct TestApp(ECS) {
 		}
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
 		memory.unmap();
+
+		cmdBuffer.begin();
+		cmdBuffer.copyBuffer(uploadBuffer, 0, vertexBuffer, 0, 1024);
+		cmdBuffer.end();
+		queue.submit(cmdBuffer, fence);
+		fence.wait();
+		cmdBuffer.reset();
+		fence.reset();
 	}
 	void createComputeShader() {
 		enum string computeSource = import("testimage.spv");
@@ -308,6 +321,8 @@ struct TestApp(ECS) {
 	Timer timer;
 	float passedTime = 0;
 	int[3] localWorkGroupSize;
+
+	AllocatedResource!Buffer uploadBuffer;
 }
 
 struct TestController(Args...) {
