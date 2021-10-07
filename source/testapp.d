@@ -4,6 +4,7 @@ import utils;
 import vulkan_core;
 import functions;
 import ecs;
+import png;
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -38,7 +39,7 @@ struct TestApp(ECS) {
 		queue = &device.queues[0];
 		fence = device.createFence();
 
-		uploadBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		uploadBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024 * 16 * 16, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 		memoryAllocator.allocate(uploadBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 		uploadVertexData();
@@ -52,6 +53,44 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[0]);
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[1]);
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
+
+		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+			null
+		)));
+		graphicsDescriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+			1
+		)));
+		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
+		writeln(graphicsDescriptorSet.result.result);
+		writeln(graphicsDescriptorSet.descriptorPool);
+		/*auto testview = ImageView(
+			device,
+			fontTexture,
+			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+			VkComponentMapping(
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+			),
+			VkImageSubresourceRange(
+				VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+				0,
+				1,
+				0,
+				1
+			)
+		);*/
+
+		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
+		writeln("hallo");
 	}
 	void uploadVertexData() {
 		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -73,13 +112,58 @@ struct TestApp(ECS) {
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
 		memory.unmap();
 
+		enum string pngData = import("free_pixel_regular_16test.PNG");
+		pngFont = Png(pngData);
+		fontTexture = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(pngFont.width, pngFont.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		memoryAllocator.allocate(fontTexture, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		char* charptr = cast(char*) memory.map(1024, pngFont.byteCount);
+		foreach (i; 1024 .. pngFont.byteCount) {
+			charptr[i] = pngFont.content[i - 1024];
+		}
+		
+		memory.flush(array(mappedMemoryRange(*memory, 1024, /*1024 + pngFont.byteCount*/ VK_WHOLE_SIZE)));
+		memory.unmap();
+
 		cmdBuffer.begin();
 		cmdBuffer.copyBuffer(uploadBuffer, 0, vertexBuffer, 0, 1024);
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+			0, [], [],
+			array(imageMemoryBarrier(
+				0,
+				0,
+				VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				fontTexture,
+				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+			))
+		);
+		cmdBuffer.copyBufferToImage(uploadBuffer, fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, 1024, pngFont.width, pngFont.height, VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1), VkOffset3D(0, 0, 0), VkExtent3D(pngFont.width, pngFont.height, 1));
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		cmdBuffer.reset();
 		fence.reset();
+		fontImageView = ImageView(
+			device,
+			fontTexture,
+			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+			VkComponentMapping(
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+			),
+			VkImageSubresourceRange(
+				VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+				0,
+				1,
+				0,
+				1
+			)
+		);
 	}
 	void createComputeShader() {
 		enum string computeSource = import("testimage.spv");
@@ -214,7 +298,6 @@ struct TestApp(ECS) {
 		//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
 		auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
 
-		auto pipelineLayoutGraphics = device.createPipelineLayout([], []);
 		graphicsPipeline = renderPass.createGraphicsPipeline(
 			vertStage,
 			fragStage,
@@ -323,6 +406,13 @@ struct TestApp(ECS) {
 	int[3] localWorkGroupSize;
 
 	AllocatedResource!Buffer uploadBuffer;
+	AllocatedResource!Image fontTexture;
+	Png pngFont;
+	ImageView fontImageView;
+	DescriptorSetLayout graphicsDescriptorSetLayout;
+	PipelineLayout pipelineLayoutGraphics;
+	DescriptorPool graphicsDescriptorPool;
+	DescriptorSet graphicsDescriptorSet;
 }
 
 struct TestController(Args...) {
@@ -614,7 +704,8 @@ void main() {
 		writeln(e.id);
 		foreach (ref f; e.components.iterate) {
 			writeln(f.type);
-		}
+		}fontTexture = AllocatedResource!Image(device.createImage())
+				
 	}
 }
 

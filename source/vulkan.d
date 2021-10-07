@@ -2454,6 +2454,10 @@ struct MemoryAllocator {
 		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size);
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
 	}
+	void allocate(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags) {
+		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size);
+		image.bind(image.allocatedMemory.allocatorList.memory, image.allocatedMemory.allocation.t.offset);
+	}
 }
 
 // ----------------------------------------------------------
