@@ -56,41 +56,18 @@ struct TestApp(ECS) {
 
 		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
 			0,
-			VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
 			null
 		)));
 		graphicsDescriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
-			VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1
 		)));
 		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
-		writeln(graphicsDescriptorSet.result.result);
-		writeln(graphicsDescriptorSet.descriptorPool);
-		/*auto testview = ImageView(
-			device,
-			fontTexture,
-			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
-			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
-			VkComponentMapping(
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
-			),
-			VkImageSubresourceRange(
-				VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
-				0,
-				1,
-				0,
-				1
-			)
-		);*/
-
-		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
-		writeln("hallo");
 	}
 	void uploadVertexData() {
 		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -114,7 +91,7 @@ struct TestApp(ECS) {
 
 		enum string pngData = import("free_pixel_regular_16test.PNG");
 		pngFont = Png(pngData);
-		fontTexture = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(pngFont.width, pngFont.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		fontTexture = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(pngFont.width, pngFont.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(fontTexture, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		char* charptr = cast(char*) memory.map(1024, pngFont.byteCount);
 		foreach (i; 1024 .. pngFont.byteCount) {
@@ -352,6 +329,7 @@ struct TestApp(ECS) {
 			))
 		);
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
 		cmdBuffer.draw(6, 2, 0, 0);
