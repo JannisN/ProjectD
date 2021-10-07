@@ -89,13 +89,14 @@ struct TestApp(ECS) {
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
 		memory.unmap();
 
-		enum string pngData = import("free_pixel_regular_16test.PNG");
+		enum string pngData = import("test.PNG");
 		pngFont = Png(pngData);
 		fontTexture = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(pngFont.width, pngFont.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(fontTexture, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		char* charptr = cast(char*) memory.map(1024, pngFont.byteCount * pngFont.height * pngFont.width);
 		foreach (i; 0 .. pngFont.byteCount * pngFont.height * pngFont.width) {
-			charptr[i] = pngFont.content[i];
+			charptr[i] = 255;
+			//charptr[i] = pngFont.content[i];
 		}
 		
 		memory.flush(array(mappedMemoryRange(*memory, 1024, /*1024 + pngFont.byteCount*/ VK_WHOLE_SIZE)));
