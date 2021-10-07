@@ -118,7 +118,7 @@ struct TestApp(ECS) {
 			))
 		);
 		cmdBuffer.copyBufferToImage(uploadBuffer, fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, 1024, pngFont.width, pngFont.height, VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1), VkOffset3D(0, 0, 0), VkExtent3D(pngFont.width, pngFont.height, 1));
-		cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(1.0f, 0, 0, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
+		cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(1.0f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
