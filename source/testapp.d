@@ -153,6 +153,12 @@ struct TestApp(ECS) {
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
+		), VkDescriptorSetLayoutBinding(
+			1,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
 		)));
 		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)));
 		import core.stdc.math : sqrt;
@@ -163,6 +169,9 @@ struct TestApp(ECS) {
 		writeln(localWorkGroupSize);
 		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
 		descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1
+		), VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1
 		)));
@@ -310,7 +319,7 @@ struct TestApp(ECS) {
 		);
 		passedTime += timer.update();
 		//writeln(passedTime);
-		descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL), WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL)));
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
 		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof, &passedTime);
@@ -331,7 +340,7 @@ struct TestApp(ECS) {
 			))
 		);
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
-		cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(1.0f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
+		cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(0.5f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));

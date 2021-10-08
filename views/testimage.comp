@@ -7,9 +7,10 @@ layout (push_constant) uniform mypc_t {
 	float t;
 } mypc;
 layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
+layout (set = 0, binding = 1, rgba32f) uniform image2D texelBuffer2;
 
 void main() {
 	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(sin(
 		sqrt((int(gl_GlobalInvocationID.x) * 0.01) * (int(gl_GlobalInvocationID.x) * 0.01) + (int(gl_GlobalInvocationID.y) * 0.01) * (int(gl_GlobalInvocationID.y) * 0.01))
-		- mypc.t * 5), 1.0, 1.0, 1.0));
+		- mypc.t * 5), imageLoad(texelBuffer2, ivec2(2, 2)).x, 1.0, 1.0));
 }
