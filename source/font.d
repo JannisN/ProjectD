@@ -1,5 +1,7 @@
 module font;
 
+import utils;
+
 struct BitfontLetter {
 	uint width;
 	uint offsetX, offsetY;
@@ -9,6 +11,57 @@ struct BitfontLetter {
 struct AsciiBitfont {
 	uint height;
 	BitfontLetter[256] letters;
+	Vector!float createText(string text) {
+		Vector!float ret;
+		ret.resize(36 * letters.length);
+		uint offset = 0;
+		foreach (i, char e; text) {
+			ret[i * 36] = offset + letters[e].offsetX;
+			ret[i * 36 + 1] = letters[e].offsetY;
+			ret[i * 36 + 2] = 0.6;
+			ret[i * 36 + 3] = 1;
+			ret[i * 36 + 4] = letters[e].texX;
+			ret[i * 36 + 5] = letters[e].texY;
+
+			ret[i * 36 + 6] = offset + letters[e].offsetX + letters[e].texWidth;
+			ret[i * 36 + 6 + 1] = letters[e].offsetY;
+			ret[i * 36 + 6 + 2] = 0.6;
+			ret[i * 36 + 6 + 3] = 1;
+			ret[i * 36 + 6 + 4] = letters[e].texX + letters[e].texWidth;
+			ret[i * 36 + 6 + 5] = letters[e].texY;
+
+			ret[i * 36 + 12] = offset + letters[e].offsetX;
+			ret[i * 36 + 12 + 1] = letters[e].offsetY + letters[e].texHeight;
+			ret[i * 36 + 12 + 2] = 0.6;
+			ret[i * 36 + 12 + 3] = 1;
+			ret[i * 36 + 12 + 4] = letters[e].texX;
+			ret[i * 36 + 12 + 5] = letters[e].texY + letters[e].texHeight;
+			
+			ret[i * 36 + 18] = offset + letters[e].offsetX;
+			ret[i * 36 + 18 + 1] = letters[e].offsetY + letters[e].texHeight;
+			ret[i * 36 + 18 + 2] = 0.6;
+			ret[i * 36 + 18 + 3] = 1;
+			ret[i * 36 + 18 + 4] = letters[e].texX;
+			ret[i * 36 + 18 + 5] = letters[e].texY + letters[e].texHeight;
+
+			ret[i * 36 + 24] = offset + letters[e].offsetX + letters[e].texWidth;
+			ret[i * 36 + 24 + 1] = letters[e].offsetY;
+			ret[i * 36 + 24 + 2] = 0.6;
+			ret[i * 36 + 24 + 3] = 1;
+			ret[i * 36 + 24 + 4] = letters[e].texX + letters[e].texWidth;
+			ret[i * 36 + 24 + 5] = letters[e].texY;
+
+			ret[i * 36 + 30] = offset + letters[e].offsetX + letters[e].texWidth;
+			ret[i * 36 + 30 + 1] = letters[e].offsetY + letters[e].texHeight;
+			ret[i * 36 + 30 + 2] = 0.6;
+			ret[i * 36 + 30 + 3] = 1;
+			ret[i * 36 + 30 + 4] = letters[e].texX + letters[e].texWidth;
+			ret[i * 36 + 30 + 5] = letters[e].texY + letters[e].texHeight;
+			
+			offset += letters[e].width;
+		}
+		return ret;
+	}
 	this(string xmlFont) {
 		ulong pos = 0;
 		while (pos < xmlFont.length) {

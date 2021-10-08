@@ -5,6 +5,7 @@ import vulkan_core;
 import functions;
 import ecs;
 import png;
+import font;
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -82,8 +83,11 @@ struct TestApp(ECS) {
 			0, -0.5, 0.6, 1, 127, 0,
 			-0.5, -0.5, 0.6, 1, 127, 127,
 		];
+		enum string fontfile = import("free_pixel_regular_16test.xml");
+		AsciiBitfont font = AsciiBitfont(fontfile);
+		auto vertPos = font.createText("Hal");
 		float* floatptr = cast(float*) memory.map(0, 1024);
-		foreach (i, float f; vertex_positions) {
+		foreach (i, float f; vertPos) {
 			floatptr[i] = f;
 		}
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
@@ -347,7 +351,7 @@ struct TestApp(ECS) {
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
-		cmdBuffer.draw(6, 2, 0, 0);
+		cmdBuffer.draw(18, 6, 0, 0);
 		cmdBuffer.endRenderPass();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
