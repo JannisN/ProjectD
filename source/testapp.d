@@ -340,7 +340,7 @@ struct TestApp(ECS) {
 			))
 		);
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
-		cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(0.5f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
+		//cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(0.5f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
