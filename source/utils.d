@@ -849,6 +849,12 @@ struct LinkedList(T) {
 			current.previous.next = current.next;
 		if (current.next != null)
 			current.next.previous = current.previous;
+		if (first == current) {
+			first = first.next;
+		}
+		if (last == current) {
+			last = last.previous;
+		}
 		destroy(*current);
 		free(cast(void*)current);
 		length--;
@@ -860,12 +866,19 @@ struct LinkedList(T) {
 				current.previous.next = current.next;
 			if (current.next != null)
 				current.next.previous = current.previous;
+			if (first == current) {
+				first = first.next;
+			}
+			if (last == current) {
+				last = last.previous;
+			}
 			destroy(*current);
 			free(cast(void*)current);
 			length--;
 		}
 		return this;
 	}
+	// todo: falls current = first oder = last
 	ref LinkedList!T insert(uint index, lazy T t) {
 		assert(index < length);
 		ListElement!T* current = first;

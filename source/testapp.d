@@ -466,7 +466,32 @@ struct DebugStruct1(ECS) {
 		this.ecs = &ecs;
 	}
 }
+
+struct CpuLocal(Resource) {
+	AllocatedResource!Resource resource;
+	alias resource this;
+	@disable this(ref return scope CpuLocal!Resource rhs);
+}
+struct GpuLocal(Resource) {
+	AllocatedResource!Resource resource;
+	alias resource this;
+	@disable this(ref return scope CpuLocal!Resource rhs);
+}
 void main() {
+	ECS ecs;
+	ecs.addView!(CpuLocal!Image)();
+	ecs.add().add!(CpuLocal!Image)();
+	ecs.add().add!(GpuLocal!Image)();
+	View* cpuView = &ecs.views.first.t;
+	foreach (e; cpuView.entities.iterate()) {
+		writeln(e);
+	}
+	foreach (ref e; ecs.entities[0 .. ecs.length]) {
+		writeln(e.id);
+		foreach (ref f; e.components.iterate) {
+			writeln(f.type);
+		}
+	}
 	TestController!(
 		Info!(GlfwVulkanWindow, DefaultDataStructure),
 		Info!(TestApp, DefaultDataStructure),

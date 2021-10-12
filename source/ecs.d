@@ -304,40 +304,89 @@ struct Component {
 }
 
 struct ECSEntry {
-	size_t id;
+	size_t id = ~0UL;
 	LinkedList!Component components;
+	LinkedList!(View*) inViews;
+	LinkedList!(ListElement!size_t*) elementPtr;
+	// vorsicht wegen ECS pointer wenn ecs auf stack gespeichert ist
+	ECS* ecs;
+	void updateViews() {
+		foreach (ref e; ecs.views.iterate()) {
+			bool alreadyExists = false;
+			foreach (v; inViews.iterate()) {
+				if (v == &e) {
+					alreadyExists = true;
+					break;
+				}
+			}
+			if (alreadyExists) {
+				break;
+			}
+			bool ok = true;
+			foreach (t; e.types) {
+				bool found = false;
+				foreach (ref c; components.iterate()) {
+					if (c.type == t) {
+						found = true;
+					}
+				}
+				if (found == false) {
+					ok = false;
+					break;
+				}
+			}
+			if (ok) {
+				ListElement!size_t* element = e.entities.add(id).last;
+				inViews.add(&e);
+				elementPtr.add(element);
+			}
+		}
+	}
+	~this() { 
+		foreach (ref e; inViews.iterate()) {
+			e.entities.remove(*elementPtr.first);
+			elementPtr.remove(elementPtr.first);
+		}
+	}
 	ref ECSEntry add(T)() if (!is(T == class) && !is(T == interface)) {
 		void* data = malloc(T.sizeof);
 		emplace(cast(T*)data);
 		components.add(Component(T.stringof, false, data));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry add(T)() if (is(T == class)) {
 		void* data = malloc(S!T.sizeof);
 		emplace(cast(S!T*)data);
 		components.add(Component(T.stringof, false, data));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry add(T)(T t) if (!is(T == class) && !is(T == interface)) {
 		void* data = malloc(T.sizeof);
 		*(cast(T*)data) = t;
 		components.add(Component(T.stringof, false, data));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry addRef(T)() if (!is(T == class) && !is(T == interface)) {
 		components.add(Component(T.stringof, true, null));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry addRef(T)() if (is(T == class) || is(T == interface)) {
 		components.add(Component(T.stringof, true, null));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry addRef(T)(T* t) if (!is(T == class) && !is(T == interface)) {
 		components.add(Component(T.stringof, true, cast(void*) t));
+		updateViews();
 		return this;
 	}
 	ref ECSEntry addRef(T)(T t) if (is(T == class) || is(T == interface)) {
 		components.add(Component(T.stringof, true, cast(void*) t));
+		updateViews();
 		return this;
 	}
 	ref T get(T)() if (!is(T == class) && !is(T == interface)) {
@@ -375,30 +424,63 @@ struct ECSEntry {
 				components.remove(i);
 			}
 		}
+		foreach (ref e; inViews.iterate()) {
+			bool ok = true;
+			foreach (t; e.types) {
+				bool found = false;
+				foreach (c; components.iterate()) {
+					if (c.type == t) {
+						found = true;
+					}
+				}
+				if (found == false) {
+					ok = false;
+					break;
+				}
+			}
+			if (ok) {
+				e.entities.remove(elementPtr.get(0));
+			}
+		}
 		return this;
 	}
 }
 
+struct View {
+	Vector!string types;
+	LinkedList!size_t entities;
+}
 // verbessern mit views für performance, und erstellung von StaticECS
 // vlt views erstellen mit funktionen die ausgeführt werden falls element hinzugefügt oder gelöscht wird
 // performance kann auch verbessert werden wenn man mehrere objekte mit gleichen components austattet
 struct ECS {
 	enum size_t sizeIncrement = 100;
 	size_t length;
-	Vector!ECSEntry entities;
 	LinkedList!size_t emptyEntries;
+	LinkedList!View views;
+	Vector!ECSEntry entities;
+	ref ECS addView(T...)() {
+		views.add();
+		views.last.t.types.resize(T.length);
+		static foreach(i, E; T) {
+			views.last.t.types[i] = E.stringof;
+		}
+		return this;
+	}
 	ref ECSEntry add() {
 		if (emptyEntries.length == 0) {
 			if (length >= entities.length) {
 				entities.resize(entities.length + sizeIncrement);
 			}
 			entities[length].id = length;
+			entities[length].ecs = &this;
 			length++;
 			return entities[length - 1];
 		} else {
 			size_t id = emptyEntries.get(0);
 			emptyEntries.remove(0);
 			entities[id].id = id;
+			entities[id].ecs = &this;
 			return entities[id];
 		}
 	}
