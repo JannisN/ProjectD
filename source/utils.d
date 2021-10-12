@@ -878,13 +878,24 @@ struct LinkedList(T) {
 		}
 		return this;
 	}
-	// todo: falls current = first oder = last
 	ref LinkedList!T insert(uint index, lazy T t) {
 		assert(index < length);
 		ListElement!T* current = first;
-		for (int i = 0; i < cast(int)index; i++) {
+		for (int i = 0; i < cast(int)index - 1; i++) {
 			current = current.next;
 		}
+		if (index == 0) {
+			if (first != null) {
+				insertBefore(first, t);
+			} else {
+				add(t);
+			}
+		} else {
+			insertAfter(current, t);
+		}
+		/*
+		if (current != first)
+		{
 		ListElement!T* previousElement = current.previous;
 		previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
 		emplace(previousElement.next);
@@ -892,26 +903,51 @@ struct LinkedList(T) {
 		previousElement.next.previous = previousElement;
 		previousElement.next.next = current;
 		current.previous = previousElement.next;
+		}*/
 		return this;
 	}
 	ref LinkedList!T insertBefore(ListElement!T* current, lazy T t) {
-		ListElement!T* previousElement = current.previous;
+		/*ListElement!T* previousElement = current.previous;
 		previousElement.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
 		emplace(previousElement.next);
 		previousElement.next.t = t();
 		previousElement.next.previous = previousElement;
 		previousElement.next.next = current;
 		current.previous = previousElement.next;
+		*/
+		auto previous = current.previous;
+		current.previous = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+		emplace(current.previous);
+		current.previous.t = t();
+		current.previous.next = current;
+		current.previous.previous = previous;
+		if (previous != null) {
+			previous.next = current.previous;
+		} else {
+			first = current.previous;
+		}
 		return this;
 	}
 	ref LinkedList!T insertAfter(ListElement!T* current, lazy T t) {
-		ListElement!T* nextElement = current.next;
+		/*ListElement!T* nextElement = current.next;
 		nextElement.previous = cast(ListElement!T*) malloc(ListElement!T.sizeof);
 		emplace(nextElement.previous);
 		nextElement.previous.t = t();
 		nextElement.previous.previous = current;
 		nextElement.previous.next = nextElement;
 		current.next = nextElement.previous;
+		*/
+		auto next = current.next;
+		current.next = cast(ListElement!T*) malloc(ListElement!T.sizeof);
+		emplace(current.next);
+		current.next.t = t();
+		current.next.previous = current;
+		current.next.next = next;
+		if (next != null) {
+			next.previous = current.next;
+		} else {
+			last = current.next;
+		}
 		return this;
 	}
 	@property LinkedListIterate!T iterate() {

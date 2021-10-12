@@ -343,9 +343,11 @@ struct ECSEntry {
 		}
 	}
 	~this() { 
+		auto current = elementPtr.first;
 		foreach (ref e; inViews.iterate()) {
-			e.entities.remove(*elementPtr.first);
-			elementPtr.remove(elementPtr.first);
+			e.entities.remove(*current);
+			elementPtr.remove(current);
+			current = current.next;
 		}
 	}
 	ref ECSEntry add(T)() if (!is(T == class) && !is(T == interface)) {
