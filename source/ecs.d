@@ -346,7 +346,7 @@ struct ECSEntry {
 		auto current = elementPtr.first;
 		foreach (ref e; inViews.iterate()) {
 			e.entities.remove(*current);
-			elementPtr.remove(current);
+			//elementPtr.remove(current);
 			current = current.next;
 		}
 	}
@@ -421,9 +421,15 @@ struct ECSEntry {
 	}
 	// am besten ohne i, sondern mit pointer zum entry, sonst wird doppelt gesucht
 	ref ECSEntry remove(T)() {
-		foreach (i, ref e; components.iterate) {
+		/*foreach (i, ref e; components.iterate) {
 			if (e.type == T.stringof) {
 				components.remove(i);
+			}
+		}*/
+		auto current = components.first;
+		while (current != null) {
+			if (current.t.type == T.stringof) {
+				components.remove(current);
 			}
 		}
 		foreach (ref e; inViews.iterate()) {
@@ -452,11 +458,9 @@ struct View {
 	Vector!string types;
 	LinkedList!size_t entities;
 }
-// verbessern mit views für performance, und erstellung von StaticECS
-// vlt views erstellen mit funktionen die ausgeführt werden falls element hinzugefügt oder gelöscht wird
-// performance kann auch verbessert werden wenn man mehrere objekte mit gleichen components austattet
+
 struct ECS {
-	enum size_t sizeIncrement = 100;
+	size_t sizeIncrement = 100;
 	size_t length;
 	LinkedList!size_t emptyEntries;
 	LinkedList!View views;
@@ -493,8 +497,25 @@ struct ECS {
 	ref ECSEntry get(size_t id) {
 		return entities[id];
 	}
+	LinkedList!size_t get(T...)() {
+		LinkedList!size_t foundEntries;
+		foreach (i; 0 .. length) {
+			int found = 0;
+			foreach (ref e; entities[i].components.iterate) {
+				static foreach (E; T) {
+					if (e.type == E.stringof) {
+						found++;
+					}
+				}
+			}
+			if (found == T.length) {
+				foundEntries.add(i);
+			}
+		}
+		return foundEntries;
+	}
 	// hier ebenfalls ändern um nur einmal zu suchen
-	Vector!size_t get(T...)() {
+	/*Vector!size_t get(T...)() {
 		size_t foundSize;
 		foreach (i; 0 .. length) {
 			int found = 0;
@@ -524,6 +545,203 @@ struct ECS {
 			if (found == T.length) {
 				foundEntries[index] = i;
 				index++;
+			}
+		}
+		return foundEntries;
+	}*/
+}
+
+struct StaticViewECSEntry(T...) {
+	size_t id = ~0UL;
+	StaticViewECS!T* ecs;
+	ListElement!size_t*[T.length] elementPtr;
+	LinkedList!Component components;
+	~this() { 
+		foreach (i, e; elementPtr) {
+			if (e != null) {
+				ecs.views[i].remove(e);
+			}
+		}
+	}
+	void updateViews(U)() {
+		static foreach (i, TS; T) {
+			static if (countType!(U, TS.TypeSeq) > 0) {
+				static if (Ts.TypeSeq.length == 1) {
+					elementPtr[i] = &ecs.views[i].add(id).last;
+				} else {
+					bool ok = true;
+					static foreach (Type; TS.TypeSeq) {
+						bool found = false;
+						foreach (ref c; components.iterate()) {
+							if (c.type == Type.stringof) {
+								found = true;
+							}
+						}
+						if (!found) {
+							ok = false;
+						}
+					}
+					if (ok) {
+						elementPtr[i] = &ecs.views[i].add(id).last;
+					}
+				}
+			}
+		}
+	}
+	ref StaticViewECSEntry!T remove(U)() {
+		auto current = components.first;
+		while (current != null) {
+			if (current.t.type == U.stringof) {
+				components.remove(current);
+			}
+		}
+		static foreach (i, TS; T) {
+			static if (countType!(U, TS.TypeSeq) > 0) {
+				if (elementPtr[i] != null) {
+					ecs.views[i].remove(elementPtr[i]);
+				}
+			}
+		}
+		return this;
+	}
+	ref StaticViewECSEntry!T add(U)() if (!is(U == class) && !is(U == interface)) {
+		void* data = malloc(U.sizeof);
+		emplace(cast(U*)data);
+		components.add(Component(U.stringof, false, data));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T add(U)() if (is(U == class)) {
+		void* data = malloc(S!U.sizeof);
+		emplace(cast(S!U*)data);
+		components.add(Component(U.stringof, false, data));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T add(U)(U t) if (!is(U == class) && !is(U == interface)) {
+		void* data = malloc(U.sizeof);
+		*(cast(U*)data) = t;
+		components.add(Component(U.stringof, false, data));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T addRef(U)() if (!is(U == class) && !is(U == interface)) {
+		components.add(Component(U.stringof, true, null));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T addRef(U)() if (is(U == class) || is(U == interface)) {
+		components.add(Component(U.stringof, true, null));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T addRef(U)(U* t) if (!is(U == class) && !is(U == interface)) {
+		components.add(Component(U.stringof, true, cast(void*) t));
+		updateViews!U();
+		return this;
+	}
+	ref StaticViewECSEntry!T addRef(U)(U t) if (is(U == class) || is(U == interface)) {
+		components.add(Component(U.stringof, true, cast(void*) t));
+		updateViews!U();
+		return this;
+	}
+	ref T get(U)() if (!is(U == class) && !is(U == interface)) {
+		foreach (ref e; components.iterate) {
+			if (e.type == U.stringof) {
+				return *(cast(T*) e.data);
+			}
+		}
+		assert(false, "Component not found");
+	}
+	T get(U)() if (is(U == class) || is(U == interface)) {
+		foreach (ref e; components.iterate) {
+			if (e.type == U.stringof) {
+				if (e.isRef) {
+					return cast(U) e.data;
+				} else {
+					return (cast(S!U*)e.data).get;
+				}
+			}
+		}
+		assert(false, "Component not found");
+	}
+	bool has(U)() {
+		foreach (ref e; components.iterate) {
+			if (e.type == U.stringof) {
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+template findView(U, T...) {
+	size_t findViewImpl() {
+		static foreach (i, TS; U.TypeSeq) {
+			static if (TS.TypeSeq.length == T.length) {
+				bool found = true;
+				static foreach (Type; TS.TypeSeq) {
+					static if (countType!(Type, T) == 0) {
+						found = false;
+					}
+				}
+				if (found) {
+					return i;
+				}
+			}
+		}
+	}
+	enum size_t findView = findViewImpl();
+}
+
+struct StaticViewECS(U...) {
+	LinkedList!size_t[U.length] views;
+	size_t sizeIncrement = 100;
+	size_t length;
+	LinkedList!size_t emptyEntries;
+	Vector!(StaticViewECSEntry!U) entities;
+	/*ref LinkedList!size_t getView(T...)() {
+		return views[findView!(TypeSeqStruct!U, T)];
+	}*/
+	// bin nicht sicher ob das alias den wert oder referenz gibt
+	alias getView(T...) = views[findView!(TypeSeqStruct!U, T)];
+	ref StaticViewECSEntry!U add() {
+		if (emptyEntries.length == 0) {
+			if (length >= entities.length) {
+				entities.resize(entities.length + sizeIncrement);
+			}
+			entities[length].id = length;
+			entities[length].ecs = &this;
+			length++;
+			return entities[length - 1];
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			entities[id].id = id;
+			entities[id].ecs = &this;
+			return entities[id];
+		}
+	}
+	void remove(size_t id) {
+		entities[id] = ECSEntry();
+		emptyEntries.add(id);
+	}
+	ref StaticViewECSEntry!U get(size_t id) {
+		return entities[id];
+	}
+	LinkedList!size_t get(T...)() {
+		LinkedList!size_t foundEntries;
+		foreach (i; 0 .. length) {
+			int found = 0;
+			foreach (ref e; entities[i].components.iterate) {
+				static foreach (E; T) {
+					if (e.type == E.stringof) {
+						found++;
+					}
+				}
+			}
+			if (found == T.length) {
+				foundEntries.add(i);
 			}
 		}
 		return foundEntries;
