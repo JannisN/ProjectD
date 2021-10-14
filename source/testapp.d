@@ -478,6 +478,15 @@ struct GpuLocal(Resource) {
 	@disable this(ref return scope CpuLocal!Resource rhs);
 }
 void main() {
+	StaticViewECS!(
+		TypeSeqStruct!(CpuLocal!Image)
+	) staticViewEcs;
+	staticViewEcs.add().add!(GpuLocal!Image)();
+	staticViewEcs.add().add!(CpuLocal!Image)();
+	LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
+	foreach (e; cpuView2.iterate()) {
+		writeln(e);
+	}
 	ECS ecs;
 	ecs.addView!(CpuLocal!Image)();
 	ecs.add().add!(CpuLocal!Image)();

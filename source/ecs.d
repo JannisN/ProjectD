@@ -145,6 +145,7 @@ struct StaticView(Args...) {
 }
 
 struct StaticECS(Args...) {
+	@disable this(ref return scope StaticECS!Args rhs);
 	template GetTypesFromInfo(Info) {
 		static if (__traits(compiles, Info.Type!())) {
 			alias GetTypesFromInfo = Info.Type;
@@ -291,6 +292,7 @@ struct Component {
 	string type;
 	bool isRef = false;
 	void* data;
+	@disable this(ref return scope Component rhs);
 	this(string type, bool isRef, void* data) {
 		this.type = type;
 		this.isRef = isRef;
@@ -310,6 +312,7 @@ struct ECSEntry {
 	LinkedList!(ListElement!size_t*) elementPtr;
 	// vorsicht wegen ECS pointer wenn ecs auf stack gespeichert ist
 	ECS* ecs;
+	@disable this(ref return scope ECSEntry rhs);
 	void updateViews() {
 		foreach (ref e; ecs.views.iterate()) {
 			bool alreadyExists = false;
@@ -465,6 +468,7 @@ struct ECS {
 	LinkedList!size_t emptyEntries;
 	LinkedList!View views;
 	Vector!ECSEntry entities;
+	@disable this(ref return scope ECS rhs);
 	ref ECS addView(T...)() {
 		views.add();
 		views.last.t.types.resize(T.length);
@@ -556,6 +560,7 @@ struct StaticViewECSEntry(T...) {
 	StaticViewECS!T* ecs;
 	ListElement!size_t*[T.length] elementPtr;
 	LinkedList!Component components;
+	@disable this(ref return scope StaticViewECSEntry!T rhs);
 	~this() { 
 		foreach (i, e; elementPtr) {
 			if (e != null) {
@@ -566,8 +571,8 @@ struct StaticViewECSEntry(T...) {
 	void updateViews(U)() {
 		static foreach (i, TS; T) {
 			static if (countType!(U, TS.TypeSeq) > 0) {
-				static if (Ts.TypeSeq.length == 1) {
-					elementPtr[i] = &ecs.views[i].add(id).last;
+				static if (TS.TypeSeq.length == 1) {
+					elementPtr[i] = ecs.views[i].add(id).last;
 				} else {
 					bool ok = true;
 					static foreach (Type; TS.TypeSeq) {
@@ -582,7 +587,7 @@ struct StaticViewECSEntry(T...) {
 						}
 					}
 					if (ok) {
-						elementPtr[i] = &ecs.views[i].add(id).last;
+						elementPtr[i] = ecs.views[i].add(id).last;
 					}
 				}
 			}
@@ -690,6 +695,7 @@ template findView(U, T...) {
 				}
 			}
 		}
+		assert(false);
 	}
 	enum size_t findView = findViewImpl();
 }
@@ -700,11 +706,12 @@ struct StaticViewECS(U...) {
 	size_t length;
 	LinkedList!size_t emptyEntries;
 	Vector!(StaticViewECSEntry!U) entities;
-	/*ref LinkedList!size_t getView(T...)() {
+	@disable this(ref return scope StaticViewECS!U rhs);
+	ref LinkedList!size_t getView(T...)() {
 		return views[findView!(TypeSeqStruct!U, T)];
-	}*/
+	}
 	// bin nicht sicher ob das alias den wert oder referenz gibt
-	alias getView(T...) = views[findView!(TypeSeqStruct!U, T)];
+	//alias getView(T...) = views[findView!(TypeSeqStruct!U, T)];
 	ref StaticViewECSEntry!U add() {
 		if (emptyEntries.length == 0) {
 			if (length >= entities.length) {
@@ -723,7 +730,7 @@ struct StaticViewECS(U...) {
 		}
 	}
 	void remove(size_t id) {
-		entities[id] = ECSEntry();
+		entities[id] = StaticViewECSEntry!U();
 		emptyEntries.add(id);
 	}
 	ref StaticViewECSEntry!U get(size_t id) {

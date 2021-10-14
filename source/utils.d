@@ -59,6 +59,7 @@ struct S(T) if (is(T == class)) {
 
 struct H(T) if (is(T == class)) {
 	T data;
+	//@disable this(ref return scope H!T rhs);
 	~this() {
 		if (!__ctfe && data!is null) {
 			data.destroy();
@@ -110,6 +111,7 @@ struct H(T) if (is(T == class)) {
 
 struct H(T) if (!is(T == class)) {
 	T* data;
+	@disable this(ref return scope H!T rhs);
 	~this() {
 		if (!__ctfe && data != null) {
 			(*data).destroy();
@@ -300,6 +302,7 @@ auto move(T)(ref T t) {
 
 struct Vector(T) if (!is(T == class)) {
 	T[] t;
+	@disable this(ref return scope Vector!T rhs);
 	this(size_t size) {
 		if (__ctfe) {
 			t = new T[size];
@@ -367,6 +370,7 @@ struct Vector(T) if (!is(T == class)) {
 
 struct String {
 	char[] s;
+	@disable this(ref return scope String rhs);
 	this(size_t size) {
 		if (__ctfe) {
 			s = new char[size];
@@ -711,6 +715,7 @@ class InterfaceAdapter(T, Interface...) : Interface {
 }
 
 struct Box(T, Interface...) {
+	@disable this(ref return scope Box rhs);
 	H!(InterfaceAdapter!(T, Interface)) data;
 	alias data this;
 	this(H!(InterfaceAdapter!(T, Interface)) data) {
@@ -784,6 +789,7 @@ struct LinkedList(T) {
 	uint length;
 	ListElement!T* first;
 	ListElement!T* last;
+	@disable this(ref return scope LinkedList!T rhs);
 	~this() {
 		for (int i = 0; i < length; i++) {
 			ListElement!T* current = last.previous;
