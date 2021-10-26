@@ -829,6 +829,18 @@ struct LinkedList(T) {
 		length++;
 		return this;
 	}
+	ref LinkedList!T add(ListElement!T* current) {
+		if (length == 0) {
+			last = current;
+			first = last;
+		} else {
+			last.next = current;
+			last.next.previous = last;
+			last = last.next;
+		}
+		length++;
+		return this;
+	}
 	ref T get(uint index) {
 		assert(index < length);
 		ListElement!T* current = first;
@@ -880,6 +892,22 @@ struct LinkedList(T) {
 			}
 			destroy(*current);
 			free(cast(void*)current);
+			length--;
+		}
+		return this;
+	}
+	ref LinkedList!T removeButNotDelete(ListElement!T* current) {
+		if (current != null) {
+			if (current.previous != null)
+				current.previous.next = current.next;
+			if (current.next != null)
+				current.next.previous = current.previous;
+			if (first == current) {
+				first = first.next;
+			}
+			if (last == current) {
+				last = last.previous;
+			}
 			length--;
 		}
 		return this;

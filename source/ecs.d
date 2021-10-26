@@ -555,49 +555,76 @@ struct ECS {
 	}*/
 }
 
-struct VirtualComponent(T) {
-	T* t;
+struct VirtualComponent(T, Args...) {
+	static if (!is(U == class) && !is(U == interface)) {
+		T* t;
+	} else {
+		T t;
+	}
+	StaticViewECSEntry!Args* entry;
 	template opDispatch(string member) {
 		@property auto opDispatch() {
-			writeln("virtual");
 			mixin("return t." ~ member ~ ";");
 		}
 		@property auto opDispatch(U)(U n) {
-			writeln("virtual");
+			static if (entry.ecs.hasUpdateList!(T, member)) {
+				entry.ecs.getUpdateList!(T, member).add(entry.id);
+			}
 			mixin("t." ~ member ~ "= n;");
 			mixin("return t." ~ member ~ ";");
 		}
 	}
-	void opAssign(T rhs) {
-		*t = rhs;
-		writeln("virtual");
-	}
 }
 
-struct StaticViewECSEntry(T...) {
+struct StaticViewECSEntry(Args...) {
+	alias T = Args[0].TypeSeq; // views
 	size_t id = ~0UL;
-	StaticViewECS!T* ecs;
+	StaticViewECS!Args* ecs;
 	ListElement!size_t*[T.length] elementPtr;
 	LinkedList!Component components;
-	@disable this(ref return scope StaticViewECSEntry!T rhs);
-	~this() { 
+	@disable this(ref return scope StaticViewECSEntry!Args rhs);
+	~this() {
+		auto current = components.first;
+		static foreach (E; ecs.RemoveUpdates) {
+			while (current != null) {
+				if (current.t.type == E.stringof) {
+					components.removeButNotDelete(current);
+					ecs.getRemoveUpdateList!E.add(current);
+					break;
+				}
+				current = current.next;
+			}
+			current = components.first;
+		}
 		foreach (i, e; elementPtr) {
 			if (e != null) {
 				ecs.views[i].remove(e);
 			}
 		}
 	}
-	@property VirtualComponent!U getVirtual(U)() if (!is(U == class) && !is(U == interface)) {
-		VirtualComponent!U v;
+	@property VirtualComponent!(U, Args) get(U)() {
+		VirtualComponent!(U, Args) v;
+		v.entry = &this;
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
-				v.t = (cast(U*) e.data);
+				static if (!is(U == class) && !is(U == interface)) {
+					v.t = (cast(U*) e.data);
+				} else {
+					if (e.isRef) {
+						v.t = cast(U) e.data;
+					} else {
+						v.t = (cast(S!U*)e.data).get;
+					}
+				}
 				return v;
 			}
 		}
 		assert(false, "Component not found");
 	}
 	void updateViews(U)() {
+		static if (ecs.hasAddUpdateList!U) {
+			ecs.getAddUpdateList!U.add(id);
+		}
 		static foreach (i, TS; T) {
 			static if (countType!(U, TS.TypeSeq) > 0) {
 				static if (TS.TypeSeq.length == 1) {
@@ -622,11 +649,25 @@ struct StaticViewECSEntry(T...) {
 			}
 		}
 	}
-	ref StaticViewECSEntry!T remove(U)() {
-		auto current = components.first;
-		while (current != null) {
-			if (current.t.type == U.stringof) {
-				components.remove(current);
+	ref StaticViewECSEntry!Args remove(U)() {
+		static if (!ecs.hasRemoveUpdateList!U) {
+			auto current = components.first;
+			while (current != null) {
+				if (current.t.type == U.stringof) {
+					components.remove(current);
+					break;
+				}
+				current = current.next;
+			}
+		} else {
+			auto current = components.first;
+			while (current != null) {
+				if (current.t.type == U.stringof) {
+					components.removeButNotDelete(current);
+					ecs.getRemoveUpdateList!U.add(current);
+					break;
+				}
+				current = current.next;
 			}
 		}
 		static foreach (i, TS; T) {
@@ -638,49 +679,48 @@ struct StaticViewECSEntry(T...) {
 		}
 		return this;
 	}
-	ref StaticViewECSEntry!T add(U)() if (!is(U == class) && !is(U == interface)) {
+	ref StaticViewECSEntry!Args add(U)() if (!is(U == class) && !is(U == interface)) {
 		void* data = malloc(U.sizeof);
 		emplace(cast(U*)data);
 		components.add(Component(U.stringof, false, data));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T add(U)() if (is(U == class)) {
+	ref StaticViewECSEntry!Args add(U)() if (is(U == class)) {
 		void* data = malloc(S!U.sizeof);
 		emplace(cast(S!U*)data);
 		components.add(Component(U.stringof, false, data));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T add(U)(U t) if (!is(U == class) && !is(U == interface)) {
+	ref StaticViewECSEntry!Args add(U)(U t) if (!is(U == class) && !is(U == interface)) {
 		void* data = malloc(U.sizeof);
 		*(cast(U*)data) = t;
 		components.add(Component(U.stringof, false, data));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T addRef(U)() if (!is(U == class) && !is(U == interface)) {
+	ref StaticViewECSEntry!Args addRef(U)() if (!is(U == class) && !is(U == interface)) {
 		components.add(Component(U.stringof, true, null));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T addRef(U)() if (is(U == class) || is(U == interface)) {
+	ref StaticViewECSEntry!Args addRef(U)() if (is(U == class) || is(U == interface)) {
 		components.add(Component(U.stringof, true, null));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T addRef(U)(U* t) if (!is(U == class) && !is(U == interface)) {
+	ref StaticViewECSEntry!Args addRef(U)(U* t) if (!is(U == class) && !is(U == interface)) {
 		components.add(Component(U.stringof, true, cast(void*) t));
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!T addRef(U)(U t) if (is(U == class) || is(U == interface)) {
+	ref StaticViewECSEntry!Args addRef(U)(U t) if (is(U == class) || is(U == interface)) {
 		components.add(Component(U.stringof, true, cast(void*) t));
 		updateViews!U();
 		return this;
 	}
-	/*
-	ref U get(U)() if (!is(U == class) && !is(U == interface)) {
+	ref U getWithoutUpdate(U)() if (!is(U == class) && !is(U == interface)) {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
 				return *(cast(U*) e.data);
@@ -688,7 +728,7 @@ struct StaticViewECSEntry(T...) {
 		}
 		assert(false, "Component not found");
 	}
-	U get(U)() if (is(U == class) || is(U == interface)) {
+	U getWithoutUpdate(U)() if (is(U == class) || is(U == interface)) {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
 				if (e.isRef) {
@@ -700,7 +740,6 @@ struct StaticViewECSEntry(T...) {
 		}
 		assert(false, "Component not found");
 	}
-	*/
 	bool has(U)() {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
@@ -726,24 +765,70 @@ template findView(U, T...) {
 				}
 			}}
 		}
-		assert(false);
+		assert(false, "View not found");
 	}
 	enum size_t findView = findViewImpl();
 }
 
-struct StaticViewECS(U...) {
-	LinkedList!size_t[U.length] views;
+template findUpdateList(T, string member, Updates...) {
+	size_t findUpdateListImpl() {
+		static foreach (i, E; Updates) {
+			static if (is(T == E.TypeSeq[0]) && E.TypeSeq[1] == member) {
+				return i;
+			}
+		}
+		assert(false, "UpdateList not found");
+	}
+	enum size_t findUpdateList = findUpdateListImpl();
+}
+
+template hasUpdateListImpl(T, string member, Updates...) {
+	bool containsUpdateListImpl() {
+		bool found = false;
+		static foreach (E; Updates) {
+			static if (is(T == E.TypeSeq[0]) && E.TypeSeq[1] == member) {
+				found = true;
+			}
+		}
+		return found;
+	}
+	enum bool hasUpdateListImpl = containsUpdateListImpl();
+}
+
+template RemoveUpdatesToList(T) {
+	alias RemoveUpdatesToList = LinkedList!T;
+}
+
+struct StaticViewECS(Args...) {
+	alias Views = Args[0].TypeSeq;
+	alias Updates = Args[1].TypeSeq;
+	alias AddUpdates = Args[2].TypeSeq;
+	alias RemoveUpdates = Args[3].TypeSeq;
+	LinkedList!size_t[Updates.length] updateLists;
+	LinkedList!size_t[AddUpdates.length] addUpdateLists;
+	LinkedList!Component[RemoveUpdates.length] removeUpdateLists;
+	LinkedList!size_t[Views.length] views;
 	size_t sizeIncrement = 100;
 	size_t length;
 	LinkedList!size_t emptyEntries;
-	Vector!(StaticViewECSEntry!U) entities;
-	@disable this(ref return scope StaticViewECS!U rhs);
+	Vector!(StaticViewECSEntry!Args) entities;
+	@disable this(ref return scope StaticViewECS!Args rhs);
 	ref LinkedList!size_t getView(T...)() @property {
-		return views[findView!(TypeSeqStruct!U, T)];
+		return views[findView!(TypeSeqStruct!Views, T)];
 	}
-	// bin nicht sicher ob das alias den wert oder referenz gibt
-	//alias getView(T...) = views[findView!(TypeSeqStruct!U, T)];
-	ref StaticViewECSEntry!U add() {
+	ref LinkedList!size_t getUpdateList(T, string member)() @property {
+		return updateLists[findUpdateList!(T, member, Updates)];
+	}
+	ref LinkedList!size_t getAddUpdateList(T)() @property {
+		return addUpdateLists[findTypes!(T, AddUpdates)[0]];
+	}
+	ref LinkedList!Component getRemoveUpdateList(T)() @property {
+		return removeUpdateLists[findTypes!(T, RemoveUpdates)[0]];
+	}
+	alias hasUpdateList(T, string member) = hasUpdateListImpl!(T, member, Updates);
+	enum bool hasAddUpdateList(T) = findTypes!(T, AddUpdates).length > 0;
+	enum bool hasRemoveUpdateList(T) = findTypes!(T, RemoveUpdates).length > 0;
+	ref StaticViewECSEntry!Args add() {
 		if (emptyEntries.length == 0) {
 			if (length >= entities.length) {
 				entities.resize(entities.length + sizeIncrement);
@@ -761,10 +846,10 @@ struct StaticViewECS(U...) {
 		}
 	}
 	void remove(size_t id) {
-		entities[id] = StaticViewECSEntry!U();
+		entities[id] = StaticViewECSEntry!Args();
 		emptyEntries.add(id);
 	}
-	ref StaticViewECSEntry!U get(size_t id) {
+	ref StaticViewECSEntry!Args get(size_t id) {
 		return entities[id];
 	}
 	LinkedList!size_t get(T...)() {

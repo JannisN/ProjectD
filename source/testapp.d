@@ -482,8 +482,15 @@ struct VirtualStruct {
 }
 void main() {
 	StaticViewECS!(
-		TypeSeqStruct!(CpuLocal!Image),
-		TypeSeqStruct!(VirtualStruct),
+		TypeSeqStruct!(
+			TypeSeqStruct!(CpuLocal!Image),
+			TypeSeqStruct!(VirtualStruct),
+		),
+		TypeSeqStruct!(
+			TypeSeqStruct!(VirtualStruct, "i"),
+		),
+		TypeSeqStruct!(VirtualStruct), // add
+		TypeSeqStruct!(VirtualStruct) // remove
 	) staticViewEcs;
 	staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
 	staticViewEcs.add().add!(CpuLocal!Image)();
@@ -493,11 +500,23 @@ void main() {
 	}
 	LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
 	foreach (e; virtualView.iterate()) {
-		VirtualComponent!VirtualStruct test = staticViewEcs.entities[e].getVirtual!(VirtualStruct)();
-		//writeln(test.i);
+		auto test = staticViewEcs.entities[e].get!(VirtualStruct)();
 		writeln(test.i = 3);
 	}
-	ECS ecs;
+	auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
+	foreach (e; updateList.iterate()) {
+		writeln("update registrated");
+	}
+	auto addUpdateList = &staticViewEcs.getAddUpdateList!(VirtualStruct)();
+	foreach (e; addUpdateList.iterate()) {
+		writeln("addUpdate");
+	}
+	staticViewEcs.remove(0);
+	foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate()) {
+		writeln("removeupdate");
+	}
+	
+	/*ECS ecs;
 	ecs.addView!(CpuLocal!Image)();
 	ecs.add().add!(CpuLocal!Image)();
 	ecs.add().add!(GpuLocal!Image)();
@@ -510,7 +529,7 @@ void main() {
 		foreach (ref f; e.components.iterate) {
 			writeln(f.type);
 		}
-	}
+	}*/
 	TestController!(
 		Info!(GlfwVulkanWindow, DefaultDataStructure),
 		Info!(TestApp, DefaultDataStructure),
