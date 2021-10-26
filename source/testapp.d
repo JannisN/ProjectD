@@ -477,15 +477,25 @@ struct GpuLocal(Resource) {
 	alias resource this;
 	@disable this(ref return scope CpuLocal!Resource rhs);
 }
+struct VirtualStruct {
+	int i;
+}
 void main() {
 	StaticViewECS!(
-		TypeSeqStruct!(CpuLocal!Image)
+		TypeSeqStruct!(CpuLocal!Image),
+		TypeSeqStruct!(VirtualStruct),
 	) staticViewEcs;
-	staticViewEcs.add().add!(GpuLocal!Image)();
+	staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
 	staticViewEcs.add().add!(CpuLocal!Image)();
 	LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
 	foreach (e; cpuView2.iterate()) {
 		writeln(e);
+	}
+	LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
+	foreach (e; virtualView.iterate()) {
+		VirtualComponent!VirtualStruct test = staticViewEcs.entities[e].getVirtual!(VirtualStruct)();
+		//writeln(test.i);
+		writeln(test.i = 3);
 	}
 	ECS ecs;
 	ecs.addView!(CpuLocal!Image)();

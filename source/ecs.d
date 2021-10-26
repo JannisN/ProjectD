@@ -555,6 +555,25 @@ struct ECS {
 	}*/
 }
 
+struct VirtualComponent(T) {
+	T* t;
+	template opDispatch(string member) {
+		@property auto opDispatch() {
+			writeln("virtual");
+			mixin("return t." ~ member ~ ";");
+		}
+		@property auto opDispatch(U)(U n) {
+			writeln("virtual");
+			mixin("t." ~ member ~ "= n;");
+			mixin("return t." ~ member ~ ";");
+		}
+	}
+	void opAssign(T rhs) {
+		*t = rhs;
+		writeln("virtual");
+	}
+}
+
 struct StaticViewECSEntry(T...) {
 	size_t id = ~0UL;
 	StaticViewECS!T* ecs;
@@ -567,6 +586,16 @@ struct StaticViewECSEntry(T...) {
 				ecs.views[i].remove(e);
 			}
 		}
+	}
+	@property VirtualComponent!U getVirtual(U)() if (!is(U == class) && !is(U == interface)) {
+		VirtualComponent!U v;
+		foreach (ref e; components.iterate) {
+			if (e.type == U.stringof) {
+				v.t = (cast(U*) e.data);
+				return v;
+			}
+		}
+		assert(false, "Component not found");
 	}
 	void updateViews(U)() {
 		static foreach (i, TS; T) {
@@ -650,15 +679,16 @@ struct StaticViewECSEntry(T...) {
 		updateViews!U();
 		return this;
 	}
-	ref T get(U)() if (!is(U == class) && !is(U == interface)) {
+	/*
+	ref U get(U)() if (!is(U == class) && !is(U == interface)) {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
-				return *(cast(T*) e.data);
+				return *(cast(U*) e.data);
 			}
 		}
 		assert(false, "Component not found");
 	}
-	T get(U)() if (is(U == class) || is(U == interface)) {
+	U get(U)() if (is(U == class) || is(U == interface)) {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
 				if (e.isRef) {
@@ -670,6 +700,7 @@ struct StaticViewECSEntry(T...) {
 		}
 		assert(false, "Component not found");
 	}
+	*/
 	bool has(U)() {
 		foreach (ref e; components.iterate) {
 			if (e.type == U.stringof) {
@@ -683,7 +714,7 @@ struct StaticViewECSEntry(T...) {
 template findView(U, T...) {
 	size_t findViewImpl() {
 		static foreach (i, TS; U.TypeSeq) {
-			static if (TS.TypeSeq.length == T.length) {
+			static if (TS.TypeSeq.length == T.length) {{
 				bool found = true;
 				static foreach (Type; TS.TypeSeq) {
 					static if (countType!(Type, T) == 0) {
@@ -693,7 +724,7 @@ template findView(U, T...) {
 				if (found) {
 					return i;
 				}
-			}
+			}}
 		}
 		assert(false);
 	}
@@ -707,7 +738,7 @@ struct StaticViewECS(U...) {
 	LinkedList!size_t emptyEntries;
 	Vector!(StaticViewECSEntry!U) entities;
 	@disable this(ref return scope StaticViewECS!U rhs);
-	ref LinkedList!size_t getView(T...)() {
+	ref LinkedList!size_t getView(T...)() @property {
 		return views[findView!(TypeSeqStruct!U, T)];
 	}
 	// bin nicht sicher ob das alias den wert oder referenz gibt
