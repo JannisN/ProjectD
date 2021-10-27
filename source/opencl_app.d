@@ -231,7 +231,7 @@ struct Program {
 			String log;
 			log.resize(size);
 			clGetProgramBuildInfo(program, deviceIds[i], CL_PROGRAM_BUILD_LOG, size, log.ptr, null);
-			writeln(log.s);
+			writeln(log.t);
 		}
 	}
 	this(ref Context context, ref Device device, string source) {
@@ -308,25 +308,25 @@ struct OpenCLInstance {
 			ulong size;
 			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_NAME, 0, null, &size);
 			instance.platforms[i].name.resize(size);
-			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_NAME, size, instance.platforms[i].name.s.ptr, null);
+			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_NAME, size, instance.platforms[i].name.t.ptr, null);
 			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VENDOR, 0, null, &size);
 			instance.platforms[i].vendor.resize(size);
-			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VENDOR, size, instance.platforms[i].vendor.s.ptr, null);
+			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VENDOR, size, instance.platforms[i].vendor.t.ptr, null);
 			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VERSION, 0, null, &size);
 			instance.platforms[i].versionNumber.resize(size);
-			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VERSION, size, instance.platforms[i].versionNumber.s.ptr, null);
+			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_VERSION, size, instance.platforms[i].versionNumber.t.ptr, null);
 			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_PROFILE, 0, null, &size);
 			instance.platforms[i].profile.resize(size);
-			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_PROFILE, size, instance.platforms[i].profile.s.ptr, null);
+			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_PROFILE, size, instance.platforms[i].profile.t.ptr, null);
 			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_EXTENSIONS, 0, null, &size);
 			instance.platforms[i].extensions.resize(size);
-			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_EXTENSIONS, size, instance.platforms[i].extensions.s.ptr, null);
+			clGetPlatformInfo(instance.platforms[i].id, CL_PLATFORM_EXTENSIONS, size, instance.platforms[i].extensions.t.ptr, null);
 
-			writeln(instance.platforms[i].name.s);
-			writeln(instance.platforms[i].vendor.s);
-			writeln(instance.platforms[i].versionNumber.s);
-			writeln(instance.platforms[i].profile.s);
-			writeln(instance.platforms[i].extensions.s);
+			writeln(instance.platforms[i].name.t);
+			writeln(instance.platforms[i].vendor.t);
+			writeln(instance.platforms[i].versionNumber.t);
+			writeln(instance.platforms[i].profile.t);
+			writeln(instance.platforms[i].extensions.t);
 
 			clGetDeviceIDs(instance.platforms[i].id, CL_DEVICE_TYPE_GPU, 0, null, &n);
 			instance.platforms[i].devices = Vector!Device(n);
@@ -337,16 +337,16 @@ struct OpenCLInstance {
 				instance.platforms[i].devices[j].id = deviceIds[j];
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_NAME, 0, null, &size);
 				instance.platforms[i].devices[j].name.resize(size);
-				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_NAME, size, instance.platforms[i].devices[j].name.s.ptr, null);
+				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_NAME, size, instance.platforms[i].devices[j].name.t.ptr, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_VERSION, 0, null, &size);
 				instance.platforms[i].devices[j].deviceVersion.resize(size);
-				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_VERSION, size, instance.platforms[i].devices[j].deviceVersion.s.ptr, null);
+				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_VERSION, size, instance.platforms[i].devices[j].deviceVersion.t.ptr, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DRIVER_VERSION, 0, null, &size);
 				instance.platforms[i].devices[j].driverVersion.resize(size);
-				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DRIVER_VERSION, size, instance.platforms[i].devices[j].driverVersion.s.ptr, null);
+				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DRIVER_VERSION, size, instance.platforms[i].devices[j].driverVersion.t.ptr, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_OPENCL_C_VERSION, 0, null, &size);
 				instance.platforms[i].devices[j].oclVersion.resize(size);
-				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_OPENCL_C_VERSION, size, instance.platforms[i].devices[j].oclVersion.s.ptr, null);
+				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_OPENCL_C_VERSION, size, instance.platforms[i].devices[j].oclVersion.t.ptr, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_MAX_COMPUTE_UNITS, uint.sizeof, &instance.platforms[i].devices[j].maxComputeUnits, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, uint.sizeof, &instance.platforms[i].devices[j].maxWorkItemDimension, null);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_MAX_WORK_GROUP_SIZE, size_t.sizeof, &instance.platforms[i].devices[j].maxWorkGroupSize, null);
@@ -354,10 +354,10 @@ struct OpenCLInstance {
 				instance.platforms[i].devices[j].maxWorkItemSize.resize(size / size_t.sizeof);
 				clGetDeviceInfo(instance.platforms[i].devices[j].id, CL_DEVICE_MAX_WORK_ITEM_SIZES, size, instance.platforms[i].devices[j].maxWorkItemSize.data, null);
 
-				writeln(instance.platforms[i].devices[j].name.s);
-				writeln(instance.platforms[i].devices[j].deviceVersion.s);
-				writeln(instance.platforms[i].devices[j].driverVersion.s);
-				writeln(instance.platforms[i].devices[j].oclVersion.s);
+				writeln(instance.platforms[i].devices[j].name.t);
+				writeln(instance.platforms[i].devices[j].deviceVersion.t);
+				writeln(instance.platforms[i].devices[j].driverVersion.t);
+				writeln(instance.platforms[i].devices[j].oclVersion.t);
 				writeln(instance.platforms[i].devices[j].maxComputeUnits);
 				writeln(instance.platforms[i].devices[j].maxWorkItemDimension);
 				writeln(instance.platforms[i].devices[j].maxWorkGroupSize);

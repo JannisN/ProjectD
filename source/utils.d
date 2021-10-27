@@ -313,6 +313,21 @@ struct Vector(T) if (!is(T == class)) {
 			}
 		}
 	}
+	this(T[] copy) {
+		static if (__traits(compiles, copyTest2!T())) {
+			if (__ctfe) {
+				t = new T[copy.length];
+				foreach (i; 0 .. copy.length) {
+					t[i] = copy[i];
+				}
+			} else {
+				t = cast(T[]) (cast(void[]) malloc(copy.length * T.sizeof)[0 .. copy.length * T.sizeof]);
+				memcpy(cast(void*) t.ptr, cast(void*) copy.ptr, (t.length < copy.length ? t.length : copy.length) * T.sizeof);
+			}
+		} else {
+			assert(false, "Type not copyable");
+		}
+	}
 	~this() {
 		if (!__ctfe) {
 			foreach (i; 0 .. t.length) {
@@ -340,7 +355,48 @@ struct Vector(T) if (!is(T == class)) {
 			}
 		}
 	}
-	ref Vector!T opAssign(Vector!T v) {
+	void renew(size_t size) {
+		if (size != t.length) {
+			if (__ctfe) {
+				t.length = size;
+			} else {
+				foreach (i; 0 .. t.length) {
+					t[i].destroy();
+				}
+				T[] u = cast(T[]) (cast(void[]) malloc(size * T.sizeof)[0 .. size * T.sizeof]);
+				free(t.ptr);
+				t = u;
+				foreach (i; 0 .. size) {
+					emplace(&t[i]);
+				}
+			}
+		}
+	}
+	void opAssign(T[] copy) {
+		static if (__traits(compiles, copyTest2!T())) {
+			if (__ctfe) {
+				t = new T[copy.length];
+				foreach (i; 0 .. copy.length) {
+					t[i] = copy[i];
+				}
+			} else {
+				foreach (i; 0 .. t.length) {
+					t[i].destroy();
+				}
+				if (copy.length != t.length) {
+					T[] u = cast(T[]) (cast(void[]) malloc(copy.length * T.sizeof)[0 .. copy.length * T.sizeof]);
+					memcpy(cast(void*) u.ptr, cast(void*) copy.ptr, (t.length < copy.length ? t.length : copy.length) * T.sizeof);
+					free(t.ptr);
+					t = u;
+				} else {
+					memcpy(cast(void*) t.ptr, cast(void*) copy.ptr, (t.length < copy.length ? t.length : copy.length) * T.sizeof);
+				}
+			}
+		} else {
+			assert(false, "Type not copyable");
+		}
+	}
+	/*ref Vector!T opAssign(Vector!T v) {
 		if (__ctfe) {
 			t = v.t;
 		} else {
@@ -352,7 +408,7 @@ struct Vector(T) if (!is(T == class)) {
 			memcpy(cast(void*) t.ptr, cast(void*) v.ptr, v.length);
 		}
 		return this;
-	}
+	}*/
 	T* data() @property {
 		return t.ptr;
 	}
@@ -368,7 +424,8 @@ struct Vector(T) if (!is(T == class)) {
 	alias t this;
 }
 
-struct String {
+alias String = Vector!char;
+/*struct String {
 	char[] s;
 	@disable this(ref return scope String rhs);
 	this(size_t size) {
@@ -418,7 +475,7 @@ struct String {
 		return s.length;
 	}
 	alias s this;
-}
+}*/
 
 template isType(T, Args...) {
 	bool isTypeImpl(T, Args...)() {
