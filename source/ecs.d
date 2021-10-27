@@ -908,7 +908,7 @@ struct StaticViewECS(Args...) {
 	ref StaticViewECSEntry!Args get(size_t id) {
 		return entities[id];
 	}
-	LinkedList!size_t get(T...)() {
+	LinkedList!size_t get(T...)() @property {
 		LinkedList!size_t foundEntries;
 		foreach (i; 0 .. length) {
 			int found = 0;

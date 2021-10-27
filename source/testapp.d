@@ -502,24 +502,24 @@ void main() {
 	staticViewEcs.add().add!(TestDestructor)();
 	staticViewEcs.remove(2);
 	LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
-	foreach (e; cpuView2.iterate()) {
+	foreach (e; cpuView2.iterate) {
 		writeln(e);
 	}
 	LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
-	foreach (e; virtualView.iterate()) {
-		auto test = staticViewEcs.entities[e].get!(VirtualStruct)();
+	foreach (e; virtualView.iterate) {
+		auto test = staticViewEcs.entities[e].get!VirtualStruct;
 		writeln(test.i = 3);
 	}
 	auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
-	foreach (e; updateList.iterate()) {
+	foreach (e; updateList.iterate) {
 		writeln("update registrated");
 	}
 	auto addUpdateList = &staticViewEcs.getAddUpdateList!(VirtualStruct)();
-	foreach (e; addUpdateList.iterate()) {
+	foreach (e; addUpdateList.iterate) {
 		writeln("addUpdate");
 	}
 	staticViewEcs.remove(0);
-	foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate()) {
+	foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate) {
 		writeln("removeupdate");
 	}
 	
