@@ -44,7 +44,8 @@ extern(C) {
 	VkResult vkCreateWin32SurfaceKHR(VkInstance instance, VkWin32SurfaceCreateInfoKHR* pCreateInfo, VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
 }
 
-struct Result {
+alias Result = utils.Result!(VkResult, VkResult.VK_SUCCESS);
+/*struct Result {
 	this(VkResult result) {
 		this.result = result;
 	}
@@ -68,7 +69,7 @@ struct Result {
 	VkResult result = VkResult.VK_SUCCESS;
 	alias result this;
 	void delegate(VkResult) onError;
-}
+}*/
 
 Vector!VkLayerProperties getInstanceLayers() {
 	uint instanceLayersCount;

@@ -480,6 +480,11 @@ struct GpuLocal(Resource) {
 struct VirtualStruct {
 	int i;
 }
+struct TestDestructor {
+	~this() {
+		writeln("destructor success");
+	}
+}
 void main() {
 	StaticViewECS!(
 		TypeSeqStruct!(
@@ -494,6 +499,8 @@ void main() {
 	) staticViewEcs;
 	staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
 	staticViewEcs.add().add!(CpuLocal!Image)();
+	staticViewEcs.add().add!(TestDestructor)();
+	staticViewEcs.remove(2);
 	LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
 	foreach (e; cpuView2.iterate()) {
 		writeln(e);

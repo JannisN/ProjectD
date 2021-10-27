@@ -292,6 +292,7 @@ struct Component {
 	string type;
 	bool isRef = false;
 	void* data;
+	void delegate() destructor = null;
 	@disable this(ref return scope Component rhs);
 	this(string type, bool isRef, void* data) {
 		this.type = type;
@@ -299,6 +300,9 @@ struct Component {
 		this.data = data;
 	}
 	~this() {
+		if (!(destructor is null)) {
+			destructor();
+		}
 		if (!isRef && data != null) {
 			free(data);
 		}
@@ -357,6 +361,10 @@ struct ECSEntry {
 		void* data = malloc(T.sizeof);
 		emplace(cast(T*)data);
 		components.add(Component(T.stringof, false, data));
+		/*static if (__traits(hasMember, T, "__xdtor") && __traits(isSame, T, __traits(parent, cast(T*)data.__xdtor))) {
+			pragma(msg, "hier");
+			components.last.t.destructor = &(cast(T*)data.__xtor);
+		}*/
 		updateViews();
 		return this;
 	}
@@ -579,12 +587,16 @@ struct VirtualComponent(T, Args...) {
 struct DeletedComponent(T) {
 	bool isRef = false;
 	void* data;
+	void delegate() destructor = null;
 	@disable this(ref return scope Component rhs);
 	this(bool isRef, void* data) {
 		this.isRef = isRef;
 		this.data = data;
 	}
 	~this() {
+		if (!(destructor is null)) {
+			destructor();
+		}
 		if (!isRef && data != null) {
 			free(data);
 		}
@@ -615,7 +627,9 @@ struct StaticViewECSEntry(Args...) {
 			while (current != null) {
 				if (current.t.type == E.stringof) {
 					ecs.getRemoveUpdateList!E.add(DeletedComponent!E(current.t.isRef, current.t.data));
+					ecs.getRemoveUpdateList!E.last.t.destructor = current.t.destructor;
 					current.t.data = null;
+					current.t.destructor = null;
 					components.remove(current);
 					break;
 				}
@@ -693,6 +707,8 @@ struct StaticViewECSEntry(Args...) {
 					//components.removeButNotDelete(current);
 					//ecs.getRemoveUpdateList!U.add(current);
 					ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+					ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
+					current.t.destructor = null;
 					current.t.data = null;
 					components.remove(current);
 					break;
@@ -713,6 +729,10 @@ struct StaticViewECSEntry(Args...) {
 		void* data = malloc(U.sizeof);
 		emplace(cast(U*)data);
 		components.add(Component(U.stringof, false, data));
+		// weiss nicht wieso das zweite nötig ist... ist es schlau das dort zu lassen? (bugzilla 14746)
+		static if (__traits(hasMember, U, "__xdtor") && __traits(isSame, U, __traits(parent, (cast(U*)data).__xdtor))) {
+			components.last.t.destructor = &((cast(U*)data).__xdtor);
+		}
 		updateViews!U();
 		return this;
 	}
@@ -720,13 +740,19 @@ struct StaticViewECSEntry(Args...) {
 		void* data = malloc(S!U.sizeof);
 		emplace(cast(S!U*)data);
 		components.add(Component(U.stringof, false, data));
+		static if (__traits(hasMember, U, "__xdtor") && __traits(isSame, U, __traits(parent, (cast(S!U*)data).__xdtor))) {
+			components.last.t.destructor = &((cast(S!U*)data).__xdtor);
+		}
 		updateViews!U();
 		return this;
 	}
-	ref StaticViewECSEntry!Args add(U)(U t) if (!is(U == class) && !is(U == interface)) {
+	ref StaticViewECSEntry!Args add(U)(lazy U t) if (!is(U == class) && !is(U == interface)) {
 		void* data = malloc(U.sizeof);
 		*(cast(U*)data) = t;
 		components.add(Component(U.stringof, false, data));
+		static if (__traits(hasMember, U, "__xdtor") && __traits(isSame, U, __traits(parent, (cast(U*)data).__xdtor))) {
+			components.last.t.destructor = &((cast(U*)data).__xdtor);
+		}
 		updateViews!U();
 		return this;
 	}
@@ -836,7 +862,6 @@ struct StaticViewECS(Args...) {
 	alias RemoveUpdates = Args[3].TypeSeq;
 	LinkedList!size_t[Updates.length] updateLists;
 	LinkedList!size_t[AddUpdates.length] addUpdateLists;
-	//LinkedList!Component[RemoveUpdates.length] removeUpdateLists;
 	ApplyTypeSeq!(RemoveUpdatesToList, RemoveUpdates) removeUpdateLists;
 	LinkedList!size_t[Views.length] views;
 	size_t sizeIncrement = 100;
