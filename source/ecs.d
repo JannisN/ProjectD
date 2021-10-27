@@ -576,6 +576,32 @@ struct VirtualComponent(T, Args...) {
 	}
 }
 
+struct DeletedComponent(T) {
+	bool isRef = false;
+	void* data;
+	@disable this(ref return scope Component rhs);
+	this(bool isRef, void* data) {
+		this.isRef = isRef;
+		this.data = data;
+	}
+	~this() {
+		if (!isRef && data != null) {
+			free(data);
+		}
+	}
+	ref T get() {
+		static if (!is(T == class) && !is(T == interface)) {
+			return *(cast(T*) data);
+		} else {
+			if (isRef) {
+				return cast(T) data;
+			} else {
+				return (cast(S!T*)data).get;
+			}
+		}
+	}
+}
+
 struct StaticViewECSEntry(Args...) {
 	alias T = Args[0].TypeSeq; // views
 	size_t id = ~0UL;
@@ -588,8 +614,9 @@ struct StaticViewECSEntry(Args...) {
 		static foreach (E; ecs.RemoveUpdates) {
 			while (current != null) {
 				if (current.t.type == E.stringof) {
-					components.removeButNotDelete(current);
-					ecs.getRemoveUpdateList!E.add(current);
+					ecs.getRemoveUpdateList!E.add(DeletedComponent!E(current.t.isRef, current.t.data));
+					current.t.data = null;
+					components.remove(current);
 					break;
 				}
 				current = current.next;
@@ -663,8 +690,11 @@ struct StaticViewECSEntry(Args...) {
 			auto current = components.first;
 			while (current != null) {
 				if (current.t.type == U.stringof) {
-					components.removeButNotDelete(current);
-					ecs.getRemoveUpdateList!U.add(current);
+					//components.removeButNotDelete(current);
+					//ecs.getRemoveUpdateList!U.add(current);
+					ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+					current.t.data = null;
+					components.remove(current);
 					break;
 				}
 				current = current.next;
@@ -796,7 +826,7 @@ template hasUpdateListImpl(T, string member, Updates...) {
 }
 
 template RemoveUpdatesToList(T) {
-	alias RemoveUpdatesToList = LinkedList!T;
+	alias RemoveUpdatesToList = LinkedList!(DeletedComponent!T);
 }
 
 struct StaticViewECS(Args...) {
@@ -806,7 +836,8 @@ struct StaticViewECS(Args...) {
 	alias RemoveUpdates = Args[3].TypeSeq;
 	LinkedList!size_t[Updates.length] updateLists;
 	LinkedList!size_t[AddUpdates.length] addUpdateLists;
-	LinkedList!Component[RemoveUpdates.length] removeUpdateLists;
+	//LinkedList!Component[RemoveUpdates.length] removeUpdateLists;
+	ApplyTypeSeq!(RemoveUpdatesToList, RemoveUpdates) removeUpdateLists;
 	LinkedList!size_t[Views.length] views;
 	size_t sizeIncrement = 100;
 	size_t length;
@@ -822,7 +853,7 @@ struct StaticViewECS(Args...) {
 	ref LinkedList!size_t getAddUpdateList(T)() @property {
 		return addUpdateLists[findTypes!(T, AddUpdates)[0]];
 	}
-	ref LinkedList!Component getRemoveUpdateList(T)() @property {
+	ref auto getRemoveUpdateList(T)() @property {
 		return removeUpdateLists[findTypes!(T, RemoveUpdates)[0]];
 	}
 	alias hasUpdateList(T, string member) = hasUpdateListImpl!(T, member, Updates);
