@@ -329,7 +329,7 @@ struct Vector(T) if (!is(T == class)) {
 		}
 	}
 	~this() {
-		if (!__ctfe) {
+		if (!__ctfe && t.ptr != null) {
 			foreach (i; 0 .. t.length) {
 				t[i].destroy();
 			}
@@ -933,6 +933,17 @@ struct LinkedList(T) {
 		destroy(*current);
 		free(cast(void*)current);
 		length--;
+		return this;
+	}
+	ref LinkedList!T clear() {
+		while (first != null) {
+			auto next = first.next;
+			destroy(*first);
+			free(cast(void*)first);
+			first = next;
+		}
+		last = null;
+		length = 0;
 		return this;
 	}
 	ref LinkedList!T remove(ListElement!T* current) {

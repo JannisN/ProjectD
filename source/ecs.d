@@ -571,10 +571,11 @@ struct VirtualComponent(T, Args...) {
 	}
 	StaticViewECSEntry!Args* entry;
 	template opDispatch(string member) {
-		@property auto opDispatch() {
+		// problem: damits mit Vector funktioniert wurde ref hinzugefügt; ist das schlecht?
+		@property auto ref opDispatch() {
 			mixin("return t." ~ member ~ ";");
 		}
-		@property auto opDispatch(U)(U n) {
+		@property auto ref opDispatch(U)(lazy U n) {
 			static if (entry.ecs.hasUpdateList!(T, member)) {
 				entry.ecs.getUpdateList!(T, member).add(entry.id);
 			}

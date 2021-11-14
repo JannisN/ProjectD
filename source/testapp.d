@@ -14,6 +14,9 @@ struct TestApp(ECS) {
 		initVulkan();
 		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 		initWindow();
+		//staticViewEcs.add().add!(TestDestructor)();
+		//writeln(dynEcs.add().add!Text(Text(String(cast(char[]) "test123"))).get!Text.text.t);
+		writeln((dynEcs.add().add!Text().get!Text.text = String(cast(char[]) "test123")).t);
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
@@ -84,7 +87,7 @@ struct TestApp(ECS) {
 			-0.5, -0.5, 0.6, 1, 127, 127,
 		];
 		enum string fontfile = import("free_pixel_regular_16test.xml");
-		AsciiBitfont font = AsciiBitfont(fontfile);
+		font = AsciiBitfont(fontfile);
 		auto vertPos = font.createText("Hal");
 		float* floatptr = cast(float*) memory.map(0, 1024);
 		foreach (i, float f; vertPos) {
@@ -306,6 +309,36 @@ struct TestApp(ECS) {
 		);
 	}
 	void update() {
+		cmdBuffer.begin();
+		foreach (i; dynEcs.getAddUpdateList!Text.iterate) {
+			auto textRef = dynEcs.entities[i].get!Text;
+			auto vertPos = font.createText(textRef.text);
+			dynEcs.entities[i].add!(GpuLocal!Buffer);
+			dynEcs.entities[i].add!(CpuLocal!Buffer);
+			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
+			auto cpuBuffer = dynEcs.entities[i].get!(CpuLocal!Buffer);
+			size_t dataSize = 36 * float.sizeof * textRef.text.length;
+			gpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
+			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
+			memoryAllocator.allocate(gpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			memoryAllocator.allocate(cpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+			Memory* memoryGpu = &gpuBuffer.resource.allocatedMemory.allocatorList.memory;
+			Memory* memoryCpu = &cpuBuffer.resource.allocatedMemory.allocatorList.memory;
+			float* floatptr = cast(float*) memoryCpu.map(cpuBuffer.resource.allocatedMemory.allocation.offset, dataSize);
+			foreach (j, float f; vertPos) {
+				floatptr[j] = f;
+			}
+			memoryCpu.flush(array(mappedMemoryRange(*memoryCpu, cpuBuffer.resource.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
+			memoryCpu.unmap();
+			cmdBuffer.copyBuffer(cpuBuffer.resource, 0, gpuBuffer.resource, 0, dataSize);
+		}
+		cmdBuffer.end();
+		queue.submit(cmdBuffer, fence);
+		fence.wait();
+		cmdBuffer.reset();
+		fence.reset();
+		dynEcs.getAddUpdateList!Text.clear();
+		
 		uint imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
 		fence.wait();
 		fence.reset();
@@ -352,6 +385,12 @@ struct TestApp(ECS) {
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
 		cmdBuffer.draw(18, 6, 0, 0);
+		foreach (i; dynEcs.getView!Text.iterate) {
+			auto text = dynEcs.entities[i].get!Text;
+			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
+			cmdBuffer.bindVertexBuffers(0, array(gpuBuffer.resource), array(cast(ulong) 0));
+			cmdBuffer.draw(6 * cast(uint)text.text.length, cast(uint)text.text.length * 2, 0, 0);
+		}
 		cmdBuffer.endRenderPass();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -410,6 +449,23 @@ struct TestApp(ECS) {
 	PipelineLayout pipelineLayoutGraphics;
 	DescriptorPool graphicsDescriptorPool;
 	DescriptorSet graphicsDescriptorSet;
+
+	AsciiBitfont font;
+	StaticViewECS!(
+		TypeSeqStruct!(
+			TypeSeqStruct!(CpuLocal!Buffer),
+			TypeSeqStruct!(GpuLocal!Buffer),
+			TypeSeqStruct!(Text),
+		),
+		TypeSeqStruct!(
+		),
+		TypeSeqStruct!(Text), // add
+		TypeSeqStruct!(Text) // remove
+	) dynEcs;
+}
+
+struct Text {
+	String text;
 }
 
 struct TestController(Args...) {
