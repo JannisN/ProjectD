@@ -572,6 +572,7 @@ struct VirtualComponent(T, Args...) {
 	StaticViewECSEntry!Args* entry;
 	template opDispatch(string member) {
 		// problem: damits mit Vector funktioniert wurde ref hinzugefügt; ist das schlecht?
+		// lösung: immutable(auto), nur dass man statt auto den passenden typ einfügen muss, mit auto funktionierts nicht
 		@property auto ref opDispatch() {
 			mixin("return t." ~ member ~ ";");
 		}

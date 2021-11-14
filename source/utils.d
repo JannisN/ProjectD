@@ -313,6 +313,9 @@ struct Vector(T) if (!is(T == class)) {
 			}
 		}
 	}
+	this(immutable(T)[] copy) {
+		this(cast(T[]) copy);
+	}
 	this(T[] copy) {
 		static if (__traits(compiles, copyTest2!T())) {
 			if (__ctfe) {

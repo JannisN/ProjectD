@@ -16,7 +16,7 @@ struct TestApp(ECS) {
 		initWindow();
 		//staticViewEcs.add().add!(TestDestructor)();
 		//writeln(dynEcs.add().add!Text(Text(String(cast(char[]) "test123"))).get!Text.text.t);
-		writeln((dynEcs.add().add!Text().get!Text.text = String(cast(char[]) "test123")).t);
+		writeln((dynEcs.add().add!Text().get!Text.text = String("test123")).t);
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
