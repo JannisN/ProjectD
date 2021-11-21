@@ -16,10 +16,31 @@ struct TestApp(ECS) {
 		initWindow();
 		//staticViewEcs.add().add!(TestDestructor)();
 		//writeln(dynEcs.add().add!Text(Text(String(cast(char[]) "test123"))).get!Text.text.t);
-		writeln((dynEcs.add().add!Text().get!Text.text = String("test123")).t);
+		char[10] fval;
+		import core.stdc.stdio;
+		snprintf(fval.ptr, 10, "%f", 0f);
+		timeCounter = dynEcs.add().id;
+		//dynEcs.entities[timeCounter].add!Text().get!Text.text = String("hallo\nbla");
+		dynEcs.entities[timeCounter].add!Text().get!Text.text = String(fval);
+		dynEcs.entities[timeCounter].get!Text.x = -1;
+		dynEcs.entities[timeCounter].get!Text.y = -1;
+		dynEcs.entities[timeCounter].get!Text.scale = 1;
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
+		if (event.action == MouseButtonAction.press) {
+			dynEcs.remove(timeCounter);
+			timeCounter = dynEcs.add().id;
+			
+			char[20] fval;
+			import core.stdc.stdio;
+			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
+			timeCounter = dynEcs.add().id;
+			dynEcs.entities[timeCounter].add!Text().get!Text.text = String(fval);
+			dynEcs.entities[timeCounter].get!Text.x = -1;
+			dynEcs.entities[timeCounter].get!Text.y = -1;
+			dynEcs.entities[timeCounter].get!Text.scale = 1;
+		}
 	}
 	void receive(WindowResizeEvent event) {
 		initWindow();
@@ -74,10 +95,10 @@ struct TestApp(ECS) {
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
 	}
 	void uploadVertexData() {
-		vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
-		memoryAllocator.allocate(vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		/*vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);*/
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
-		//Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
+		/*//Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
 		float[] vertex_positions = [
 			0, 0, 0.6, 1, 0, 0,
 			0, 0.5, 0.6, 1, 0, 127,
@@ -85,16 +106,16 @@ struct TestApp(ECS) {
 			0, 0, 0.6, 1, 0, 0,
 			0, -0.5, 0.6, 1, 127, 0,
 			-0.5, -0.5, 0.6, 1, 127, 127,
-		];
+		];*/
 		enum string fontfile = import("free_pixel_regular_16test.xml");
 		font = AsciiBitfont(fontfile);
-		auto vertPos = font.createText("Hal");
+		/*auto vertPos = font.createText("Hal");
 		float* floatptr = cast(float*) memory.map(0, 1024);
 		foreach (i, float f; vertPos) {
 			floatptr[i] = f;
 		}
 		memory.flush(array(mappedMemoryRange(*memory, 0, 1024)));
-		memory.unmap();
+		memory.unmap();*/
 
 		enum string pngData = import("free_pixel_regular_16test.PNG");
 		pngFont = Png(pngData);
@@ -110,7 +131,7 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 		cmdBuffer.begin();
-		cmdBuffer.copyBuffer(uploadBuffer, 0, vertexBuffer, 0, 1024);
+		//cmdBuffer.copyBuffer(uploadBuffer, 0, vertexBuffer, 0, 1024);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -270,9 +291,9 @@ struct TestApp(ECS) {
 		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
 		VkViewport dummyViewport;
 		if (capabilities.currentExtent.width < capabilities.currentExtent.height)
-			dummyViewport = VkViewport(0.0f, (capabilities.currentExtent.height - capabilities.currentExtent.width) * 0.5, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
+			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
 		else
-			dummyViewport = VkViewport((capabilities.currentExtent.width - capabilities.currentExtent.height) * 0.5, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
 		auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
 		auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
 		auto rasterizationStateCreateInfo = rasterizationState(
@@ -312,7 +333,7 @@ struct TestApp(ECS) {
 		cmdBuffer.begin();
 		foreach (i; dynEcs.getAddUpdateList!Text.iterate) {
 			auto textRef = dynEcs.entities[i].get!Text;
-			auto vertPos = font.createText(textRef.text);
+			auto vertPos = font.createText(textRef.text, textRef.x, textRef.y, textRef.scale);
 			dynEcs.entities[i].add!(GpuLocal!Buffer);
 			dynEcs.entities[i].add!(CpuLocal!Buffer);
 			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
@@ -383,8 +404,8 @@ struct TestApp(ECS) {
 		//cmdBuffer.clearColorImage(fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(array(0.5f, 0, 1.0f, 0)), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
-		cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
-		cmdBuffer.draw(18, 6, 0, 0);
+		//cmdBuffer.bindVertexBuffers(0, array(vertexBuffer), array(cast(ulong) 0));
+		//cmdBuffer.draw(18, 6, 0, 0);
 		foreach (i; dynEcs.getView!Text.iterate) {
 			auto text = dynEcs.entities[i].get!Text;
 			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
@@ -424,7 +445,7 @@ struct TestApp(ECS) {
 	RenderPass renderPass;
 	Vector!ImageView swapchainViews;
 	Vector!Framebuffer framebuffers;
-	AllocatedResource!Buffer vertexBuffer;
+	//AllocatedResource!Buffer vertexBuffer;
 	Shader vertexShader;
 	Shader fragmentShader;
 	GraphicsPipeline graphicsPipeline;
@@ -460,12 +481,15 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(
 		),
 		TypeSeqStruct!(Text), // add
-		TypeSeqStruct!(Text) // remove
+		TypeSeqStruct!(/*Text*/) // remove
 	) dynEcs;
+	size_t timeCounter;
 }
 
 struct Text {
 	String text;
+	float x, y;
+	float scale;
 }
 
 struct TestController(Args...) {
