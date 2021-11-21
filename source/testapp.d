@@ -36,6 +36,11 @@ struct TestApp(ECS) {
 			import core.stdc.stdio;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
 			timeCounter = dynEcs.add().id;
+			// todo: eine EditUpdate liste die egal welche änderung gemacht geupdatet wird
+			// updatelisten element als referenz speichern für entities um nur jeweils immer ein update zu speichern
+			// dazu braucht man richtige clear funktion die auch die referenzen von entities auf null setzt
+			// wenn remove update getriggert wird soll nachgeschaut werden ob es ein add update in der liste gibt, dann anstatt removeupdate liste zu
+			// updaten, add update entfernen
 			dynEcs.entities[timeCounter].add!Text().get!Text.text = String(fval);
 			dynEcs.entities[timeCounter].get!Text.x = -1;
 			dynEcs.entities[timeCounter].get!Text.y = -1;
