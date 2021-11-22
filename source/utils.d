@@ -302,7 +302,10 @@ auto move(T)(ref T t) {
 
 struct Vector(T) if (!is(T == class)) {
 	T[] t;
-	@disable this(ref return scope Vector!T rhs);
+	// war disabled
+	this(ref return scope Vector!T rhs) {
+		this(cast(T[]) rhs.t);
+	}
 	this(size_t size) {
 		if (__ctfe) {
 			t = new T[size];
@@ -619,9 +622,9 @@ template countCompatibleTypeInGroups(T, Args...) {
 }
 
 template findTypes(T, Args...) {
-	uint[countType!(T, Args)] findTypesImpl(T, Args...)() {
-		StaticArray!(uint, countType!(T, Args)) indices;
-		uint count = 0;
+	size_t[countType!(T, Args)] findTypesImpl(T, Args...)() {
+		StaticArray!(size_t, countType!(T, Args)) indices;
+		size_t count = 0;
 		static foreach (i; 0 .. Args.length) {
 			static if (is(Args[i] == T)) {
 				indices[count] = i;
@@ -630,7 +633,7 @@ template findTypes(T, Args...) {
 		}
 		return indices;
 	}
-	enum uint[countType!(T, Args)] findTypes = findTypesImpl!(T, Args)();
+	enum size_t[countType!(T, Args)] findTypes = findTypesImpl!(T, Args)();
 }
 
 template findCompatibleTypes(T, Args...) {
@@ -825,23 +828,27 @@ struct ListElement(T) {
 // für foreach
 struct LinkedListIterate(T) {
 	ListElement!T* current = null;
+	ListElement!T* nextCurrent = null;
 	this(ListElement!T* e) {
 		current = e;
+		//nextCurrent = current.next;
 	}
 	@property bool empty() {
 		return current == null;
 	}
 	@property ref T front() {
+		nextCurrent = current.next;
 		return current.t;
 	}
 	@property void popFront() {
-		current = current.next;
+		current = nextCurrent;
 	}
 	@property ref T back() {
+		nextCurrent = current.previous;
 		return current.t;
 	}
 	@property void popBack() {
-		current = current.previous;
+		current = nextCurrent;
 	}
 }
 

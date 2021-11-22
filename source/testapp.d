@@ -29,22 +29,25 @@ struct TestApp(ECS) {
 	void receive(MouseButtonEvent event) {
 		writeln("event");
 		if (event.action == MouseButtonAction.press) {
-			dynEcs.remove(timeCounter);
-			timeCounter = dynEcs.add().id;
-			
+			//dynEcs.remove(timeCounter);
 			char[20] fval;
 			import core.stdc.stdio;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
-			timeCounter = dynEcs.add().id;
-			// todo: eine EditUpdate liste die egal welche änderung gemacht geupdatet wird
-			// updatelisten element als referenz speichern für entities um nur jeweils immer ein update zu speichern
-			// dazu braucht man richtige clear funktion die auch die referenzen von entities auf null setzt
-			// wenn remove update getriggert wird soll nachgeschaut werden ob es ein add update in der liste gibt, dann anstatt removeupdate liste zu
-			// updaten, add update entfernen
-			dynEcs.entities[timeCounter].add!Text().get!Text.text = String(fval);
-			dynEcs.entities[timeCounter].get!Text.x = -1;
-			dynEcs.entities[timeCounter].get!Text.y = -1;
-			dynEcs.entities[timeCounter].get!Text.scale = 1;
+			//timeCounter = dynEcs.add().id;
+			// + todo: eine EditUpdate liste die egal welche änderung gemacht geupdatet wird
+			// + updatelisten element als referenz speichern für entities um nur jeweils immer ein update zu speichern
+			// + wenn remove update getriggert wird soll nachgeschaut werden ob es ein add update in der liste gibt, dann anstatt removeupdate liste zu
+			// + updaten, add update entfernen (vlt auch bei member update list)
+			// + allgemein bei desktruktor referenzen zu updatelisten rausnehmen(ausser removeupdatelist)
+			// + dazu braucht man richtige clear funktion die auch die referenzen von entities auf null setzt
+			dynEcs.entities[timeCounter].get!Text.text = String(fval);
+			//dynEcs.entities[timeCounter].get!Text.x = -1;
+			//dynEcs.entities[timeCounter].get!Text.y = -1;
+			//dynEcs.entities[timeCounter].get!Text.scale = 1;
+			/*foreach (i; dynEcs.getEditUpdateList!Text().iterate()) {
+				
+				writeln(i);
+			}*/
 		}
 	}
 	void receive(WindowResizeEvent event) {
@@ -103,7 +106,7 @@ struct TestApp(ECS) {
 		/*vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 		memoryAllocator.allocate(vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);*/
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
-		/*//Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
+		/*Memory* memory = &vertexBuffer.allocatedMemory.allocatorList.memory;
 		float[] vertex_positions = [
 			0, 0, 0.6, 1, 0, 0,
 			0, 0.5, 0.6, 1, 0, 127,
@@ -336,6 +339,11 @@ struct TestApp(ECS) {
 	}
 	void update() {
 		cmdBuffer.begin();
+		foreach (i; dynEcs.getEditUpdateList!Text.iterate()) {
+			Text text = dynEcs.entities[i].getWithoutUpdate!Text();
+			dynEcs.entities[i].remove!Text();
+			dynEcs.entities[i].add!Text(text);
+		}
 		foreach (i; dynEcs.getAddUpdateList!Text.iterate) {
 			auto textRef = dynEcs.entities[i].get!Text;
 			auto vertPos = font.createText(textRef.text, textRef.x, textRef.y, textRef.scale);
@@ -363,7 +371,9 @@ struct TestApp(ECS) {
 		fence.wait();
 		cmdBuffer.reset();
 		fence.reset();
-		dynEcs.getAddUpdateList!Text.clear();
+		dynEcs.clearAddUpdateList!Text();
+		dynEcs.clearEditUpdateList!Text();
+		//dynEcs.getAddUpdateList!Text.clear();
 		
 		uint imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
 		fence.wait();
@@ -486,12 +496,19 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(
 		),
 		TypeSeqStruct!(Text), // add
-		TypeSeqStruct!(/*Text*/) // remove
+		TypeSeqStruct!(/*Text*/), // remove
+		TypeSeqStruct!(Text), // editupdate
 	) dynEcs;
 	size_t timeCounter;
 }
 
 struct Text {
+	this(ref return scope Text rhs) {
+		text = rhs.text;
+		x = rhs.x;
+		y = rhs.y;
+		scale = rhs.scale;
+	}
 	String text;
 	float x, y;
 	float scale;
@@ -580,7 +597,8 @@ void main() {
 			TypeSeqStruct!(VirtualStruct, "i"),
 		),
 		TypeSeqStruct!(VirtualStruct), // add
-		TypeSeqStruct!(VirtualStruct) // remove
+		TypeSeqStruct!(VirtualStruct), // remove
+		TypeSeqStruct!(), // editupdate
 	) staticViewEcs;
 	staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
 	staticViewEcs.add().add!(CpuLocal!Image)();

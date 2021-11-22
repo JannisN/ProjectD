@@ -564,7 +564,7 @@ struct ECS {
 }
 
 struct VirtualComponent(T, Args...) {
-	static if (!is(U == class) && !is(U == interface)) {
+	static if (!is(T == class) && !is(T == interface)) {
 		T* t;
 	} else {
 		T t;
@@ -577,8 +577,17 @@ struct VirtualComponent(T, Args...) {
 			mixin("return t." ~ member ~ ";");
 		}
 		@property auto ref opDispatch(U)(lazy U n) {
+			static if (entry.ecs.hasEditUpdateList!T) {
+				if (entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] == null) {
+					entry.ecs.getEditUpdateList!T.add(entry.id);
+					entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] = entry.ecs.getEditUpdateList!T.last;
+				}
+			}
 			static if (entry.ecs.hasUpdateList!(T, member)) {
-				entry.ecs.getUpdateList!(T, member).add(entry.id);
+				if (entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] == null) {
+					entry.ecs.getUpdateList!(T, member).add(entry.id);
+					entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] = entry.ecs.getUpdateList!(T, member).last;
+				}
 			}
 			mixin("t." ~ member ~ "= n;");
 			mixin("return t." ~ member ~ ";");
@@ -622,8 +631,32 @@ struct StaticViewECSEntry(Args...) {
 	StaticViewECS!Args* ecs;
 	ListElement!size_t*[T.length] elementPtr;
 	LinkedList!Component components;
+	ListElement!size_t*[ecs.AddUpdates.length] addUpdateEntry;
+	ListElement!size_t*[ecs.RemoveUpdates.length] removeUpdateEntry;
+	ListElement!size_t*[ecs.EditUpdates.length] editUpdateEntry;
+	ListElement!size_t*[ecs.Updates.length] updateEntry;
 	@disable this(ref return scope StaticViewECSEntry!Args rhs);
 	~this() {
+		static foreach (i, E; ecs.AddUpdates) {
+			if (addUpdateEntry[i] != null) {
+				ecs.getAddUpdateList!E.remove(addUpdateEntry[i]);
+			}
+		}
+		static foreach (i, E; ecs.EditUpdates) {
+			if (editUpdateEntry[i] != null) {
+				ecs.getEditUpdateList!E.remove(editUpdateEntry[i]);
+			}
+		}
+		/*static if (ecs.hasEditUpdateList!U) {
+			if (editUpdateEntry[findTypes!(U, ecs.EditUpdateList)[0]] != null) {
+				ecs.getEditUpdateList!U.remove(editUpdateEntry[findTypes!(U, ecs.EditUpdateList)[0]]);
+			}
+		}*/
+		static foreach (i, E; ecs.Updates) {
+			if (updateEntry[i] != null) {
+				ecs.getUpdateList!(E.TypeSeq).remove(updateEntry[i]);
+			}
+		}
 		auto current = components.first;
 		static foreach (E; ecs.RemoveUpdates) {
 			while (current != null) {
@@ -667,6 +700,7 @@ struct StaticViewECSEntry(Args...) {
 	void updateViews(U)() {
 		static if (ecs.hasAddUpdateList!U) {
 			ecs.getAddUpdateList!U.add(id);
+			addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]] = ecs.getAddUpdateList!U.last;
 		}
 		static foreach (i, TS; T) {
 			static if (countType!(U, TS.TypeSeq) > 0) {
@@ -694,6 +728,26 @@ struct StaticViewECSEntry(Args...) {
 	}
 	ref StaticViewECSEntry!Args remove(U)() {
 		static if (!ecs.hasRemoveUpdateList!U) {
+			static if (ecs.hasAddUpdateList!U) {
+				if (addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]] != null) {
+					ecs.getAddUpdateList!U.remove(addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]]);
+					addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]] = null;
+				}
+			}
+			static if (ecs.hasEditUpdateList!U) {
+				if (editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]] != null) {
+					ecs.getEditUpdateList!U.remove(editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]]);
+					editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]] = null;
+				}
+			}
+			static foreach (i, E; typeof(ecs).Updates) {
+				static if (is(E.TypeSeq[0] == U)) {
+					if (updateEntry[i] != null) {
+						ecs.getUpdateList!U.remove(updateEntry[i]);
+						editUpdateEntry[i] = null;
+					}
+				}
+			}
 			auto current = components.first;
 			while (current != null) {
 				if (current.t.type == U.stringof) {
@@ -708,8 +762,34 @@ struct StaticViewECSEntry(Args...) {
 				if (current.t.type == U.stringof) {
 					//components.removeButNotDelete(current);
 					//ecs.getRemoveUpdateList!U.add(current);
-					ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
-					ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
+					static if (ecs.hasAddUpdateList!U) {
+						if (addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]] == null) {
+							ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+							ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
+							removeUpdateEntry[findTypes!(U, ecs.RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last;
+						} else {
+							ecs.getAddUpdateList!U.remove(addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]]);
+							addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]] = null;
+						}
+					} else {
+						ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+						ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
+						removeUpdateEntry[findTypes!(U, ecs.RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last;
+					}
+					static if (ecs.hasEditUpdateList!U) {
+						if (editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]] != null) {
+							ecs.getEditUpdateList!U.remove(editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]]);
+							editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]] = null;
+						}
+					}
+					static foreach (i, E; ecs.UpdateList) {
+						static if (is(E.TypeSeq[0] == U)) {
+							if (updateEntry[i] != null) {
+								ecs.getUpdateList!U.remove(updateEntry[i]);
+								editUpdateEntry[i] = null;
+							}
+						}
+					}
 					current.t.destructor = null;
 					current.t.data = null;
 					components.remove(current);
@@ -750,6 +830,7 @@ struct StaticViewECSEntry(Args...) {
 	}
 	ref StaticViewECSEntry!Args add(U)(lazy U t) if (!is(U == class) && !is(U == interface)) {
 		void* data = malloc(U.sizeof);
+		emplace(cast(U*)data);
 		*(cast(U*)data) = t;
 		components.add(Component(U.stringof, false, data));
 		static if (__traits(hasMember, U, "__xdtor") && __traits(isSame, U, __traits(parent, (cast(U*)data).__xdtor))) {
@@ -862,10 +943,12 @@ struct StaticViewECS(Args...) {
 	alias Updates = Args[1].TypeSeq;
 	alias AddUpdates = Args[2].TypeSeq;
 	alias RemoveUpdates = Args[3].TypeSeq;
+	alias EditUpdates = Args[4].TypeSeq;
 	LinkedList!size_t[Updates.length] updateLists;
 	LinkedList!size_t[AddUpdates.length] addUpdateLists;
 	ApplyTypeSeq!(RemoveUpdatesToList, RemoveUpdates) removeUpdateLists;
 	LinkedList!size_t[Views.length] views;
+	LinkedList!size_t[EditUpdates.length] editUpdateLists;
 	size_t sizeIncrement = 100;
 	size_t length;
 	LinkedList!size_t emptyEntries;
@@ -883,9 +966,41 @@ struct StaticViewECS(Args...) {
 	ref auto getRemoveUpdateList(T)() @property {
 		return removeUpdateLists[findTypes!(T, RemoveUpdates)[0]];
 	}
+	ref LinkedList!size_t getEditUpdateList(T)() @property {
+		return editUpdateLists[findTypes!(T, EditUpdates)[0]];
+	}
+	void clearUpdateList(T, string member)() @property {
+		enum size_t index = findTypes!(TypeSeqStruct!(T, member), Updates)[0];
+		foreach (i; getUpdateList!(T, member).iterate()) {
+			entities[i].updateEntry[index] = null;
+		}
+		getUpdateList!(T, member).clear();
+	}
+	void clearAddUpdateList(T)() @property {
+		enum size_t index = findTypes!(T, AddUpdates)[0];
+		foreach (i; getAddUpdateList!T.iterate()) {
+			entities[i].addUpdateEntry[index] = null;
+		}
+		getAddUpdateList!(T).clear();
+	}
+	void clearRemoveUpdateList(T)() @property {
+		enum size_t index = findTypes!(T, RemoveUpdates)[0];
+		foreach (i; getRemoveUpdateList!T.iterate()) {
+			entities[i].removeUpdateEntry[index] = null;
+		}
+		getRemoveUpdateList!(T).clear();
+	}
+	void clearEditUpdateList(T)() @property {
+		enum size_t index = findTypes!(T, EditUpdates)[0];
+		foreach (i; getEditUpdateList!T.iterate()) {
+			entities[i].editUpdateEntry[index] = null;
+		}
+		getEditUpdateList!(T).clear();
+	}
 	alias hasUpdateList(T, string member) = hasUpdateListImpl!(T, member, Updates);
 	enum bool hasAddUpdateList(T) = findTypes!(T, AddUpdates).length > 0;
 	enum bool hasRemoveUpdateList(T) = findTypes!(T, RemoveUpdates).length > 0;
+	enum bool hasEditUpdateList(T) = findTypes!(T, EditUpdates).length > 0;
 	ref StaticViewECSEntry!Args add() {
 		if (emptyEntries.length == 0) {
 			if (length >= entities.length) {
