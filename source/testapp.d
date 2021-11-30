@@ -180,6 +180,12 @@ struct TestApp(ECS) {
 			)
 		);
 	}
+	struct CircleImplStruct {
+		DescriptorSetLayout descriptorSetLayout;
+		DescriptorPool descriptorPool;
+		DescriptorSet descriptorSet;
+		AllocatedResource!Buffer buffer;
+	}
 	void createComputeShader() {
 		enum string computeSource = import("testimage.spv");
 		computeShader = Shader(device, computeSource);
@@ -196,7 +202,52 @@ struct TestApp(ECS) {
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
 		)));
-		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)));
+		
+		circleImplStruct.descriptorSetLayout = device.createDescriptorSetLayout(array(
+			VkDescriptorSetLayoutBinding(
+				0,
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				1,
+				VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+				null
+			)
+		));
+		circleImplStruct.buffer = AllocatedResource!Buffer(device.createBuffer(0, Circle.sizeof * 3 + int.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		memoryAllocator.allocate(circleImplStruct.buffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		Memory* memory = &circleImplStruct.buffer.allocatedMemory.allocatorList.memory;
+		void* mappedMem = memory.map(circleImplStruct.buffer.allocatedMemory.allocation.offset, Circle.sizeof * 3 + int.sizeof);
+		int* circleCount = cast(int*) mappedMem;
+		*circleCount = 3;
+		Circle* circles = cast(Circle*) (mappedMem + int.sizeof);
+		circles[0].x = 0;
+		circles[0].y = 0;
+		circles[0].radius = 0.1;
+		circles[0].r = 1;
+		circles[0].g = 0;
+		circles[0].b = 0;
+		circles[1].x = 1;
+		circles[1].y = 1;
+		circles[1].radius = 0.1;
+		circles[1].r = 0;
+		circles[1].g = 1;
+		circles[1].b = 0;
+		circles[2].x = 2;
+		circles[2].y = 2;
+		circles[2].radius = 0.1;
+		circles[2].r = 0;
+		circles[2].g = 0;
+		circles[2].b = 1;
+		memory.flush(array(mappedMemoryRange(*memory, circleImplStruct.buffer.allocatedMemory.allocation.offset, /*1024 + pngFont.byteCount*/ VK_WHOLE_SIZE)));
+		memory.unmap();
+		circleImplStruct.descriptorPool = device.createDescriptorPool(0, 1, array(
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				1
+			)
+		));
+		circleImplStruct.descriptorSet = circleImplStruct.descriptorPool.allocateSet(circleImplStruct.descriptorSetLayout);
+
+		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout, circleImplStruct.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)));
 		import core.stdc.math : sqrt;
 		int size2D = cast(int) sqrt(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
 		localWorkGroupSize[0] = size2D;
@@ -396,8 +447,9 @@ struct TestApp(ECS) {
 		passedTime += timer.update();
 		//writeln(passedTime);
 		descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL), WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL)));
+		circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleImplStruct.buffer)));
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
-		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet, circleImplStruct.descriptorSet), []);
 		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof, &passedTime);
 		int borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
 		int borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
@@ -500,6 +552,14 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(Text), // editupdate
 	) dynEcs;
 	size_t timeCounter;
+	
+	CircleImplStruct circleImplStruct;
+}
+
+struct Circle {
+	float x, y;
+	float radius;
+	float r, g, b;
 }
 
 struct Text {

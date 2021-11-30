@@ -2452,12 +2452,19 @@ struct MemoryAllocator {
 		return allocatedMemory;
 	}
 	void allocate(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags) {
-		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size);
+		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), getCorrectOffsetSize(buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment));
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
 	}
 	void allocate(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags) {
-		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size);
+		image.allocatedMemory = allocate(image.chooseHeap(flags), getCorrectOffsetSize(image.getMemoryRequirements().size, image.getMemoryRequirements().alignment));
 		image.bind(image.allocatedMemory.allocatorList.memory, image.allocatedMemory.allocation.t.offset);
+	}
+	VkDeviceSize getCorrectOffsetSize(VkDeviceSize required, VkDeviceSize multipleOf) {
+		if (required % multipleOf == 0) {
+			return required;
+		} else {
+			return (required / multipleOf + 1) * multipleOf;
+		}
 	}
 }
 

@@ -9,8 +9,28 @@ layout (push_constant) uniform mypc_t {
 layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
 layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
 
+struct Circle {
+	float x, y;
+	float radius;
+	float r, g, b;
+};
+layout (set = 1, binding = 0) buffer myCircle_t {
+	int circleCount;
+	Circle circles[];
+} myCircle;
+
 void main() {
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(sin(
+	vec4 colour = vec4(sin(
 		sqrt((int(gl_GlobalInvocationID.x) * 0.01) * (int(gl_GlobalInvocationID.x) * 0.01) + (int(gl_GlobalInvocationID.y) * 0.01) * (int(gl_GlobalInvocationID.y) * 0.01))
-		- mypc.t * 5), imageLoad(texelBuffer2, ivec2(2, 3)).x, 1.0, 1.0));
+		- mypc.t * 5), imageLoad(texelBuffer2, ivec2(2, 3)).x, 1.0, 1.0);
+	float x = int(gl_GlobalInvocationID.x) * 0.01;
+	float y = int(gl_GlobalInvocationID.y) * 0.01;
+	for (int i = 0; i < myCircle.circleCount; i++) {
+		if ((myCircle.circles[i].x - x) * (myCircle.circles[i].x - x) + (myCircle.circles[i].y - y) * (myCircle.circles[i].y - y) < myCircle.circles[i].radius) {
+			colour.x = myCircle.circles[i].r;
+			colour.y = myCircle.circles[i].g;
+			colour.z = myCircle.circles[i].b;
+		}
+	}
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 }
