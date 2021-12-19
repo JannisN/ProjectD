@@ -219,6 +219,16 @@ struct TestApp(ECS) {
 		int* circleCount = cast(int*) mappedMem;
 		*circleCount = 3;
 		Circle* circles = cast(Circle*) (mappedMem + int.sizeof);
+		/*
+			zu implementieren: array helper für shader. soll können:
+			-speicher allocaten, gleichzeitig cpu und gpu(natürlich mit memoryallocator)
+			-neues element im ecs automatisch hinzufügen
+			-gleiches mit updaten
+			-wenn element gelöscht, das letzte element im speicher in die lücke verschieben
+			-funktionen um memory zu updaten
+			-dazu update liste zweimal durchgehen: das erste mal cpu memory updaten wo nötig, dann flashen wo geupdatet wurde, und dann nochmals mit copybuffer um auf gpu zu updaten
+		*/
+		// auch noch zu tun: external dependecies als subprojekte mit git hinzufügen
 		circles[0].x = 0;
 		circles[0].y = 0;
 		circles[0].radius = 0.1;
