@@ -563,6 +563,7 @@ struct ECS {
 	}*/
 }
 
+// vlt kann amn VirtualMember auch benutzen um geschachtelte typen auf updates zu überprüfen, e.g. test.pos.x = 123; => nur auf update von x reagieren und nicht auf pos update
 struct VirtualComponent(T, Args...) {
 	static if (!is(T == class) && !is(T == interface)) {
 		T* t;
@@ -571,10 +572,12 @@ struct VirtualComponent(T, Args...) {
 	}
 	StaticViewECSEntry!Args* entry;
 	template opDispatch(string member) {
+		// ist glaube ich kein problem mehr, da VirtualMember struct eingeführt:
 		// problem: damits mit Vector funktioniert wurde ref hinzugefügt; ist das schlecht?
 		// lösung: immutable(auto), nur dass man statt auto den passenden typ einfügen muss, mit auto funktionierts nicht
 		@property auto ref opDispatch() {
-			mixin("return t." ~ member ~ ";");
+			return VirtualMember!(member, T, Args)(t, entry);
+			//mixin("return t." ~ member ~ ";");
 		}
 		@property auto ref opDispatch(U)(lazy U n) {
 			static if (entry.ecs.hasEditUpdateList!T) {
@@ -589,9 +592,51 @@ struct VirtualComponent(T, Args...) {
 					entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] = entry.ecs.getUpdateList!(T, member).last;
 				}
 			}
-			mixin("t." ~ member ~ "= n;");
-			mixin("return t." ~ member ~ ";");
+			mixin("return t." ~ member ~ "= n;");
 		}
+	}
+}
+
+struct VirtualMember(string member, T, Args...) {
+	static if (!is(T == class) && !is(T == interface)) {
+		T* t;
+	} else {
+		T t;
+	}
+	StaticViewECSEntry!Args* entry;
+	@property ref auto getMember() {
+		mixin("return t." ~ member ~ ";");
+	}
+	alias getMember this;
+	@property auto ref opAssign(U)(lazy U n) {
+		static if (entry.ecs.hasEditUpdateList!T) {
+			if (entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] == null) {
+				entry.ecs.getEditUpdateList!T.add(entry.id);
+				entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] = entry.ecs.getEditUpdateList!T.last;
+			}
+		}
+		static if (entry.ecs.hasUpdateList!(T, member)) {
+			if (entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] == null) {
+				entry.ecs.getUpdateList!(T, member).add(entry.id);
+				entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] = entry.ecs.getUpdateList!(T, member).last;
+			}
+		}
+		mixin("return t." ~ member ~ "= n;");
+	}
+	@property auto ref opOpAssign(string op, U)(lazy U n) {
+		static if (entry.ecs.hasEditUpdateList!T) {
+			if (entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] == null) {
+				entry.ecs.getEditUpdateList!T.add(entry.id);
+				entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] = entry.ecs.getEditUpdateList!T.last;
+			}
+		}
+		static if (entry.ecs.hasUpdateList!(T, member)) {
+			if (entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] == null) {
+				entry.ecs.getUpdateList!(T, member).add(entry.id);
+				entry.updateEntry[findTypes!(TypeSeqStruct!(T, member), typeof(entry.ecs).Updates)[0]] = entry.ecs.getUpdateList!(T, member).last;
+			}
+		}
+		mixin("return t." ~ member ~ " " ~ op ~ "= n;");
 	}
 }
 

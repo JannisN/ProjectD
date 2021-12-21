@@ -25,6 +25,10 @@ struct TestApp(ECS) {
 		dynEcs.entities[timeCounter].get!Text.x = -1;
 		dynEcs.entities[timeCounter].get!Text.y = -1;
 		dynEcs.entities[timeCounter].get!Text.scale = 1;
+		dynEcs.add().add!Circle(Circle(
+			4, 4, 0.3,
+			1, 0, 0
+		));
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
@@ -48,6 +52,9 @@ struct TestApp(ECS) {
 				
 				writeln(i);
 			}*/
+			foreach (e; dynEcs.getView!(Circle).iterate) {
+				dynEcs.entities[e].get!Circle.x += 1;
+			}
 		}
 	}
 	void receive(WindowResizeEvent event) {
@@ -101,6 +108,7 @@ struct TestApp(ECS) {
 		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
 		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
+		circleShaderList = ShaderList!Circle(device, memoryAllocator, 1024);
 	}
 	void uploadVertexData() {
 		/*vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -407,7 +415,7 @@ struct TestApp(ECS) {
 		}
 		foreach (i; dynEcs.getAddUpdateList!Text.iterate) {
 			auto textRef = dynEcs.entities[i].get!Text;
-			auto vertPos = font.createText(textRef.text, textRef.x, textRef.y, textRef.scale);
+			auto vertPos = font.createText(cast(string)textRef.text, textRef.x, textRef.y, textRef.scale);
 			dynEcs.entities[i].add!(GpuLocal!Buffer);
 			dynEcs.entities[i].add!(CpuLocal!Buffer);
 			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
@@ -415,8 +423,8 @@ struct TestApp(ECS) {
 			size_t dataSize = 36 * float.sizeof * textRef.text.length;
 			gpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
 			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
-			memoryAllocator.allocate(gpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			memoryAllocator.allocate(cpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+			memoryAllocator.allocate(cast(AllocatedResource!Buffer)gpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			memoryAllocator.allocate(cast(AllocatedResource!Buffer)cpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 			Memory* memoryGpu = &gpuBuffer.resource.allocatedMemory.allocatorList.memory;
 			Memory* memoryCpu = &cpuBuffer.resource.allocatedMemory.allocatorList.memory;
 			float* floatptr = cast(float*) memoryCpu.map(cpuBuffer.resource.allocatedMemory.allocation.offset, dataSize);
@@ -425,8 +433,9 @@ struct TestApp(ECS) {
 			}
 			memoryCpu.flush(array(mappedMemoryRange(*memoryCpu, cpuBuffer.resource.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
 			memoryCpu.unmap();
-			cmdBuffer.copyBuffer(cpuBuffer.resource, 0, gpuBuffer.resource, 0, dataSize);
+			cmdBuffer.copyBuffer(cast(Buffer)cpuBuffer.resource, 0, cast(Buffer)gpuBuffer.resource, 0, dataSize);
 		}
+		circleShaderList.update(dynEcs, cmdBuffer);
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
@@ -457,7 +466,8 @@ struct TestApp(ECS) {
 		passedTime += timer.update();
 		//writeln(passedTime);
 		descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL), WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL)));
-		circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleImplStruct.buffer)));
+		//circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleImplStruct.buffer)));
+		circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleShaderList.gpuBuffer)));
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet, circleImplStruct.descriptorSet), []);
 		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof, &passedTime);
@@ -486,7 +496,7 @@ struct TestApp(ECS) {
 		foreach (i; dynEcs.getView!Text.iterate) {
 			auto text = dynEcs.entities[i].get!Text;
 			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
-			cmdBuffer.bindVertexBuffers(0, array(gpuBuffer.resource), array(cast(ulong) 0));
+			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)gpuBuffer.resource), array(cast(ulong) 0));
 			cmdBuffer.draw(6 * cast(uint)text.text.length, cast(uint)text.text.length * 2, 0, 0);
 		}
 		cmdBuffer.endRenderPass();
@@ -554,16 +564,18 @@ struct TestApp(ECS) {
 			TypeSeqStruct!(CpuLocal!Buffer),
 			TypeSeqStruct!(GpuLocal!Buffer),
 			TypeSeqStruct!(Text),
+			TypeSeqStruct!(Circle),
 		),
 		TypeSeqStruct!(
 		),
-		TypeSeqStruct!(Text), // add
+		TypeSeqStruct!(Text, Circle), // add
 		TypeSeqStruct!(/*Text*/), // remove
-		TypeSeqStruct!(Text), // editupdate
+		TypeSeqStruct!(Text, Circle), // editupdate
 	) dynEcs;
 	size_t timeCounter;
 	
 	CircleImplStruct circleImplStruct;
+	ShaderList!Circle circleShaderList;
 }
 
 struct Circle {
@@ -681,7 +693,8 @@ void main() {
 	LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
 	foreach (e; virtualView.iterate) {
 		auto test = staticViewEcs.entities[e].get!VirtualStruct;
-		writeln(test.i = 3);
+		//test.opDispatch!("i")(3);
+		writeln(test.opDispatch!("i")(3));
 	}
 	auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
 	foreach (e; updateList.iterate) {

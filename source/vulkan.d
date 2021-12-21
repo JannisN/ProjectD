@@ -2468,6 +2468,85 @@ struct MemoryAllocator {
 	}
 }
 
+// vlt später auch die option statt uint ulong, falls 64 bit auf gpu nötig
+struct ShaderList(T) {
+	Device* device;
+	MemoryAllocator* memoryAllocator;
+	uint maxLength;
+	uint length;
+	AllocatedResource!Buffer cpuBuffer;
+	AllocatedResource!Buffer gpuBuffer;
+	Memory* cpuMemory;
+	Memory* gpuMemory;
+	Vector!size_t entities = void;
+	struct ShaderListIndex(T) {
+		uint index;
+	}
+	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength) {
+		this.device = &device;
+		this.memoryAllocator = &memoryAllocator;
+		this.maxLength = maxLength;
+		entities = Vector!size_t(maxLength);
+		cpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+
+		memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		cpuMemory = &cpuBuffer.allocatedMemory.allocatorList.memory;
+		gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;
+	}
+	VkDeviceSize getMemorySize() {
+		return T.sizeof * maxLength + uint.sizeof;
+	}
+	// später var args für normale updateList
+	void update(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer/*, ref LinkedList!size_t addUpdateList, ref LinkedList!size_t editUpdateList, ref LinkedList!size_t removeUpdateList*/) {
+		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
+		uint updateRangeCount = 0;
+		uint* tCount = cast(uint*) mappedMemory;
+		T* t = cast(T*) (mappedMemory + uint.sizeof);
+		static if (ecs.hasAddUpdateList!T) {
+			foreach (e; ecs.getAddUpdateList!T.iterate()) {
+				ecs.entities[e].add!(ShaderListIndex!T)(ShaderListIndex!T(length));
+				t[length] = ecs.entities[e].getWithoutUpdate!T();
+				entities[length] = e;
+				length++;
+				updateRangeCount++;
+			}
+		}
+		static if (ecs.hasEditUpdateList!T) {
+			foreach (e; ecs.getEditUpdateList!T.iterate()) {
+				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
+				t[shaderListIndex] = ecs.entities[e].getWithoutUpdate!T();
+				updateRangeCount++;
+			}
+		}
+		*tCount = length;
+		cpuMemory.flush(array(mappedMemoryRange(*cpuMemory, cpuBuffer.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
+		cpuMemory.unmap();
+		Vector!VkBufferCopy copies = Vector!VkBufferCopy(updateRangeCount);
+		size_t copyIndex = 0;
+		static if (ecs.hasAddUpdateList!T) {
+			foreach (e; ecs.getAddUpdateList!T.iterate()) {
+				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
+				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copyIndex++;
+			}
+		}
+		static if (ecs.hasEditUpdateList!T) {
+			foreach (e; ecs.getEditUpdateList!T.iterate()) {
+				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
+				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copyIndex++;
+			}
+		}
+		if (updateRangeCount > 0) {
+			cmdBuffer.copyBuffer(cpuBuffer, 0UL, gpuBuffer, 0UL, uint.sizeof);
+			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
+		}
+		ecs.clearAddUpdateList!T();
+	}
+}
+
 // ----------------------------------------------------------
 
 int* testret(int[] a) {
