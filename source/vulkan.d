@@ -2468,6 +2468,11 @@ struct MemoryAllocator {
 	}
 }
 
+struct ShaderListIndex(T) {
+	uint index;
+}
+// auch eine version später wo die elemente verlinkt sind, zb. für ein lattice um raytracing zu beschleunigen pro gitterelemt eine referenz zur einer liste im buffer
+// der unterschied zu dieser version wäre dann zb. dass beim löschen eines elements ein neuer link erzeugt werden muss
 // vlt später auch die option statt uint ulong, falls 64 bit auf gpu nötig
 struct ShaderList(T) {
 	Device* device;
@@ -2479,9 +2484,6 @@ struct ShaderList(T) {
 	Memory* cpuMemory;
 	Memory* gpuMemory;
 	Vector!size_t entities = void;
-	struct ShaderListIndex(T) {
-		uint index;
-	}
 	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength) {
 		this.device = &device;
 		this.memoryAllocator = &memoryAllocator;
@@ -2498,12 +2500,19 @@ struct ShaderList(T) {
 	VkDeviceSize getMemorySize() {
 		return T.sizeof * maxLength + uint.sizeof;
 	}
-	// später var args für normale updateList
-	void update(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer/*, ref LinkedList!size_t addUpdateList, ref LinkedList!size_t editUpdateList, ref LinkedList!size_t removeUpdateList*/) {
+	VkDeviceSize getOffset(string member)() {
+		T t;
+		mixin("return &t - &" ~ "t." ~ member ~ ";");
+	}
+	VkDeviceSize getSize(string member)() {
+		mixin("return typeof(t." ~ member ~ ").sizeof");
+	}
+	void update(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer) {
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
 		uint* tCount = cast(uint*) mappedMemory;
 		T* t = cast(T*) (mappedMemory + uint.sizeof);
+		size_t oldLength = length;
 		static if (ecs.hasAddUpdateList!T) {
 			foreach (e; ecs.getAddUpdateList!T.iterate()) {
 				ecs.entities[e].add!(ShaderListIndex!T)(ShaderListIndex!T(length));
@@ -2518,6 +2527,34 @@ struct ShaderList(T) {
 				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
 				t[shaderListIndex] = ecs.entities[e].getWithoutUpdate!T();
 				updateRangeCount++;
+			}
+		}
+		static foreach (E; typeof(ecs).GetUpdatesOfType!T) {
+			foreach (ref e; ecs.getUpdateList!(T, E[1]).iterate()) {
+				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
+				//t[shaderListIndex] = ecs.entities[e].getWithoutUpdate!T();
+				mixin("t[shaderListIndex]." ~ E[1] ~ " = ecs.entities[e].getWithoutUpdate!T()." ~ E[1] ~ ";");
+				updateRangeCount++;
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!T) {
+			foreach (ref e; ecs.getRemoveUpdateList!T.iterate()) {
+				// könnte problem geben wenn id für ein neues objekt verwendet wird
+				if (ecs.entities[e.id].has!(ShaderListIndex!T)()) {
+					ecs.entities[e.id].remove!(ShaderListIndex!T)();
+				}
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)) {
+			foreach (ref e; ecs.getRemoveUpdateList!(ShaderListIndex!T).iterate()) {
+				uint shaderListIndex = e.get().index;
+				if (shaderListIndex != length - 1) {
+					t[shaderListIndex] = t[length - 1];
+					entities[shaderListIndex] = entities[length - 1];
+					ecs.entities[entities[shaderListIndex]].get!(ShaderListIndex!T).index = shaderListIndex;
+					updateRangeCount++;
+				}
+				length--;
 			}
 		}
 		*tCount = length;
@@ -2539,11 +2576,44 @@ struct ShaderList(T) {
 				copyIndex++;
 			}
 		}
+		// noch ungetestet
+		static foreach (E; typeof(ecs).GetUpdatesOfType!T) {
+			foreach (ref e; ecs.getUpdateList!(T, E[1]).iterate()) {
+				uint shaderListIndex = ecs.entities[e].get!(ShaderListIndex!T)().index;
+				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex + getOffset!(E[1])(), uint.sizeof + T.sizeof * shaderListIndex + getOffset!(E[1])(), getSize!(E[1])());
+				copyIndex++;
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)) {
+			foreach (ref e; ecs.getRemoveUpdateList!(ShaderListIndex!T).iterate()) {
+				uint shaderListIndex = e.get().index;
+				if (shaderListIndex < length) {
+					copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+					copyIndex++;
+				}
+			}
+		}
+		if (oldLength != length) {
+			cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+		}
 		if (updateRangeCount > 0) {
-			cmdBuffer.copyBuffer(cpuBuffer, 0UL, gpuBuffer, 0UL, uint.sizeof);
 			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
 		}
-		ecs.clearAddUpdateList!T();
+		static if (ecs.hasAddUpdateList!T) {
+			ecs.clearAddUpdateList!T();
+		}
+		static if (ecs.hasEditUpdateList!T) {
+			ecs.clearEditUpdateList!T();
+		}
+		static if (ecs.hasRemoveUpdateList!T) {
+			ecs.clearRemoveUpdateList!T();
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)) {
+			ecs.clearRemoveUpdateList!(ShaderListIndex!T)();
+		}
+		static foreach (E; typeof(ecs).GetUpdatesOfType!T) {
+			ecs.clearUpdateList!(T, E[1])();
+		}
 	}
 }
 

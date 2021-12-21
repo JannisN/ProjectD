@@ -638,16 +638,23 @@ struct VirtualMember(string member, T, Args...) {
 		}
 		mixin("return t." ~ member ~ " " ~ op ~ "= n;");
 	}
+	template opDispatch(string member2) {
+		@property auto ref opDispatch() {
+			return VirtualMember!(member ~ "." ~ member2, T, Args)(t, entry);
+		}
+	}
 }
 
 struct DeletedComponent(T) {
 	bool isRef = false;
 	void* data;
+	size_t id;
 	void delegate() destructor = null;
 	@disable this(ref return scope Component rhs);
-	this(bool isRef, void* data) {
+	this(bool isRef, void* data, size_t id) {
 		this.isRef = isRef;
 		this.data = data;
+		this.id = id;
 	}
 	~this() {
 		if (!(destructor is null)) {
@@ -677,7 +684,7 @@ struct StaticViewECSEntry(Args...) {
 	ListElement!size_t*[T.length] elementPtr;
 	LinkedList!Component components;
 	ListElement!size_t*[ecs.AddUpdates.length] addUpdateEntry;
-	ListElement!size_t*[ecs.RemoveUpdates.length] removeUpdateEntry;
+	//ListElement!size_t*[ecs.RemoveUpdates.length] removeUpdateEntry;
 	ListElement!size_t*[ecs.EditUpdates.length] editUpdateEntry;
 	ListElement!size_t*[ecs.Updates.length] updateEntry;
 	@disable this(ref return scope StaticViewECSEntry!Args rhs);
@@ -706,7 +713,7 @@ struct StaticViewECSEntry(Args...) {
 		static foreach (E; ecs.RemoveUpdates) {
 			while (current != null) {
 				if (current.t.type == E.stringof) {
-					ecs.getRemoveUpdateList!E.add(DeletedComponent!E(current.t.isRef, current.t.data));
+					ecs.getRemoveUpdateList!E.add(DeletedComponent!E(current.t.isRef, current.t.data, id));
 					ecs.getRemoveUpdateList!E.last.t.destructor = current.t.destructor;
 					current.t.data = null;
 					current.t.destructor = null;
@@ -808,26 +815,26 @@ struct StaticViewECSEntry(Args...) {
 					//components.removeButNotDelete(current);
 					//ecs.getRemoveUpdateList!U.add(current);
 					static if (ecs.hasAddUpdateList!U) {
-						if (addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]] == null) {
-							ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+						if (addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]] == null) {
+							ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data, id));
 							ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
-							removeUpdateEntry[findTypes!(U, ecs.RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last;
+							//removeUpdateEntry[findTypes!(U, typeof(ecs).RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last.id;
 						} else {
-							ecs.getAddUpdateList!U.remove(addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]]);
-							addUpdateEntry[findTypes!(U, ecs.AddUpdates)[0]] = null;
+							ecs.getAddUpdateList!U.remove(addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]]);
+							addUpdateEntry[findTypes!(U, typeof(ecs).AddUpdates)[0]] = null;
 						}
 					} else {
-						ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data));
+						ecs.getRemoveUpdateList!U.add(DeletedComponent!U(current.t.isRef, current.t.data, id));
 						ecs.getRemoveUpdateList!U.last.t.destructor = current.t.destructor;
-						removeUpdateEntry[findTypes!(U, ecs.RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last;
+						//removeUpdateEntry[findTypes!(U, typeof(ecs).RemoveUpdates)[0]] = ecs.getRemoveUpdateList!U.last.id;
 					}
 					static if (ecs.hasEditUpdateList!U) {
-						if (editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]] != null) {
-							ecs.getEditUpdateList!U.remove(editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]]);
-							editUpdateEntry[findTypes!(U, ecs.EditUpdates)[0]] = null;
+						if (editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]] != null) {
+							ecs.getEditUpdateList!U.remove(editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]]);
+							editUpdateEntry[findTypes!(U, typeof(ecs).EditUpdates)[0]] = null;
 						}
 					}
-					static foreach (i, E; ecs.UpdateList) {
+					static foreach (i, E; typeof(ecs).Updates) {
 						static if (is(E.TypeSeq[0] == U)) {
 							if (updateEntry[i] != null) {
 								ecs.getUpdateList!U.remove(updateEntry[i]);
@@ -983,12 +990,23 @@ template RemoveUpdatesToList(T) {
 	alias RemoveUpdatesToList = LinkedList!(DeletedComponent!T);
 }
 
+template IfUpdateOfType(T) {
+	template IfUpdateOfType(U) {
+		static if (is(T == U[0])) {
+			alias IfUpdateOfType = T;
+		} else {
+			alias IfUpdateOfType = TypeSeq!();
+		}
+	}
+}
+
 struct StaticViewECS(Args...) {
 	alias Views = Args[0].TypeSeq;
 	alias Updates = Args[1].TypeSeq;
 	alias AddUpdates = Args[2].TypeSeq;
 	alias RemoveUpdates = Args[3].TypeSeq;
 	alias EditUpdates = Args[4].TypeSeq;
+	alias GetUpdatesOfType(T) = ApplyTypeSeq!(IfUpdateOfType!T, Updates);
 	LinkedList!size_t[Updates.length] updateLists;
 	LinkedList!size_t[AddUpdates.length] addUpdateLists;
 	ApplyTypeSeq!(RemoveUpdatesToList, RemoveUpdates) removeUpdateLists;
@@ -1030,8 +1048,8 @@ struct StaticViewECS(Args...) {
 	}
 	void clearRemoveUpdateList(T)() @property {
 		enum size_t index = findTypes!(T, RemoveUpdates)[0];
-		foreach (i; getRemoveUpdateList!T.iterate()) {
-			entities[i].removeUpdateEntry[index] = null;
+		foreach (ref i; getRemoveUpdateList!T.iterate()) {
+			//entities[i.id].removeUpdateEntry[index] = null;
 		}
 		getRemoveUpdateList!(T).clear();
 	}

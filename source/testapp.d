@@ -53,7 +53,8 @@ struct TestApp(ECS) {
 				writeln(i);
 			}*/
 			foreach (e; dynEcs.getView!(Circle).iterate) {
-				dynEcs.entities[e].get!Circle.x += 1;
+				dynEcs.remove(e);
+				//dynEcs.entities[e].get!Circle.x += 1;
 			}
 		}
 	}
@@ -425,8 +426,8 @@ struct TestApp(ECS) {
 			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
 			memoryAllocator.allocate(cast(AllocatedResource!Buffer)gpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			memoryAllocator.allocate(cast(AllocatedResource!Buffer)cpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-			Memory* memoryGpu = &gpuBuffer.resource.allocatedMemory.allocatorList.memory;
-			Memory* memoryCpu = &cpuBuffer.resource.allocatedMemory.allocatorList.memory;
+			Memory* memoryGpu = &cast(Memory) gpuBuffer.resource.allocatedMemory.allocatorList.memory;
+			Memory* memoryCpu = &cast(Memory) cpuBuffer.resource.allocatedMemory.allocatorList.memory;
 			float* floatptr = cast(float*) memoryCpu.map(cpuBuffer.resource.allocatedMemory.allocation.offset, dataSize);
 			foreach (j, float f; vertPos) {
 				floatptr[j] = f;
@@ -569,7 +570,7 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(
 		),
 		TypeSeqStruct!(Text, Circle), // add
-		TypeSeqStruct!(/*Text*/), // remove
+		TypeSeqStruct!(/*Text*/Circle, ShaderListIndex!Circle), // remove
 		TypeSeqStruct!(Text, Circle), // editupdate
 	) dynEcs;
 	size_t timeCounter;
