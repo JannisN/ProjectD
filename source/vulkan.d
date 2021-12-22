@@ -2502,7 +2502,7 @@ struct ShaderList(T) {
 	}
 	VkDeviceSize getOffset(string member)() {
 		T t;
-		mixin("return &t - &" ~ "t." ~ member ~ ";");
+		mixin("return -&t + &" ~ "t." ~ member ~ ";");
 	}
 	VkDeviceSize getSize(string member)() {
 		mixin("return typeof(t." ~ member ~ ").sizeof");
@@ -2513,6 +2513,14 @@ struct ShaderList(T) {
 		uint* tCount = cast(uint*) mappedMemory;
 		T* t = cast(T*) (mappedMemory + uint.sizeof);
 		size_t oldLength = length;
+		static if (ecs.hasRemoveUpdateList!T) {
+			foreach (ref e; ecs.getRemoveUpdateList!T.iterate()) {
+				// könnte problem geben wenn id für ein neues objekt verwendet wird
+				if (ecs.entities[e.id].has!(ShaderListIndex!T)()) {
+					ecs.entities[e.id].remove!(ShaderListIndex!T)();
+				}
+			}
+		}
 		static if (ecs.hasAddUpdateList!T) {
 			foreach (e; ecs.getAddUpdateList!T.iterate()) {
 				ecs.entities[e].add!(ShaderListIndex!T)(ShaderListIndex!T(length));
@@ -2535,14 +2543,6 @@ struct ShaderList(T) {
 				//t[shaderListIndex] = ecs.entities[e].getWithoutUpdate!T();
 				mixin("t[shaderListIndex]." ~ E[1] ~ " = ecs.entities[e].getWithoutUpdate!T()." ~ E[1] ~ ";");
 				updateRangeCount++;
-			}
-		}
-		static if (ecs.hasRemoveUpdateList!T) {
-			foreach (ref e; ecs.getRemoveUpdateList!T.iterate()) {
-				// könnte problem geben wenn id für ein neues objekt verwendet wird
-				if (ecs.entities[e.id].has!(ShaderListIndex!T)()) {
-					ecs.entities[e.id].remove!(ShaderListIndex!T)();
-				}
 			}
 		}
 		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)) {
