@@ -464,7 +464,12 @@ struct TestApp(ECS) {
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
 		);
-		passedTime += timer.update();
+		auto dt = timer.update();
+		passedTime += dt;
+		foreach (e; dynEcs.getView!(Circle).iterate) {
+			import std.math.trigonometry;
+			dynEcs.entities[e].get!Circle.x = 5 + sin(10.0 * passedTime);
+		}
 		//writeln(passedTime);
 		descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL), WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL)));
 		//circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleImplStruct.buffer)));
