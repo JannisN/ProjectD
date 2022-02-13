@@ -48,3 +48,5 @@ tasks.json
 .history
 .ionide
 
+.extern/build/
+extern/build/stb_image.c

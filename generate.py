@@ -1,21 +1,30 @@
 from sys import platform
+import os
+
+if platform == "darwin":
+	os.system('mkdir extern/build')
+	os.system('cp extern/stb/stb_image.h extern/build/stb_image.c')
+	os.system('clang -D STB_IMAGE_IMPLEMENTATION -c -o extern/build/stb.o extern/build/stb_image.c')
+	os.system('ar rcs extern/build/stb.a extern/build/stb.o')
+	os.system('cmake -S extern/glfw -B extern/glfw/build -D BUILD_SHARED_LIBS=OFF')
+	os.system('cmake --build extern/glfw/build')
 
 if platform == "win32":
 	vulkanLib = input("Vulkan Lib:")
 	glfwLib = input("Glfw Lib:")
 	openclLib = input("OpenCL Lib:")
 	cLib = input("C Lib directory:")
-	stbimage = imput("stb_image Lib:")
+	stbimage = input("stb_image Lib:")
 
 if platform == "darwin":
 	vulkanLib = input("Vulkan SDK:")
-	glfwLib = input("Glfw Lib:")
-	stbimage = imput("stb_image Lib:")
+	glfwLib = 'extern/glfw/build/src/libglfw3.a'
+	stbimage = 'extern/build/stb.a'
 
 if platform == "linux":
 	vulkanLib = input("Vulkan Lib:")
-	glfwLib = input("Glfw Lib:")
-	stbimage = imput("stb_image Lib:")
+	glfwLib = 'extern/glfw/build/src/libglfw3.a'
+	stbimage = 'extern/build/stb.a'
 
 #C://Users/Admin/Desktop/dlang/dubtest/lib/vulkan-1.lib
 #C://Users/Admin/Desktop/dlang/dubtest/lib/glfw.lib
@@ -66,15 +75,15 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		f.write('"/System/Library/Frameworks/QuartzCore.framework/QuartzCore" ')
 		f.write('"/System/Library/Frameworks/IOSurface.framework/IOSurface" ')
 		f.write('"/System/Library/Frameworks/Quartz.framework/Quartz" ')
-		f.write('"' + vulkanLib + '/macOS/lib/libvulkan.dylib" ')
-		f.write('"-L/' + vulkanLib + '/macOS/Frameworks/vulkan.framework" ')
-		f.write('"-rpath" "' + vulkanLib + '/macOS/Frameworks" ')
+		f.write('"/' + vulkanLib + '/macOS/lib/libvulkan.dylib" ')
+		f.write('"-L//' + vulkanLib + '/macOS/Frameworks/vulkan.framework" ')
+		f.write('"-rpath" "/' + vulkanLib + '/macOS/Frameworks" ')
 		f.write('platform="osx"\n')
 		f.write('libs "stdc++" platform="osx"')
 	if platform == "linux":
 		f.write('lflags ')
 		f.write('"' + glfwLib + '" ')
-		f.write('"' + vulkanLib + '" ')
+		f.write('"/' + vulkanLib + '" ')
 		f.write('"' + stbimage + '" ')
 		f.write('"/usr/lib/libOpenCL.so" platform="linux"\n')
 		f.write('libs "GL" "X11" platform="linux"\n')
