@@ -9,6 +9,14 @@ if platform == "darwin":
 	os.system('cmake -S extern/glfw -B extern/glfw/build -D BUILD_SHARED_LIBS=OFF')
 	os.system('cmake --build extern/glfw/build')
 
+if platform == "linux":
+	os.system('mkdir extern/build')
+	os.system('cp extern/stb/stb_image.h extern/build/stb_image.c')
+	os.system('clang -D STB_IMAGE_IMPLEMENTATION -c -o extern/build/stb.o extern/build/stb_image.c')
+	os.system('ar rcs extern/build/stb.a extern/build/stb.o')
+	os.system('cmake -S extern/glfw -B extern/glfw/build -D BUILD_SHARED_LIBS=OFF')
+	os.system('cmake --build extern/glfw/build')
+
 if platform == "win32":
 	vulkanLib = input("Vulkan Lib:")
 	glfwLib = input("Glfw Lib:")
@@ -83,7 +91,7 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 	if platform == "linux":
 		f.write('lflags ')
 		f.write('"' + glfwLib + '" ')
-		f.write('"/' + vulkanLib + '" ')
+		f.write('"/' + vulkanLib + '/lib/libvulkan.so" ')
 		f.write('"' + stbimage + '" ')
 		f.write('"/usr/lib/libOpenCL.so" platform="linux"\n')
 		f.write('libs "GL" "X11" platform="linux"\n')

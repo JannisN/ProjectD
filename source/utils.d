@@ -800,10 +800,8 @@ struct Result(ResultType, ResultType successType) {
 		result = successType;
 	}
 	ref Result opAssign(ResultType result) return {
+		this.result = result;
 		if (result != successType) {
-			if (this.result == successType) {
-				this.result = result;
-			}
 			if (!(onError is null)) {
 				onError(result);
 			}

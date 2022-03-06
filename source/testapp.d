@@ -1,4 +1,4 @@
-import vk;
+import vulkan;
 import glfw_vulkan_window;
 import utils;
 import vulkan_core;
@@ -59,7 +59,8 @@ struct TestApp(ECS) {
 		}
 	}
 	void receive(WindowResizeEvent event) {
-		initWindow();
+		//resized = true;
+		//rebuildSwapchain();
 	}
 	void initVulkan() {
 		version(Windows) {
@@ -283,6 +284,165 @@ struct TestApp(ECS) {
 		)));
 		descriptorSet = descriptorPool.allocateSet(descriptorSetLayout);
 	}
+	void rebuildSwapchain() {
+		vkDeviceWaitIdle(device.device);
+		//framebuffers.destroy();
+		//swapchainViews.destroy();
+		swapchainViews.resize(0);
+		framebuffers.resize(0);
+		graphicsDescriptorSet.destroy();
+		graphicsDescriptorPool.destroy();
+		graphicsPipeline.destroy();
+		renderPass.destroy();
+		pipelineLayoutGraphics.destroy();
+		graphicsDescriptorSetLayout.destroy();
+
+		//swapchain.destroy();
+		//surface.destroy();
+		//surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
+
+		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+			null
+		)));
+		graphicsDescriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1
+		)));
+		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
+		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
+		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+
+		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
+		capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
+		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
+		auto oldSwapchain = swapchain.swapchain;
+		swapchain.swapchain = null;
+		swapchain = device.createSwapchain(
+			surface,
+			2,
+			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+			VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+			capabilities.currentExtent,
+			1,
+			VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT,
+			VkSharingMode.VK_SHARING_MODE_EXCLUSIVE,
+			[],
+			VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+			VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+			//VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR,
+			VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR,
+			true,
+			oldSwapchain
+		);
+		renderPass = device.createRenderPass(
+			array(VkAttachmentDescription(
+				0,
+				VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+				VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
+				VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,//VK_ATTACHMENT_LOAD_OP_CLEAR
+				VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
+				VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+				VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+			)),
+			array(
+				subpassDescription(
+					[],
+					array(
+						VkAttachmentReference(
+							0,
+							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						)
+					),
+					[],
+					[]
+				)
+			),
+			[]
+		);
+
+		//swapchainViews = Vector!ImageView(swapchain.images.length);
+		//framebuffers = Vector!ImageView(swapchain.images.length);
+		swapchainViews.resize(swapchain.images.length);
+		framebuffers.resize(swapchain.images.length);
+		foreach (i; 0 .. swapchain.images.length) {
+			swapchainViews[i] = ImageView(
+				device,
+				swapchain.images[i],
+				VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+				VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+				VkComponentMapping(
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+				),
+				VkImageSubresourceRange(
+					VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+					0,
+					1,
+					0,
+					1
+				)
+			);
+			framebuffers[i] = renderPass.createFramebuffer(array(swapchainViews[i].imageView), capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		}
+
+		auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main", [], 0, null);
+		auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main", [], 0, null);
+		auto vertexInputStateCreateInfo = vertexInputState(
+			array(VkVertexInputBindingDescription(0, float.sizeof * 6, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
+			array(
+				VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0),
+				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 4)
+			)
+		);
+		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
+		VkViewport dummyViewport;
+		if (capabilities.currentExtent.width < capabilities.currentExtent.height)
+			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
+		else
+			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+		auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
+		auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
+		auto rasterizationStateCreateInfo = rasterizationState(
+			false,
+			false,
+			VkPolygonMode.VK_POLYGON_MODE_FILL,
+			VkCullModeFlagBits.VK_CULL_MODE_NONE,
+			VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			false,
+			0, 0, 0, 1
+		);
+		auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
+		VkPipelineColorBlendAttachmentState blendAttachment;
+		blendAttachment.blendEnable = VK_TRUE;
+		blendAttachment.colorWriteMask = 0xf;
+		blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+		blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+		//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+		//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
+		//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+		auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+
+		graphicsPipeline = renderPass.createGraphicsPipeline(
+			vertStage,
+			fragStage,
+			vertexInputStateCreateInfo,
+			inputAssemblyStateCreateInfo,
+			viewportStateCreateInfo,
+			rasterizationStateCreateInfo,
+			multiSample,
+			blend,
+			pipelineLayoutGraphics
+		);
+	}
 	void initWindow() {
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
@@ -300,10 +460,13 @@ struct TestApp(ECS) {
 			[],
 			VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 			VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-			VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR,
+			// immediate gibt zu viele fps, fifo gibt vsync aber es laggt bei mir auf arch?
+			//VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR,
+			VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR,
 			true,
 			swapchain.swapchain
 		);
+		writeln(swapchain.result.result);
 		renderPass = device.createRenderPass(
 			array(VkAttachmentDescription(
 				0,
@@ -408,6 +571,11 @@ struct TestApp(ECS) {
 		);
 	}
 	void update() {
+		/*if (resized) {
+			resized = false;
+			rebuildSwapchain();
+			return;
+		}*/
 		cmdBuffer.begin();
 		foreach (i; dynEcs.getEditUpdateList!Text.iterate()) {
 			Text text = dynEcs.entities[i].getWithoutUpdate!Text();
@@ -446,7 +614,37 @@ struct TestApp(ECS) {
 		dynEcs.clearEditUpdateList!Text();
 		//dynEcs.getAddUpdateList!Text.clear();
 		
-		uint imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
+		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
+		if (swapchain.result.result != VkResult.VK_SUCCESS) {
+			//writeln("aquireNextImage:");
+			//writeln(swapchain.result.result);
+			//fence.wait();
+			fence.reset();
+			rebuildSwapchain();
+			return;
+		}
+		/+while (swapchain.result.result == VkResult.VK_ERROR_OUT_OF_DATE_KHR) {
+			initWindow();
+			fence.reset();
+			vkDeviceWaitIdle(device.device);
+			imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
+		}
+		if (fence.wait(100) != VkResult.VK_SUCCESS) {
+			fence.reset();
+			initWindow();
+			imageIndex = swapchain.aquireNextImage(100, /*semaphore*/null, fence);
+		}+/
+		/*if (swapchain.result.result == VkResult.VK_ERROR_OUT_OF_DATE_KHR) {
+			fence.reset();
+			initWindow();
+			return;
+		}*/
+		/*writeln(fence.wait(1000000000));
+		if (fence.result.result == VkResult.VK_TIMEOUT) {
+			fence.reset();
+			initWindow();
+			return;
+		}*/
 		fence.wait();
 		fence.reset();
 		
@@ -522,9 +720,29 @@ struct TestApp(ECS) {
 		cmdBuffer.end();
 		
 		queue.submit(cmdBuffer, fence);
-		queue.present(swapchain, imageIndex);
 		fence.wait();
 		fence.reset();
+		auto submitResult = queue.present(swapchain, imageIndex);
+		if (submitResult != VkResult.VK_SUCCESS) {
+			//writeln("present:");
+			//writeln(submitResult);
+			cmdBuffer.reset();
+			rebuildSwapchain();
+			return;
+		}
+		/*if (queue.result.result == VkResult.VK_ERROR_OUT_OF_DATE_KHR) {
+			fence.reset();
+			cmdBuffer.reset();
+			initWindow();
+			return;
+		}
+		writeln(fence.wait(1000000000));
+		if (fence.result.result == VkResult.VK_TIMEOUT) {
+			fence.reset();
+			cmdBuffer.reset();
+			initWindow();
+			return;
+		}*/
 		cmdBuffer.reset();
 	}
 	Instance instance;
@@ -582,6 +800,8 @@ struct TestApp(ECS) {
 	
 	CircleImplStruct circleImplStruct;
 	ShaderList!Circle circleShaderList;
+
+	//bool resized = false;
 }
 
 struct Circle {

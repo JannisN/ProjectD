@@ -62,7 +62,7 @@ private extern(C) {
 }
 
 struct GlfwVulkanWindow(Sender) {
-	import vk : Result, Instance, Surface;
+	import vulkan : Result, Instance, Surface;
 	GLFWwindow* window;
 	GlfwResult result;
 	Result vkResult;

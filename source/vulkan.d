@@ -1,4 +1,4 @@
-module vk;
+module vulkan;
 
 import utils;
 import vulkan_core;
