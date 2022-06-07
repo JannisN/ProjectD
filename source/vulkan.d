@@ -1283,9 +1283,14 @@ struct Memory {
 		return commitment;
 	}
 	void* map(VkDeviceSize offset, VkDeviceSize size) {
+		auto nonCoherentAtomSize = device.physicalDevice.properties.limits.nonCoherentAtomSize;
+		auto offsetCorrect = (offset / nonCoherentAtomSize) * nonCoherentAtomSize;
+		auto sizeCorrect = (size / nonCoherentAtomSize) * nonCoherentAtomSize + (offset % nonCoherentAtomSize == 0 ? 0 : nonCoherentAtomSize) + (size % nonCoherentAtomSize == 0 ? 0 : nonCoherentAtomSize);
+		if (size == VK_WHOLE_SIZE)
+			sizeCorrect = VK_WHOLE_SIZE;
 		void* data;
-		result = vkMapMemory(device.device, memory, offset, size, 0, &data);
-		return data;
+		result = vkMapMemory(device.device, memory, offsetCorrect, sizeCorrect, 0, &data);
+		return (data + offset % nonCoherentAtomSize);
 	}
 	void unmap() {
 		vkUnmapMemory(device.device, memory);
@@ -1293,8 +1298,12 @@ struct Memory {
 	// nur nötig falls vk_memory_property_host_coherent_bit nicht gesetzt
 	// muss synchronisiert werden mit barriers
 	void flush(VkMappedMemoryRange[] ranges) {
+		auto nonCoherentAtomSize = device.physicalDevice.properties.limits.nonCoherentAtomSize;
 		for (int i = 0; i < ranges.length; i++) {
 			ranges[i].memory = memory;
+			ranges[i].offset = (ranges[i].offset / nonCoherentAtomSize) * nonCoherentAtomSize;
+			if (ranges[i].size != VK_WHOLE_SIZE)
+				ranges[i].size = (ranges[i].size / nonCoherentAtomSize) * nonCoherentAtomSize + (ranges[i].offset % nonCoherentAtomSize == 0 ? 0 : nonCoherentAtomSize) + (ranges[i].size % nonCoherentAtomSize == 0 ? 0 : nonCoherentAtomSize);
 		}
 		result = vkFlushMappedMemoryRanges(device.device, cast(uint) ranges.length, cast(VkMappedMemoryRange*) ranges.ptr);
 	}

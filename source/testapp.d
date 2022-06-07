@@ -225,7 +225,7 @@ struct TestApp(ECS) {
 		circleImplStruct.buffer = AllocatedResource!Buffer(device.createBuffer(0, Circle.sizeof * 3 + int.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 		memoryAllocator.allocate(circleImplStruct.buffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		Memory* memory = &circleImplStruct.buffer.allocatedMemory.allocatorList.memory;
-		void* mappedMem = memory.map(circleImplStruct.buffer.allocatedMemory.allocation.offset, Circle.sizeof * 3 + int.sizeof);
+		void* mappedMem = memory.map(circleImplStruct.buffer.allocatedMemory.allocation.offset, VK_WHOLE_SIZE);
 		int* circleCount = cast(int*) mappedMem;
 		*circleCount = 3;
 		Circle* circles = cast(Circle*) (mappedMem + int.sizeof);
@@ -600,7 +600,7 @@ struct TestApp(ECS) {
 			foreach (j, float f; vertPos) {
 				floatptr[j] = f;
 			}
-			memoryCpu.flush(array(mappedMemoryRange(*memoryCpu, cpuBuffer.resource.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
+			memoryCpu.flush(array(mappedMemoryRange(*memoryCpu, cpuBuffer.resource.allocatedMemory.allocation.offset, cpuBuffer.resource.allocatedMemory.allocation.length)));
 			memoryCpu.unmap();
 			cmdBuffer.copyBuffer(cast(Buffer)cpuBuffer.resource, 0, cast(Buffer)gpuBuffer.resource, 0, dataSize);
 		}
