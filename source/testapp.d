@@ -44,10 +44,13 @@ struct TestApp(ECS) {
 			// + updaten, add update entfernen (vlt auch bei member update list)
 			// + allgemein bei desktruktor referenzen zu updatelisten rausnehmen(ausser removeupdatelist)
 			// + dazu braucht man richtige clear funktion die auch die referenzen von entities auf null setzt
+
+			//dynEcs.entities[timeCounter].get!Text() = Text(String(fval), -1, -1, 1);
 			dynEcs.entities[timeCounter].get!Text.text = String(fval);
-			//dynEcs.entities[timeCounter].get!Text.x = -1;
-			//dynEcs.entities[timeCounter].get!Text.y = -1;
-			//dynEcs.entities[timeCounter].get!Text.scale = 1;
+
+			dynEcs.entities[timeCounter].get!Text.x = -1;
+			dynEcs.entities[timeCounter].get!Text.y = -1;
+			dynEcs.entities[timeCounter].get!Text.scale = 1;
 			/*foreach (i; dynEcs.getEditUpdateList!Text().iterate()) {
 				
 				writeln(i);
@@ -110,7 +113,7 @@ struct TestApp(ECS) {
 		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
 		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
-		circleShaderList = ShaderList!Circle(device, memoryAllocator, 1024);
+		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
 	}
 	void uploadVertexData() {
 		/*vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 1024, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -811,12 +814,6 @@ struct Circle {
 }
 
 struct Text {
-	this(ref return scope Text rhs) {
-		text = rhs.text;
-		x = rhs.x;
-		y = rhs.y;
-		scale = rhs.scale;
-	}
 	String text;
 	float x, y;
 	float scale;

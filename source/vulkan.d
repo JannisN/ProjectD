@@ -2517,6 +2517,8 @@ struct ShaderList(T) {
 		mixin("return typeof(t." ~ member ~ ").sizeof");
 	}
 	void update(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer) {
+		// wichtig: es muss nicht alles gemapt und geupdatet werden, nur das was verändert wurde! oder ist das schon so richtig wie es jetzt ist?
+		// vlt. sollte man auch überprüfen wegen 2 updates beim gleichen element in bezug auf editUpdateList. oder ist das auch schon korrekt, da die updates auch vom element her verlinkt sind?
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
 		uint* tCount = cast(uint*) mappedMemory;

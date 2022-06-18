@@ -306,6 +306,21 @@ struct Vector(T) if (!is(T == class)) {
 	this(ref return scope Vector!T rhs) {
 		this(cast(T[]) rhs.t);
 	}
+	inout this(ref return scope inout Vector!T rhs) {
+		static if (__traits(compiles, copyTest2!T())) {
+			if (__ctfe) {
+				t = cast(inout T[]) new T[rhs.t.length];
+				foreach (i; 0 .. rhs.t.length) {
+					(cast(T[])t)[i] = (cast(T[])rhs.t)[i];
+				}
+			} else {
+				t = cast(inout T[])cast(T[]) (cast(void[]) malloc(rhs.t.length * T.sizeof)[0 .. rhs.t.length * T.sizeof]);
+				memcpy(cast(void*) t.ptr, cast(void*) rhs.t.ptr, (t.length < rhs.t.length ? t.length : rhs.t.length) * T.sizeof);
+			}
+		} else {
+			assert(false, "Type not copyable");
+		}
+	}
 	this(size_t size) {
 		if (__ctfe) {
 			t = new T[size];

@@ -571,6 +571,7 @@ struct VirtualComponent(T, Args...) {
 		T t;
 	}
 	StaticViewECSEntry!Args* entry;
+	Component* component;
 	template opDispatch(string member) {
 		// ist glaube ich kein problem mehr, da VirtualMember struct eingeführt:
 		// problem: damits mit Vector funktioniert wurde ref hinzugefügt; ist das schlecht?
@@ -594,6 +595,25 @@ struct VirtualComponent(T, Args...) {
 			}
 			mixin("return t." ~ member ~ "= n;");
 		}
+	}
+	@property auto ref opAssign(U)(lazy U n) {
+		static if (!is(T == class) && !is(T == interface)) {
+			*t = n;
+		} else {
+			if (component.isRef) {
+				t = n;
+			} else {
+				// nicht klar was genau verlangt wird(ob umwandlung in referenz oder component zuerst löschen, dann neu erstellen). dies muss im jeweiligen code selbst gemacht werden.
+				assert(false, "Reasigning class object not possible");
+			}
+		}
+		static if (entry.ecs.hasEditUpdateList!T) {
+			if (entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] == null) {
+				entry.ecs.getEditUpdateList!T.add(entry.id);
+				entry.editUpdateEntry[findTypes!(T, typeof(entry.ecs).EditUpdates)[0]] = entry.ecs.getEditUpdateList!T.last;
+			}
+		}
+		return this;
 	}
 }
 
@@ -744,6 +764,7 @@ struct StaticViewECSEntry(Args...) {
 						v.t = (cast(S!U*)e.data).get;
 					}
 				}
+				v.component = &e;
 				return v;
 			}
 		}
