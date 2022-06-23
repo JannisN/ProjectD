@@ -364,7 +364,7 @@ struct Vector(T) if (!is(T == class)) {
 			} else {
 				T[] u = cast(T[]) (cast(void[]) malloc(size * T.sizeof)[0 .. size * T.sizeof]);
 				memcpy(cast(void*) u.ptr, cast(void*) t.ptr, (t.length < size ? t.length : size) * T.sizeof);
-				foreach (i; (t.length > size ? t.length : size) .. t.length) {
+				foreach (i; (t.length > size ? size : t.length) .. t.length) {
 					t[i].destroy();
 				}
 				size_t oldLength = t.length;

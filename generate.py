@@ -1,6 +1,14 @@
 from sys import platform
 import os
 
+if platform == "win32":
+	os.system('mkdir extern\\build')
+	os.system('copy extern\\stb\\stb_image.h extern\\build\\stb_image.c')
+	os.system('clang -D STB_IMAGE_IMPLEMENTATION -c -o extern/build/stb.o extern/build/stb_image.c')
+	#os.system('ar rcs extern/build/stb.a extern/build/stb.o')
+	os.system('cmake -S extern/glfw -B extern/glfw/build -D BUILD_SHARED_LIBS=OFF')
+	os.system('cmake --build extern/glfw/build')
+
 if platform == "darwin":
 	os.system('mkdir extern/build')
 	os.system('cp extern/stb/stb_image.h extern/build/stb_image.c')
@@ -19,10 +27,10 @@ if platform == "linux":
 
 if platform == "win32":
 	vulkanLib = input("Vulkan Lib:")
-	glfwLib = input("Glfw Lib:")
+	glfwLib = 'extern/glfw/build/src/Debug/glfw3.lib'
 	openclLib = input("OpenCL Lib:")
 	cLib = input("C Lib directory:")
-	stbimage = input("stb_image Lib:")
+	stbimage = 'extern/build/stb.o'
 
 if platform == "darwin":
 	vulkanLib = input("Vulkan SDK:")
@@ -55,6 +63,7 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 	f.write('stringImportPaths "views"\n')
 	f.write('\n')
 	if platform == "win32":
+		f.write('buildOptions "debugInfoC" platform="windows"\n')
 		#f.write('lflags "' + vulkanLib + '" "' + glfwLib + '" "/NODEFAULTLIB:libvcruntime.lib" "/NODEFAULTLIB:libcmt.lib" platform="windows"\n')
 		f.write('lflags ')
 		#f.write('"' + cLib + '/msvcrt.lib" ')
@@ -69,7 +78,7 @@ with codecs.open("dub.sdl", "x", encoding='utf8') as f:
 		#f.write('"' + cLib + '/uuid.lib" ')
 		#f.write('"' + cLib + '/comdlg32.lib" ')
 		#f.write('"' + cLib + '/advapi32.lib" ')
-		f.write('"' + vulkanLib + '"' + stbimage + '" "' + glfwLib + '" "' + openclLib + '" "/NODEFAULTLIB:libvcruntime.lib" "/NODEFAULTLIB:libcmt.lib" platform="windows"\n')
+		f.write('"' + vulkanLib + '/Lib/vulkan-1.lib" "' + stbimage + '" "' + glfwLib + '" "' + openclLib + '" "/NODEFAULTLIB:libvcruntime.lib" "/NODEFAULTLIB:libcmt.lib" platform="windows"\n')
 	if platform == "darwin":
 		f.write('lflags ')
 		#f.write('"' + vulkanLib + '/vulkan.framework" ')

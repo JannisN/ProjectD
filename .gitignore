@@ -42,6 +42,7 @@ dub.selections.json
 *.code-workspace
 launch.json
 tasks.json
+.vs/*
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
