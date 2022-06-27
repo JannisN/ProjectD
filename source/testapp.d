@@ -99,20 +99,6 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[1]);
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 
-		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
-			0,
-			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			1,
-			VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
-			null
-		)));
-		graphicsDescriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
-			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			1
-		)));
-		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
-		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
 		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
 	}
 	void uploadVertexData() {
@@ -304,6 +290,9 @@ struct TestApp(ECS) {
 		//surface.destroy();
 		//surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 
+		initWindow();
+
+		/*
 		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
 			0,
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -399,10 +388,10 @@ struct TestApp(ECS) {
 		auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main", [], 0, null);
 		auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main", [], 0, null);
 		auto vertexInputStateCreateInfo = vertexInputState(
-			array(VkVertexInputBindingDescription(0, float.sizeof * 6, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
+			array(VkVertexInputBindingDescription(0, float.sizeof * 4, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
 			array(
 				VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0),
-				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 4)
+				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
 			)
 		);
 		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
@@ -445,12 +434,30 @@ struct TestApp(ECS) {
 			blend,
 			pipelineLayoutGraphics
 		);
+		*/
 	}
 	void initWindow() {
+		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+			null
+		)));
+		graphicsDescriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1
+		)));
+		graphicsDescriptorSet = graphicsDescriptorPool.allocateSet(graphicsDescriptorSetLayout);
+		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
+
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
 		capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
 		auto surfaceformats = instance.physicalDevices[0].getSurfaceFormats(surface);
+		auto oldSwapchain = swapchain.swapchain;
+		swapchain.swapchain = null;
 		swapchain = device.createSwapchain(
 			surface,
 			2,
@@ -467,9 +474,8 @@ struct TestApp(ECS) {
 			//VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR,
 			VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR,
 			true,
-			swapchain.swapchain
+			oldSwapchain
 		);
-		writeln(swapchain.result.result);
 		renderPass = device.createRenderPass(
 			array(VkAttachmentDescription(
 				0,
@@ -526,10 +532,10 @@ struct TestApp(ECS) {
 		auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main", [], 0, null);
 		auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main", [], 0, null);
 		auto vertexInputStateCreateInfo = vertexInputState(
-			array(VkVertexInputBindingDescription(0, float.sizeof * 6, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
+			array(VkVertexInputBindingDescription(0, float.sizeof * 4, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
 			array(
 				VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0),
-				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 4)
+				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
 			)
 		);
 		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
@@ -574,11 +580,32 @@ struct TestApp(ECS) {
 		);
 	}
 	void update() {
+		auto dt = timer.update();
+		passedTime += dt;
+		foreach (e; dynEcs.getView!(Circle).iterate) {
+			import std.math.trigonometry;
+			dynEcs.entities[e].get!Circle.x = 5 + sin(10.0 * passedTime);
+		}
 		/*if (resized) {
 			resized = false;
 			rebuildSwapchain();
 			return;
 		}*/
+		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
+		if (swapchain.result.result != VkResult.VK_SUCCESS) {
+			//writeln("aquireNextImage:");
+			//writeln(swapchain.result.result);
+			//fence.wait();
+			fence.reset();
+			/*if (resized) {
+				resized = false;
+			} else {*/
+				rebuildSwapchain();
+			//}
+			return;
+		}
+		fence.wait();
+		fence.reset();
 		cmdBuffer.begin();
 		foreach (i; dynEcs.getEditUpdateList!Text.iterate()) {
 			Text text = dynEcs.entities[i].getWithoutUpdate!Text();
@@ -592,7 +619,7 @@ struct TestApp(ECS) {
 			dynEcs.entities[i].add!(CpuLocal!Buffer);
 			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
 			auto cpuBuffer = dynEcs.entities[i].get!(CpuLocal!Buffer);
-			size_t dataSize = 36 * float.sizeof * textRef.text.length;
+			size_t dataSize = 24 * float.sizeof * textRef.text.length;
 			gpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
 			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
 			memoryAllocator.allocate(cast(AllocatedResource!Buffer)gpuBuffer.resource, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -617,15 +644,6 @@ struct TestApp(ECS) {
 		dynEcs.clearEditUpdateList!Text();
 		//dynEcs.getAddUpdateList!Text.clear();
 		
-		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
-		if (swapchain.result.result != VkResult.VK_SUCCESS) {
-			//writeln("aquireNextImage:");
-			//writeln(swapchain.result.result);
-			//fence.wait();
-			fence.reset();
-			rebuildSwapchain();
-			return;
-		}
 		/+while (swapchain.result.result == VkResult.VK_ERROR_OUT_OF_DATE_KHR) {
 			initWindow();
 			fence.reset();
@@ -648,8 +666,6 @@ struct TestApp(ECS) {
 			initWindow();
 			return;
 		}*/
-		fence.wait();
-		fence.reset();
 		
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
@@ -665,12 +681,6 @@ struct TestApp(ECS) {
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
 		);
-		auto dt = timer.update();
-		passedTime += dt;
-		foreach (e; dynEcs.getView!(Circle).iterate) {
-			import std.math.trigonometry;
-			dynEcs.entities[e].get!Circle.x = 5 + sin(10.0 * passedTime);
-		}
 		//writeln(passedTime);
 		descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL), WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL)));
 		//circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleImplStruct.buffer)));

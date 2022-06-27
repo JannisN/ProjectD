@@ -14,52 +14,40 @@ struct AsciiBitfont {
 	Vector!float createText(string text, float x, float y, float scale) {
 		scale = scale * 0.01;
 		Vector!float ret;
-		ret.resize(36 * letters.length);
+		ret.resize(24 * letters.length);
 		uint offset = 0;
 		uint offsetLine = 0;
 		enum float eps = 0.001;
 		foreach (i, char e; text) {
-			ret[i * 36] = x + scale * (offset + letters[e].offsetX);
-			ret[i * 36 + 1] = y + scale * (offsetLine + letters[e].offsetY);
-			ret[i * 36 + 2] = 0.6;
-			ret[i * 36 + 3] = 1;
-			ret[i * 36 + 4] = letters[e].texX + eps;
-			ret[i * 36 + 5] = letters[e].texY + eps;
+			ret[i * 24] = x + scale * (offset + letters[e].offsetX);
+			ret[i * 24 + 1] = y + scale * (offsetLine + letters[e].offsetY);
+			ret[i * 24 + 2] = letters[e].texX + eps;
+			ret[i * 24 + 3] = letters[e].texY + eps;
 
-			ret[i * 36 + 6] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
-			ret[i * 36 + 6 + 1] = y + scale * (offsetLine + letters[e].offsetY);
-			ret[i * 36 + 6 + 2] = 0.6;
-			ret[i * 36 + 6 + 3] = 1;
-			ret[i * 36 + 6 + 4] = letters[e].texX + letters[e].texWidth - eps;
-			ret[i * 36 + 6 + 5] = letters[e].texY + eps;
+			ret[i * 24 + 4] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
+			ret[i * 24 + 4 + 1] = y + scale * (offsetLine + letters[e].offsetY);
+			ret[i * 24 + 4 + 2] = letters[e].texX + letters[e].texWidth - eps;
+			ret[i * 24 + 4 + 3] = letters[e].texY + eps;
 
-			ret[i * 36 + 12] = x + scale * (offset + letters[e].offsetX);
-			ret[i * 36 + 12 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
-			ret[i * 36 + 12 + 2] = 0.6;
-			ret[i * 36 + 12 + 3] = 1;
-			ret[i * 36 + 12 + 4] = letters[e].texX + eps;
-			ret[i * 36 + 12 + 5] = letters[e].texY + letters[e].texHeight - eps;
+			ret[i * 24 + 8] = x + scale * (offset + letters[e].offsetX);
+			ret[i * 24 + 8 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
+			ret[i * 24 + 8 + 2] = letters[e].texX + eps;
+			ret[i * 24 + 8 + 3] = letters[e].texY + letters[e].texHeight - eps;
 			
-			ret[i * 36 + 18] = x + scale * (offset + letters[e].offsetX);
-			ret[i * 36 + 18 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
-			ret[i * 36 + 18 + 2] = 0.6;
-			ret[i * 36 + 18 + 3] = 1;
-			ret[i * 36 + 18 + 4] = letters[e].texX + eps;
-			ret[i * 36 + 18 + 5] = letters[e].texY + letters[e].texHeight - eps;
+			ret[i * 24 + 12] = x + scale * (offset + letters[e].offsetX);
+			ret[i * 24 + 12 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
+			ret[i * 24 + 12 + 2] = letters[e].texX + eps;
+			ret[i * 24 + 12 + 3] = letters[e].texY + letters[e].texHeight - eps;
 
-			ret[i * 36 + 24] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
-			ret[i * 36 + 24 + 1] = y + scale * (offsetLine + letters[e].offsetY);
-			ret[i * 36 + 24 + 2] = 0.6;
-			ret[i * 36 + 24 + 3] = 1;
-			ret[i * 36 + 24 + 4] = letters[e].texX + letters[e].texWidth - eps;
-			ret[i * 36 + 24 + 5] = letters[e].texY + eps;
+			ret[i * 24 + 16] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
+			ret[i * 24 + 16 + 1] = y + scale * (offsetLine + letters[e].offsetY);
+			ret[i * 24 + 16 + 2] = letters[e].texX + letters[e].texWidth - eps;
+			ret[i * 24 + 16 + 3] = letters[e].texY + eps;
 
-			ret[i * 36 + 30] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
-			ret[i * 36 + 30 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
-			ret[i * 36 + 30 + 2] = 0.6;
-			ret[i * 36 + 30 + 3] = 1;
-			ret[i * 36 + 30 + 4] = letters[e].texX + letters[e].texWidth - eps;
-			ret[i * 36 + 30 + 5] = letters[e].texY + letters[e].texHeight - eps;
+			ret[i * 24 + 20] = x + scale * (offset + letters[e].offsetX + letters[e].texWidth);
+			ret[i * 24 + 20 + 1] = y + scale * (offsetLine + letters[e].offsetY + letters[e].texHeight);
+			ret[i * 24 + 20 + 2] = letters[e].texX + letters[e].texWidth - eps;
+			ret[i * 24 + 20 + 3] = letters[e].texY + letters[e].texHeight - eps;
 			
 			offset += letters[e].width;
 			if (e == '\n') {
