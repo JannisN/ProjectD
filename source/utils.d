@@ -446,6 +446,137 @@ struct Vector(T) if (!is(T == class)) {
 }
 
 alias String = Vector!char;
+
+struct VectorList(T) {
+	Vector!T vector;
+	Vector!bool empty;
+	alias vector this;
+	size_t length;
+	LinkedList!size_t emptyEntries;
+	size_t defaultLength = 1024;
+	this(size_t initialLength) {
+		vector = Vector!T(initialLength);
+		empty = Vector!bool(initialLength);
+		defaultLength = initialLength;
+	}
+	ref T add() {
+		if (emptyEntries.length == 0) {
+			if (length >= vector.length) {
+				if (vector.length == 0) {
+					vector.resize(defaultLength);
+					empty.resize(defaultLength);
+				} else {
+					vector.resize(vector.length * 2);
+					empty.resize(vector.length * 2);
+				}
+			}
+			length++;
+			return vector[length - 1];
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			empty[id] = false;
+			return vector[id];
+		}
+	}
+	ref T add(lazy T t) {
+		if (emptyEntries.length == 0) {
+			if (length >= vector.length) {
+				if (vector.length == 0) {
+					vector.resize(defaultLength);
+					empty.resize(defaultLength);
+				} else {
+					vector.resize(vector.length * 2);
+					empty.resize(vector.length * 2);
+				}
+			}
+			length++;
+			vector[length - 1] = t;
+			return vector[length - 1];
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			empty[id] = false;
+			vector[id] = t;
+			return vector[id];
+		}
+	}
+	size_t getId(T* t) {
+		return (t - vector.ptr) / T.sizeof;
+	}
+	size_t getId(ref T t) {
+		return getId(&t);
+	}
+	void remove(size_t id) {
+		vector[id].destroy();
+		emptyEntries.add(id);
+		empty[id] = true;
+	}
+	void remove(T* t) {
+		remove(getId(t));
+	}
+	void remove(ref T t) {
+		remove(&t);
+	}
+	void compactify() {
+		size_t actualLength = length;
+		while (empty[actualLength - 1] == true) {
+			actualLength--;
+		}
+		vector.resize(actualLength);
+		empty.resize(actualLength);
+		length = actualLength;
+
+		ListElement!size_t* current = emptyEntries.first;
+		while (current != null) {
+			ListElement!size_t* next = current.next;
+			if (current.t >= length) {
+				emptyEntries.remove(current);
+			}
+			current = next;
+		}
+	}
+	int opApply(scope int delegate(ref T) dg) {
+		foreach (i; 0 .. length) {
+			if (!empty[i]) {
+				int result = dg(vector[i]);
+				if (result)
+					return result;
+			}
+		}
+		return 0;
+	}
+	int opApplyReverse(scope int delegate(ref T) dg) {
+		foreach_reverse (i; 0 .. length) {
+			if (!empty[i]) {
+				int result = dg(vector[i]);
+				if (result)
+					return result;
+			}
+		}
+		return 0;
+	}
+}
+
+unittest {
+	VectorList!int vl = VectorList!int(3);
+	vl.add(1);
+	vl.add(2);
+	vl.add(3);
+	vl.add(4);
+	foreach (i; vl) {
+		writeln(i);
+	}
+	foreach_reverse (i; vl) {
+		writeln(i);
+	}
+	assert(vl.vector.length == 6);
+}
+
+struct CompactVectorList(T) {
+
+}
+
 /*struct String {
 	char[] s;
 	@disable this(ref return scope String rhs);

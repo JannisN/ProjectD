@@ -379,6 +379,16 @@ struct TestApp(ECS) {
 	void update() {
 		auto dt = timer.update();
 		passedTime += dt;
+		// neue utils datastructures: ein vektor aus statischen arrays, eine liste die aus einem vektor besteht(wie entities in StaticViewECS)
+		// nicht gut: views liste sollte pointer beinhalten zu den components
+		// get funktion sollte zuerst prüfen ob component in static view ist, dann kann component sofort gefunden werden
+		// wenn man über ein view iteriert soll kein virtualcomponent benutzt werden/update listen ignorieren. für performance
+		// generell sollte virtualcomponent bei get nur benutzt werden wenn struct in update liste enthalten.
+		// getwithoutupdate sollte zudem ein immutable objekt zurückgeben
+		// das gleiche evt. mit den update listen?
+		// auch noch zu implementieren: views sollten alle components erhalten; schneller für den cache,
+		// und sollte daher eine spezielle liste sein die mehrere anzahl an components enthält pro listeneintrag
+		// zweite update funktion für shader list so dass alles kopiert wird, bzw zweite shaderlist die mit view arbeitet
 		foreach (e; dynEcs.getView!(Circle).iterate) {
 			import std.math.trigonometry;
 			dynEcs.entities[e].get!Circle.x = 5 + sin(10.0 * passedTime);
@@ -641,50 +651,53 @@ struct TestDestructor {
 		writeln("destructor success");
 	}
 }
-void main() {
-	StaticViewECS!(
-		TypeSeqStruct!(
-			TypeSeqStruct!(CpuLocal!Image),
-			TypeSeqStruct!(VirtualStruct),
-		),
-		TypeSeqStruct!(
-			TypeSeqStruct!(VirtualStruct, "i"),
-		),
-		TypeSeqStruct!(VirtualStruct), // add
-		TypeSeqStruct!(VirtualStruct), // remove
-		TypeSeqStruct!(), // editupdate
-	) staticViewEcs;
-	staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
-	staticViewEcs.add().add!(CpuLocal!Image)();
-	staticViewEcs.add().add!(TestDestructor)();
-	staticViewEcs.remove(2);
-	LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
-	foreach (e; cpuView2.iterate) {
-		writeln(e);
+
+version(unittest) {} else {
+	void main() {
+		StaticViewECS!(
+			TypeSeqStruct!(
+				TypeSeqStruct!(CpuLocal!Image),
+				TypeSeqStruct!(VirtualStruct),
+			),
+			TypeSeqStruct!(
+				TypeSeqStruct!(VirtualStruct, "i"),
+			),
+			TypeSeqStruct!(VirtualStruct), // add
+			TypeSeqStruct!(VirtualStruct), // remove
+			TypeSeqStruct!(), // editupdate
+		) staticViewEcs;
+		staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
+		staticViewEcs.add().add!(CpuLocal!Image)();
+		staticViewEcs.add().add!(TestDestructor)();
+		staticViewEcs.remove(2);
+		LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
+		foreach (e; cpuView2.iterate) {
+			writeln(e);
+		}
+		LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
+		foreach (e; virtualView.iterate) {
+			auto test = staticViewEcs.entities[e].get!VirtualStruct;
+			writeln(test.opDispatch!("i")(3));
+		}
+		auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
+		foreach (e; updateList.iterate) {
+			writeln("update registrated");
+		}
+		auto addUpdateList = &staticViewEcs.getAddUpdateList!(VirtualStruct)();
+		foreach (e; addUpdateList.iterate) {
+			writeln("addUpdate");
+		}
+		staticViewEcs.remove(0);
+		foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate) {
+			writeln("removeupdate");
+		}
+		TestController!(
+			Info!(GlfwVulkanWindow, DefaultDataStructure),
+			Info!(TestApp, DefaultDataStructure),
+			Info!(DebugStruct, DefaultDataStructure),
+			//Info!(DebugStruct1, DefaultDataStructure),
+		) controller;
+		controller.initialize();
+		controller.run();
 	}
-	LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
-	foreach (e; virtualView.iterate) {
-		auto test = staticViewEcs.entities[e].get!VirtualStruct;
-		writeln(test.opDispatch!("i")(3));
-	}
-	auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
-	foreach (e; updateList.iterate) {
-		writeln("update registrated");
-	}
-	auto addUpdateList = &staticViewEcs.getAddUpdateList!(VirtualStruct)();
-	foreach (e; addUpdateList.iterate) {
-		writeln("addUpdate");
-	}
-	staticViewEcs.remove(0);
-	foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate) {
-		writeln("removeupdate");
-	}
-	TestController!(
-		Info!(GlfwVulkanWindow, DefaultDataStructure),
-		Info!(TestApp, DefaultDataStructure),
-		Info!(DebugStruct, DefaultDataStructure),
-		//Info!(DebugStruct1, DefaultDataStructure),
-	) controller;
-	controller.initialize();
-	controller.run();
 }
