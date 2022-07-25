@@ -302,6 +302,7 @@ auto move(T)(ref T t) {
 
 struct Vector(T) if (!is(T == class)) {
 	T[] t;
+	alias t this;
 	// war disabled
 	this(ref return scope Vector!T rhs) {
 		this(cast(T[]) rhs.t);
@@ -439,24 +440,113 @@ struct Vector(T) if (!is(T == class)) {
 	size_t size() @property {
 		return t.length;
 	}
+	size_t size(size_t newSize) @property {
+		resize(newSize);
+		return t.length;
+	}
 	size_t length() @property {
 		return t.length;
 	}
-	alias t this;
+	size_t length(size_t newSize) @property {
+		resize(newSize);
+		return t.length;
+	}
+	size_t getId(T* e) {
+		if (e - t.ptr >= 0 && (e - t.ptr) / T.sizeof < t.length) {
+			return (e - t.ptr) / T.sizeof;
+		}
+		assert(false);
+	}
+	size_t getId(ref T e) {
+		return getId(&e);
+	}
 }
 
 alias String = Vector!char;
 
-struct VectorList(T) {
-	Vector!T vector;
-	Vector!bool empty;
+struct PartialVector(T, size_t PartialLength) {
+	Vector!(Vector!T) vector;
+	this(size_t initialLength) {
+		size_t count = initialLength / PartialLength + (initialLength % PartialLength) == 0 ? 0 : 1;
+		vector = Vector!(Vector!T)(count);
+		foreach (i; 0 .. count - 1) {
+			vector[i].resize(PartialLength);
+		}
+		if (initialLength % PartialLength != 0) {
+			vector[count - 1].resize(initialLength % PartialLength);
+		}
+	}
+	ref T opIndex(size_t i) {
+		return vector[i / PartialLength][i % PartialLength];
+	}
+	void resize(size_t size) {
+		size_t oldLength = vector.length;
+		size_t count = size / PartialLength + (size % PartialLength) == 0 ? 0 : 1;
+		vector.resize(count);
+		if (oldLength != 0) {
+			vector[oldLength - 1].resize(PartialLength);
+		}
+		foreach (i; oldLength .. count - 1) {
+			vector[i].resize(PartialLength);
+		}
+		if (size % PartialLength != 0) {
+			vector[count - 1].resize(size % PartialLength);
+		}
+	}
+	void renew(size_t size) {
+		size_t oldLength = vector.length;
+		size_t count = size / PartialLength + (size % PartialLength) == 0 ? 0 : 1;
+		vector.renew(count);
+		if (oldLength != 0) {
+			vector[oldLength - 1].resize(PartialLength);
+		}
+		foreach (i; oldLength .. count - 1) {
+			vector[i].resize(PartialLength);
+		}
+		if (size % PartialLength != 0) {
+			vector[count - 1].resize(size % PartialLength);
+		}
+	}
+	size_t size() @property {
+		if (vector.length == 0) {
+			return 0;
+		} else {
+			return (vector.length - 1) * PartialLength + vector[vector.length - 1].length;
+		}
+	}
+	size_t size(size_t newSize) @property {
+		resize(newSize);
+		return size();
+	}
+	size_t length() @property {
+		return size();
+	}
+	size_t length(size_t newSize) @property {
+		return size(newSize);
+	}
+	size_t getId(T* e) {
+		foreach (i; 0 .. vector.length) {
+			if (e - vector[i].ptr >= 0 && (e - vector[i].ptr) / T.sizeof < vector[i].length) {
+				return (e - vector[i].ptr) / T.sizeof;
+			}
+		}
+		assert(false);
+	}
+	size_t getId(ref T e) {
+		return getId(&e);
+	}
+}
+
+struct VectorList(alias BaseVector, T) {
+	BaseVector!T vector;
+	BaseVector!bool empty;
 	alias vector this;
 	size_t length;
 	LinkedList!size_t emptyEntries;
 	size_t defaultLength = 1024;
 	this(size_t initialLength) {
-		vector = Vector!T(initialLength);
-		empty = Vector!bool(initialLength);
+		vector = BaseVector!T(initialLength);
+		empty = BaseVector!bool(initialLength);
 		defaultLength = initialLength;
 	}
 	ref T add() {
@@ -502,7 +592,7 @@ struct VectorList(T) {
 		}
 	}
 	size_t getId(T* t) {
-		return (t - vector.ptr) / T.sizeof;
+		return vector.getId(t);
 	}
 	size_t getId(ref T t) {
 		return getId(&t);
@@ -559,7 +649,8 @@ struct VectorList(T) {
 }
 
 unittest {
-	VectorList!int vl = VectorList!int(3);
+	alias PartVector(T) = PartialVector!(T, 64);
+	VectorList!(PartVector, int) vl = VectorList!(PartVector, int)(3);
 	vl.add(1);
 	vl.add(2);
 	vl.add(3);
@@ -573,8 +664,75 @@ unittest {
 	assert(vl.vector.length == 6);
 }
 
-struct CompactVectorList(T) {
-
+struct CompactVectorList(alias BaseVector, T) {
+	BaseVector!T vector;
+	alias vector this;
+	size_t length;
+	size_t defaultLength = 1024;
+	this(size_t initialLength) {
+		vector = Vector!T(initialLength);
+		defaultLength = initialLength;
+	}
+	ref T add() {
+		if (length >= vector.length) {
+			if (vector.length == 0) {
+				vector.resize(defaultLength);
+			} else {
+				vector.resize(vector.length * 2);
+			}
+		}
+		length++;
+		return vector[length - 1];
+	}
+	ref T add(lazy T t) {
+		if (length >= vector.length) {
+			if (vector.length == 0) {
+				vector.resize(defaultLength);
+			} else {
+				vector.resize(vector.length * 2);
+			}
+		}
+		length++;
+		vector[length - 1] = t;
+		return vector[length - 1];
+	}
+	size_t getId(T* t) {
+		return vector.getId(t);
+	}
+	size_t getId(ref T t) {
+		return getId(&t);
+	}
+	void remove(size_t id) {
+		vector[id].destroy();
+		memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+		emplace(&vector[length-1]);
+		length--;
+	}
+	void remove(T* t) {
+		remove(getId(t));
+	}
+	void remove(ref T t) {
+		remove(&t);
+	}
+	void compactify() {
+		vector.resize(length);
+	}
+	int opApply(scope int delegate(ref T) dg) {
+		foreach (i; 0 .. length) {
+			int result = dg(vector[i]);
+			if (result)
+				return result;
+		}
+		return 0;
+	}
+	int opApplyReverse(scope int delegate(ref T) dg) {
+		foreach_reverse (i; 0 .. length) {
+			int result = dg(vector[i]);
+			if (result)
+				return result;
+		}
+		return 0;
+	}
 }
 
 /*struct String {
