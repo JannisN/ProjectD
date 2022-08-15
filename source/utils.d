@@ -547,7 +547,11 @@ struct VectorList(alias BaseVector, T) {
 	this(size_t initialLength) {
 		vector = BaseVector!T(initialLength);
 		empty = BaseVector!bool(initialLength);
-		defaultLength = initialLength;
+		if (initialLength != 0) {
+			defaultLength = initialLength;
+		} else {
+			defaultLength = 1;
+		}
 	}
 	ref T add() {
 		if (emptyEntries.length == 0) {
