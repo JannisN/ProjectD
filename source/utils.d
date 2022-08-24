@@ -595,6 +595,48 @@ struct VectorList(alias BaseVector, T) {
 			return vector[id];
 		}
 	}
+	size_t addId() {
+		if (emptyEntries.length == 0) {
+			if (length >= vector.length) {
+				if (vector.length == 0) {
+					vector.resize(defaultLength);
+					empty.resize(defaultLength);
+				} else {
+					vector.resize(vector.length * 2);
+					empty.resize(vector.length * 2);
+				}
+			}
+			length++;
+			return length - 1;
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			empty[id] = false;
+			return id;
+		}
+	}
+	size_t addId(lazy T t) {
+		if (emptyEntries.length == 0) {
+			if (length >= vector.length) {
+				if (vector.length == 0) {
+					vector.resize(defaultLength);
+					empty.resize(defaultLength);
+				} else {
+					vector.resize(vector.length * 2);
+					empty.resize(vector.length * 2);
+				}
+			}
+			length++;
+			vector[length - 1] = t;
+			return length - 1;
+		} else {
+			size_t id = emptyEntries.get(0);
+			emptyEntries.remove(0);
+			empty[id] = false;
+			vector[id] = t;
+			return id;
+		}
+	}
 	size_t getId(T* t) {
 		return vector.getId(t);
 	}
@@ -1393,6 +1435,7 @@ template TypeSeq(Args...) {
 // hier noch viele compile time funktionen hinzufügen um die Args zu bearbeiten
 struct TypeSeqStruct(Args...) {
 	alias TypeSeq = Args;
+	enum size_t length = Args.length;
 }
 
 template ApplyTypeSeq(alias Func, Args...) {
