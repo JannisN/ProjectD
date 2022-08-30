@@ -643,7 +643,14 @@ struct VectorList(alias BaseVector, T) {
 	size_t getId(ref T t) {
 		return getId(&t);
 	}
+	// zuerst soll getestet werden ob id das letzte element in der liste ist
 	void remove(size_t id) {
+		vector[id].destroy();
+		emptyEntries.add(id);
+		empty[id] = true;
+	}
+	// nötig falls liste aus size_t's besteht, um die richtige remove funktion auszuwählen
+	void removeById(size_t id) {
 		vector[id].destroy();
 		emptyEntries.add(id);
 		empty[id] = true;
