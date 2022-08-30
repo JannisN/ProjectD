@@ -646,13 +646,21 @@ struct VectorList(alias BaseVector, T) {
 	// zuerst soll getestet werden ob id das letzte element in der liste ist
 	void remove(size_t id) {
 		vector[id].destroy();
-		emptyEntries.add(id);
+		if (id != length - 1) {
+			emptyEntries.add(id);
+		} else {
+			length--;
+		}
 		empty[id] = true;
 	}
 	// nötig falls liste aus size_t's besteht, um die richtige remove funktion auszuwählen
 	void removeById(size_t id) {
 		vector[id].destroy();
-		emptyEntries.add(id);
+		if (id != length - 1) {
+			emptyEntries.add(id);
+		} else {
+			length--;
+		}
 		empty[id] = true;
 	}
 	void remove(T* t) {
@@ -723,7 +731,7 @@ struct CompactVectorList(alias BaseVector, T) {
 	size_t length;
 	size_t defaultLength = 1024;
 	this(size_t initialLength) {
-		vector = Vector!T(initialLength);
+		vector = BaseVector!T(initialLength);
 		defaultLength = initialLength;
 	}
 	ref T add() {
@@ -749,23 +757,64 @@ struct CompactVectorList(alias BaseVector, T) {
 		vector[length - 1] = t;
 		return vector[length - 1];
 	}
+	size_t addId() {
+		if (length >= vector.length) {
+			if (vector.length == 0) {
+				vector.resize(defaultLength);
+			} else {
+				vector.resize(vector.length * 2);
+			}
+		}
+		length++;
+		return length - 1;
+	}
+	size_t addId(lazy T t) {
+		if (length >= vector.length) {
+			if (vector.length == 0) {
+				vector.resize(defaultLength);
+			} else {
+				vector.resize(vector.length * 2);
+			}
+		}
+		length++;
+		vector[length - 1] = t;
+		return length - 1;
+	}
 	size_t getId(T* t) {
 		return vector.getId(t);
 	}
 	size_t getId(ref T t) {
 		return getId(&t);
 	}
-	void remove(size_t id) {
+	// returns new id of moved
+	struct Moved {
+		size_t oldId;
+		size_t newId;
+	}
+	Moved remove(size_t id) {
 		vector[id].destroy();
-		memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+		if (id != length - 1) {
+			memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+		}
 		emplace(&vector[length-1]);
 		length--;
+		return Moved(length, id);
 	}
-	void remove(T* t) {
-		remove(getId(t));
+	// nötig falls liste aus size_t's besteht, um die richtige remove funktion auszuwählen
+	Moved removeById(size_t id) {
+		vector[id].destroy();
+		if (id != length - 1) {
+			memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+		}
+		emplace(&vector[length-1]);
+		length--;
+		return Moved(length, id);
 	}
-	void remove(ref T t) {
-		remove(&t);
+	Moved remove(T* t) {
+		return remove(getId(t));
+	}
+	Moved remove(ref T t) {
+		return remove(&t);
 	}
 	void compactify() {
 		vector.resize(length);

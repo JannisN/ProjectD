@@ -34,16 +34,22 @@ struct VirtualEntity(ECS) {
     }
 }
 
+struct ECSConfig {
+    bool compact;
+}
+
 // später vlt noch static views hinzufügen wie beim anderen design
 // soll auch mit compactlist funktionieren(für components); dafür müsste aber compactlist angepasst werden,
 // um zu wissen was verschoben wurde
+// für staticremoveupdates müssten auch die verschobenen ids gespeichert werden, im fall von compactvectorList
 struct DynamicECS(
     alias BaseVector,
     StaticComponents,
     StaticGeneralUpdates,
     StaticSpecificUpdates,
     StaticAddUpdates,
-    StaticRemoveUpdates
+    StaticRemoveUpdates,
+    ECSConfig config
 ) {
     alias ECSType = DynamicECS!(
         BaseVector,
@@ -51,7 +57,8 @@ struct DynamicECS(
         StaticGeneralUpdates,
         StaticSpecificUpdates,
         StaticAddUpdates,
-        StaticRemoveUpdates
+        StaticRemoveUpdates,
+        config
     );
     alias Entity = ECSEntity!(
         StaticComponents,
@@ -59,13 +66,17 @@ struct DynamicECS(
         StaticSpecificUpdates,
         StaticAddUpdates
     );
-    alias ToList(T) = VectorList!(BaseVector, T);
+    static if (config.compact) {
+        alias ToList(T) = CompactVectorList!(BaseVector, T);
+    } else {
+        alias ToList(T) = VectorList!(BaseVector, T);
+    }
     alias ComponentLists = ApplyTypeSeq!(ToList, StaticComponents.TypeSeq);
 
     VectorList!(BaseVector, Entity) entities;
     ComponentLists componentLists;
     // speichert zu welchem entity ein component gehört
-    VectorList!(BaseVector, size_t)[ComponentLists.length] componentEntityIds;
+    ToList!size_t[ComponentLists.length] componentEntityIds;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
 
     auto ref getComponents(Component)() {
@@ -96,7 +107,15 @@ struct DynamicECS(
     void removeComponent(Component)(size_t id) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         size_t componentEntityId = entities[id].staticComponents[componentId];
-        componentLists[componentId].remove(componentEntityId);
+        componentEntityIds[componentId].removeById(componentEntityId);
+        static if (config.compact) {
+            auto moved = componentLists[componentId].remove(componentEntityId);
+            if (moved.oldId != moved.newId) {
+                entities[componentEntityIds[componentId][moved.newId]].staticComponents[componentId] = moved.newId;
+            }
+        } else {
+            componentLists[componentId].remove(componentEntityId);
+        }
         entities[id].staticComponents[componentId] = size_t.max;
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
             enum size_t typeId = findTypes!(Component, StaticAddUpdates.TypeSeq)[0];
@@ -126,6 +145,7 @@ unittest {
         TypeSeqStruct!(),
         TypeSeqStruct!(int),
         TypeSeqStruct!(),
+        ECSConfig(true)
     ) ecs;
     auto entity = ecs.add();
     entity.add!int(3);
