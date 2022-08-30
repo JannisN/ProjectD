@@ -28,6 +28,10 @@ struct VirtualEntity(ECS) {
         ecs.addComponent!Component(entityId, component);
         return this;
     }
+    auto ref remove(Component)() {
+        ecs.removeComponent!Component(entityId);
+        return this;
+    }
 }
 
 // später vlt noch static views hinzufügen wie beim anderen design
@@ -81,6 +85,12 @@ struct DynamicECS(
         componentEntityIds[componentId].addId(id);
         entities[id].staticComponents[componentId] = componentEntityId;
     }
+    void removeComponent(Component)(size_t id) {
+        enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
+        size_t componentEntityId = entities[id].staticComponents[componentId];
+        componentLists[componentId].remove(componentEntityId);
+        entities[id].staticComponents[componentId] = ~0UL;
+    }
 }
 
 unittest {
@@ -93,7 +103,13 @@ unittest {
         TypeSeqStruct!(),
         TypeSeqStruct!(),
     ) ecs;
-    ecs.add().add!int(3);
-    //ecs.getComponents!int().add(3);
-    writeln(ecs.getComponents!int()[0]);
+    auto entity = ecs.add();
+    entity.add!int(3);
+    foreach (i; ecs.getComponents!int()) {
+        writeln(i);
+    }
+    entity.remove!int();
+    foreach (i; ecs.getComponents!int()) {
+        writeln(i);
+    }
 }
