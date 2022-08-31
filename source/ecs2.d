@@ -9,12 +9,14 @@ struct ECSEntity(
     StaticComponents,
     StaticGeneralUpdates,
     StaticSpecificUpdates,
-    StaticAddUpdates
+    StaticAddUpdates,
+    StaticViews
 ) {
     size_t[StaticComponents.length] staticComponents = size_t.max;
     size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
     size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
     size_t[StaticAddUpdates.length] staticAddUpdates = size_t.max;
+    size_t[StaticViews.length] staticViews = size_t.max;
 }
 
 struct VirtualEntity(ECS) {
@@ -38,10 +40,8 @@ struct ECSConfig {
     bool compact;
 }
 
-// später vlt noch static views hinzufügen wie beim anderen design
-// soll auch mit compactlist funktionieren(für components); dafür müsste aber compactlist angepasst werden,
-// um zu wissen was verschoben wurde
 // für staticremoveupdates müssten auch die verschobenen ids gespeichert werden, im fall von compactvectorList
+// todo: variablen in static umbenennen wo sinn macht, asserts verwenden wenn im debug modus
 struct DynamicECS(
     alias BaseVector,
     StaticComponents,
@@ -49,6 +49,7 @@ struct DynamicECS(
     StaticSpecificUpdates,
     StaticAddUpdates,
     StaticRemoveUpdates,
+    StaticViews,
     ECSConfig config
 ) {
     alias ECSType = DynamicECS!(
@@ -58,13 +59,15 @@ struct DynamicECS(
         StaticSpecificUpdates,
         StaticAddUpdates,
         StaticRemoveUpdates,
+        StaticViews,
         config
     );
     alias Entity = ECSEntity!(
         StaticComponents,
         StaticGeneralUpdates,
         StaticSpecificUpdates,
-        StaticAddUpdates
+        StaticAddUpdates,
+        StaticViews
     );
     static if (config.compact) {
         alias ToList(T) = CompactVectorList!(BaseVector, T);
@@ -78,6 +81,7 @@ struct DynamicECS(
     // speichert zu welchem entity ein component gehört
     ToList!size_t[ComponentLists.length] componentEntityIds;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
+    VectorList!(BaseVector, size_t)[StaticViews.length] views;
 
     auto ref getComponents(Component)() {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -85,6 +89,9 @@ struct DynamicECS(
     }
     auto ref getAddUpdateList(Component)() {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
+    }
+    auto ref getView(Components...)() {
+        return views[findView!(StaticViews, Components)];
     }
     VirtualEntity!ECSType add() {
         size_t id = entities.addId(Entity());
@@ -96,6 +103,7 @@ struct DynamicECS(
         componentEntityIds[componentId].addId(id);
         entities[id].staticComponents[componentId] = componentEntityId;
         updateAddUpdateList!Component(id);
+        updateViews!(Component, true)(id);
     }
     void addComponent(Component)(size_t id, lazy Component component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -103,6 +111,7 @@ struct DynamicECS(
         componentEntityIds[componentId].addId(id);
         entities[id].staticComponents[componentId] = componentEntityId;
         updateAddUpdateList!Component(id);
+        updateViews!(Component, true)(id);
     }
     void removeComponent(Component)(size_t id) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -125,6 +134,7 @@ struct DynamicECS(
                 entities[id].staticAddUpdates[typeId] = size_t.max;
             }
         }
+        updateViews!(Component, false)(id);
     }
     void updateAddUpdateList(Component)(size_t id) {
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
@@ -133,6 +143,47 @@ struct DynamicECS(
             entities[id].staticAddUpdates[typeId] = addUpdatesId;
         }
     }
+    void updateViews(Component, bool added)(size_t id) {
+        static foreach (typeId, View; StaticViews.TypeSeq) {
+            static if (findTypes!(Component, View.TypeSeq).length > 0) {
+                bool partOfView = true;
+                static foreach (ViewEntry; View.TypeSeq) {
+                    if (entities[id].staticComponents[findTypes!(ViewEntry, StaticComponents.TypeSeq)[0]] == size_t.max) {
+                        partOfView = false;
+                    }
+                }
+                if (partOfView) {
+                    static if (added) {
+                        size_t viewId = views[typeId].addId(id);
+                        entities[id].staticViews[typeId] = viewId;
+                    } else {
+                        views[typeId].remove(id);
+                        entities[id].staticViews[typeId] = size_t.max;
+                    }
+                }
+            }
+        }
+    }
+}
+
+template findView(U, T...) {
+	size_t findViewImpl() {
+		static foreach (i, TS; U.TypeSeq) {
+			static if (TS.TypeSeq.length == T.length) {{
+				bool found = true;
+				static foreach (Type; TS.TypeSeq) {
+					static if (countType!(Type, T) == 0) {
+						found = false;
+					}
+				}
+				if (found) {
+					return i;
+				}
+			}}
+		}
+		assert(false, "View not found");
+	}
+	enum size_t findView = findViewImpl();
 }
 
 unittest {
@@ -145,10 +196,16 @@ unittest {
         TypeSeqStruct!(),
         TypeSeqStruct!(int),
         TypeSeqStruct!(),
+        TypeSeqStruct!(
+            TypeSeqStruct!(int, double)
+        ),
         ECSConfig(true)
     ) ecs;
     auto entity = ecs.add();
     entity.add!int(3);
+    writeln("view size: ", ecs.getView!(int, double).length);
+    entity.add!double(3.0);
+    writeln("view size: ", ecs.getView!(int, double).length);
     foreach (i; ecs.getComponents!int()) {
         writeln(i);
     }
