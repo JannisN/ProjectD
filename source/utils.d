@@ -725,6 +725,11 @@ unittest {
 	assert(vl.vector.length == 6);
 }
 
+struct Moved {
+	size_t oldId;
+	size_t newId;
+}
+
 struct CompactVectorList(alias BaseVector, T) {
 	BaseVector!T vector;
 	alias vector this;
@@ -787,10 +792,6 @@ struct CompactVectorList(alias BaseVector, T) {
 		return getId(&t);
 	}
 	// returns new id of moved
-	struct Moved {
-		size_t oldId;
-		size_t newId;
-	}
 	Moved remove(size_t id) {
 		vector[id].destroy();
 		if (id != length - 1) {

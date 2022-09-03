@@ -34,6 +34,9 @@ struct VirtualEntity(ECS) {
         ecs.removeComponent!Component(entityId);
         return this;
     }
+    auto ref get(Component)() {
+        return ecs.getComponents!Component()[ecs.getComponentId!Component()];
+    }
 }
 
 struct ECSConfig {
@@ -75,14 +78,23 @@ struct DynamicECS(
         alias ToList(T) = VectorList!(BaseVector, T);
     }
     alias ComponentLists = ApplyTypeSeq!(ToList, StaticComponents.TypeSeq);
+    alias RemoveLists = ApplyTypeSeq!(ToList, StaticRemoveUpdates.TypeSeq);
 
     VectorList!(BaseVector, Entity) entities;
     ComponentLists componentLists;
     // speichert zu welchem entity ein component gehört
     ToList!size_t[ComponentLists.length] componentEntityIds;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
+    RemoveLists removeUpdates;
+    static if (config.compact) {
+        VectorList!(BaseVector, Moved)[StaticRemoveUpdates.length] movedComponents;
+    }
     VectorList!(BaseVector, size_t)[StaticViews.length] views;
 
+    size_t getComponentId(Component)() {
+        enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
+        return componentId;
+    }
     auto ref getComponents(Component)() {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         return componentLists[componentId];
@@ -117,10 +129,24 @@ struct DynamicECS(
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         size_t componentEntityId = entities[id].staticComponents[componentId];
         componentEntityIds[componentId].removeById(componentEntityId);
+        static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
+            size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
+            Component dummy;
+            // cmptEnttId -> removedId, dummy -> cmptEnttId
+            memcpy(
+                cast(void*)&removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]][removedId],
+                cast(void*)&componentLists[componentId][componentEntityId],
+                Component.sizeof
+            );
+            memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)dummy, Component.sizeof);
+        }
         static if (config.compact) {
             auto moved = componentLists[componentId].remove(componentEntityId);
             if (moved.oldId != moved.newId) {
                 entities[componentEntityIds[componentId][moved.newId]].staticComponents[componentId] = moved.newId;
+            }
+            static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
+                movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(moved);
             }
         } else {
             componentLists[componentId].remove(componentEntityId);
@@ -203,6 +229,7 @@ unittest {
     ) ecs;
     auto entity = ecs.add();
     entity.add!int(3);
+    entity.get!int() = 8;
     writeln("view size: ", ecs.getView!(int, double).length);
     entity.add!double(3.0);
     writeln("view size: ", ecs.getView!(int, double).length);
