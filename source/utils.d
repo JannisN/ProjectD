@@ -795,7 +795,7 @@ struct CompactVectorList(alias BaseVector, T) {
 	Moved remove(size_t id) {
 		vector[id].destroy();
 		if (id != length - 1) {
-			memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+			memcpy(cast(void*)&vector[id], cast(void*)&vector[length-1], T.sizeof);
 		}
 		emplace(&vector[length-1]);
 		length--;

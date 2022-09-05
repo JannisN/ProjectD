@@ -1,6 +1,7 @@
 module ecs2;
 
 import utils;
+import functions;
 
 // für dynamisch: sortierte liste
 // initial length soll standardmässig in ECSEntity auf 0 initialisiert werden
@@ -43,7 +44,6 @@ struct ECSConfig {
     bool compact;
 }
 
-// für staticremoveupdates müssten auch die verschobenen ids gespeichert werden, im fall von compactvectorList
 // todo: variablen in static umbenennen wo sinn macht, asserts verwenden wenn im debug modus
 struct DynamicECS(
     alias BaseVector,
@@ -102,6 +102,12 @@ struct DynamicECS(
     auto ref getAddUpdateList(Component)() {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
     }
+    auto ref getRemoveUpdateList(Component)() {
+        return removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
+    }
+    auto ref getMovedComponentsList(Component)() if (config.compact) {
+        return movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
+    }
     auto ref getView(Components...)() {
         return views[findView!(StaticViews, Components)];
     }
@@ -132,13 +138,12 @@ struct DynamicECS(
         static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
             size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
             Component dummy;
-            // cmptEnttId -> removedId, dummy -> cmptEnttId
             memcpy(
                 cast(void*)&removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]][removedId],
                 cast(void*)&componentLists[componentId][componentEntityId],
                 Component.sizeof
             );
-            memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)dummy, Component.sizeof);
+            memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)&dummy, Component.sizeof);
         }
         static if (config.compact) {
             auto moved = componentLists[componentId].remove(componentEntityId);
@@ -195,7 +200,7 @@ struct DynamicECS(
 template findView(U, T...) {
 	size_t findViewImpl() {
 		static foreach (i, TS; U.TypeSeq) {
-			static if (TS.TypeSeq.length == T.length) {{
+			static if (TS.TypeSeq.length == T.length) {
 				bool found = true;
 				static foreach (Type; TS.TypeSeq) {
 					static if (countType!(Type, T) == 0) {
@@ -205,7 +210,7 @@ template findView(U, T...) {
 				if (found) {
 					return i;
 				}
-			}}
+			}
 		}
 		assert(false, "View not found");
 	}
@@ -221,7 +226,7 @@ unittest {
         TypeSeqStruct!(),
         TypeSeqStruct!(),
         TypeSeqStruct!(int),
-        TypeSeqStruct!(),
+        TypeSeqStruct!(int),
         TypeSeqStruct!(
             TypeSeqStruct!(int, double)
         ),
@@ -232,6 +237,7 @@ unittest {
     entity.get!int() = 8;
     writeln("view size: ", ecs.getView!(int, double).length);
     entity.add!double(3.0);
+    ecs.add().add!int(10);
     writeln("view size: ", ecs.getView!(int, double).length);
     foreach (i; ecs.getComponents!int()) {
         writeln(i);
@@ -239,6 +245,13 @@ unittest {
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
     entity.remove!int();
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
+    writeln("removeUpdateList length: ", ecs.getRemoveUpdateList!int().length);
+    foreach (e; ecs.getRemoveUpdateList!int()) {
+        writeln(e);
+    }
+    foreach (e; ecs.getMovedComponentsList!int()) {
+        writeln("from, to: ", e.oldId, " ", e.newId);
+    }
     foreach (i; ecs.getComponents!int()) {
         writeln(i);
     }
