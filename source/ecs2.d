@@ -35,9 +35,62 @@ struct VirtualEntity(ECS) {
         ecs.removeComponent!Component(entityId);
         return this;
     }
-    auto ref get(Component)() {
+    auto ref get(Component)() if (
+        findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length == 0 &&
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length == 0
+    ) {
         return ecs.getComponents!Component()[ecs.getComponentId!Component()];
     }
+    auto get(Component)() if (
+        findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0 ||
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length > 0
+    ) {
+        return VirtualComponent!(ECS, Component)(&this);
+    }
+    auto ref getForced(Component)() {
+        return ecs.getComponents!Component()[ecs.getComponentId!Component()];
+    }
+}
+
+struct VirtualComponent(ECS, Component) {
+    VirtualEntity!ECS* virtualEntity;
+    auto ref opAssign(lazy Component component) {
+        virtualEntity.remove!Component;
+        virtualEntity.add!Component(component);
+        return this;
+    }
+	@property ref auto getComponent() {
+        return VirtualEntity.getForced!Component();
+	}
+    alias getComponent this;
+    template opDispatch(string member) {
+        @property auto opDispatch() {
+            return VirtualMember!(ECS, Component, member)(&this);
+        }
+    }
+}
+
+struct VirtualMember(ECS, Component, string member) {
+    VirtualComponent!(ECS, Component)* virtualComponent;
+    auto ref opAssign(T)(lazy T t) {
+        getMember = t;
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
+
+        }
+        // für specific updates wirds komplizierter: man muss testen ob vorherige member
+        // im tree in specific updates stehen
+        // möglicherweise für static am einfachsten wenn man die id von den vorherigen listen mitgibt als template
+        return this;
+    }
+	template opDispatch(string member2) {
+		@property auto ref opDispatch() {
+			return VirtualMember!(ECS, Component, member ~ "." ~ member2)(virtualComponent);
+		}
+	}
+	@property ref auto getMember() {
+        mixin("return virtualComponent.getComponent()." ~ member ~ ";");
+	}
+    alias getMember this;
 }
 
 struct ECSConfig {
@@ -55,6 +108,10 @@ struct DynamicECS(
     StaticViews,
     ECSConfig config
 ) {
+    alias TemplateGeneralUpdates = StaticGeneralUpdates;
+    alias TemplateSpecificUpdates = StaticSpecificUpdates;
+    alias ExtractComponent(T) = T.TypeSeq[0];
+    alias SpecificUpdatesOnlyComponents = ApplyTypeSeq!(ExtractComponent, StaticSpecificUpdates.TypeSeq);
     alias ECSType = DynamicECS!(
         BaseVector,
         StaticComponents,
