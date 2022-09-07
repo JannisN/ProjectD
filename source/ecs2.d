@@ -14,8 +14,12 @@ struct ECSEntity(
     StaticViews
 ) {
     size_t[StaticComponents.length] staticComponents = size_t.max;
-    size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
-    size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
+    // sind diese überhaupt nötig?
+    // gegenargument: die listenreihenfolge ist wichtig. wenn das update nur maximal einmal in der
+    // liste stehen kann, ist das nicht problematisch wenn man beide wissen müsste?
+    // man könnte sich überlegen zwei neue listen zu machen wo updates nur einmal gespeichert werden
+    //size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
+    //size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
     size_t[StaticAddUpdates.length] staticAddUpdates = size_t.max;
     size_t[StaticViews.length] staticViews = size_t.max;
 }
@@ -55,36 +59,65 @@ struct VirtualEntity(ECS) {
 struct VirtualComponent(ECS, Component) {
     VirtualEntity!ECS* virtualEntity;
     auto ref opAssign(lazy Component component) {
-        virtualEntity.remove!Component;
-        virtualEntity.add!Component(component);
+        // vlt ist hier remove, add doch besser da man dann weiss dass das ganze objekt neu ist
+        // dann müsste aber auch ein virtualcomponent zurückgegeben werden bei virtualentity falls es eine add/remove list gibt
+        // erstmal so lassen... man kann sonst einfach manuell zuerst entfernen und wieder hinzufügen
+        //virtualEntity.remove!Component;
+        //virtualEntity.add!Component(component);
+        getComponent() = component;
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
+            virtualEntity.ecs.getGeneralUpdateList!Component().add(virtualEntity.entityId);
+        }
         return this;
     }
 	@property ref auto getComponent() {
-        return VirtualEntity.getForced!Component();
+        return virtualEntity.getForced!Component();
 	}
     alias getComponent this;
     template opDispatch(string member) {
         @property auto opDispatch() {
-            return VirtualMember!(ECS, Component, member)(&this);
+            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return VirtualMember!(ECS, Component, member, findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0])(&this);
+            } else {
+                return VirtualMember!(ECS, Component, member)(&this);
+            }
+        }
+        @property auto opDispatch(T)(lazy T t) {
+            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member, findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0])(&this) = t);
+            } else {
+                return (VirtualMember!(ECS, Component, member)(&this) = t);
+            }
         }
     }
 }
 
-struct VirtualMember(ECS, Component, string member) {
+struct VirtualMember(ECS, Component, string member, StaticSpecificIndices...) {
     VirtualComponent!(ECS, Component)* virtualComponent;
     auto ref opAssign(T)(lazy T t) {
         getMember = t;
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
-
+            virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().add(virtualComponent.virtualEntity.entityId);
         }
-        // für specific updates wirds komplizierter: man muss testen ob vorherige member
-        // im tree in specific updates stehen
-        // möglicherweise für static am einfachsten wenn man die id von den vorherigen listen mitgibt als template
+        static foreach (size_t i; StaticSpecificIndices) {
+            virtualComponent.virtualEntity.ecs.specificUpdates[i].add(virtualComponent.virtualEntity.entityId);
+        }
         return this;
     }
 	template opDispatch(string member2) {
 		@property auto ref opDispatch() {
-			return VirtualMember!(ECS, Component, member ~ "." ~ member2)(virtualComponent);
+            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0])(virtualComponent);
+            } else {
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices)(virtualComponent);
+            }
+		}
+		@property auto ref opDispatch(T)(lazy T t) {
+            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0])(virtualComponent) = t);
+            } else {
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices)(virtualComponent) = t);
+            }
 		}
 	}
 	@property ref auto getMember() {
@@ -97,7 +130,7 @@ struct ECSConfig {
     bool compact;
 }
 
-// todo: variablen in static umbenennen wo sinn macht, asserts verwenden wenn im debug modus
+// todo: asserts verwenden wenn im debug modus
 struct DynamicECS(
     alias BaseVector,
     StaticComponents,
@@ -141,6 +174,8 @@ struct DynamicECS(
     ComponentLists componentLists;
     // speichert zu welchem entity ein component gehört
     ToList!size_t[ComponentLists.length] componentEntityIds;
+    VectorList!(BaseVector, size_t)[StaticGeneralUpdates.length] generalUpdates;
+    VectorList!(BaseVector, size_t)[StaticSpecificUpdates.length] specificUpdates;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
     RemoveLists removeUpdates;
     static if (config.compact) {
@@ -149,12 +184,16 @@ struct DynamicECS(
     VectorList!(BaseVector, size_t)[StaticViews.length] views;
 
     size_t getComponentId(Component)() {
-        enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
-        return componentId;
+        return findTypes!(Component, StaticComponents.TypeSeq)[0];
     }
     auto ref getComponents(Component)() {
-        enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
-        return componentLists[componentId];
+        return componentLists[findTypes!(Component, StaticComponents.TypeSeq)[0]];
+    }
+    auto ref getGeneralUpdateList(Component)() {
+        return generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
+    }
+    auto ref getSpecificUpdateList(Component, string member)() {
+        return specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]];
     }
     auto ref getAddUpdateList(Component)() {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
@@ -206,9 +245,9 @@ struct DynamicECS(
             auto moved = componentLists[componentId].remove(componentEntityId);
             if (moved.oldId != moved.newId) {
                 entities[componentEntityIds[componentId][moved.newId]].staticComponents[componentId] = moved.newId;
-            }
-            static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
-                movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(moved);
+                static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
+                    movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(moved);
+                }
             }
         } else {
             componentLists[componentId].remove(componentEntityId);
@@ -274,14 +313,20 @@ template findView(U, T...) {
 	enum size_t findView = findViewImpl();
 }
 
+struct TestStruct {
+    int testInt;
+}
+
 unittest {
     import std.stdio;
     alias PartialVec(T) = PartialVector!(T, 100);
     DynamicECS!(
         PartialVec,//Vector
-        TypeSeqStruct!(int, double),
-        TypeSeqStruct!(),
-        TypeSeqStruct!(),
+        TypeSeqStruct!(int, double, TestStruct),
+        TypeSeqStruct!(int),
+        TypeSeqStruct!(
+            TypeSeqStruct!(TestStruct, "testInt")
+        ),
         TypeSeqStruct!(int),
         TypeSeqStruct!(int),
         TypeSeqStruct!(
@@ -292,6 +337,9 @@ unittest {
     auto entity = ecs.add();
     entity.add!int(3);
     entity.get!int() = 8;
+    foreach (size_t e; ecs.getGeneralUpdateList!int()) {
+        writeln("index of updates: ", e);
+    }
     writeln("view size: ", ecs.getView!(int, double).length);
     entity.add!double(3.0);
     ecs.add().add!int(10);
@@ -311,5 +359,17 @@ unittest {
     }
     foreach (i; ecs.getComponents!int()) {
         writeln(i);
+    }
+    entity.add!TestStruct();
+    entity.get!TestStruct.testInt = 1;
+    foreach (size_t e; ecs.getSpecificUpdateList!(TestStruct, "testInt")()) {
+        writeln("index of TestStruct, testInt updates: ", e);
+    }
+    foreach (size_t e; ecs.getGeneralUpdateList!int()) {
+        writeln("index of updates: ", e);
+    }
+    ecs.getGeneralUpdateList!int().clear();
+    foreach (size_t e; ecs.getGeneralUpdateList!int()) {
+        writeln("index of updates: ", e);
     }
 }

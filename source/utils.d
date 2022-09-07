@@ -553,6 +553,11 @@ struct VectorList(alias BaseVector, T) {
 			defaultLength = 1;
 		}
 	}
+	auto ref clear() {
+		vector = BaseVector!T(defaultLength);
+		empty = BaseVector!bool(defaultLength);
+		return this;
+	}
 	ref T add() {
 		if (emptyEntries.length == 0) {
 			if (length >= vector.length) {
@@ -738,6 +743,15 @@ struct CompactVectorList(alias BaseVector, T) {
 	this(size_t initialLength) {
 		vector = BaseVector!T(initialLength);
 		defaultLength = initialLength;
+		if (initialLength != 0) {
+			defaultLength = initialLength;
+		} else {
+			defaultLength = 1;
+		}
+	}
+	auto ref clear() {
+		vector = BaseVector!T(defaultLength);
+		return this;
 	}
 	ref T add() {
 		if (length >= vector.length) {
