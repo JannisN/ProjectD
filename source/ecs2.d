@@ -14,12 +14,8 @@ struct ECSEntity(
     StaticViews
 ) {
     size_t[StaticComponents.length] staticComponents = size_t.max;
-    // sind diese überhaupt nötig?
-    // gegenargument: die listenreihenfolge ist wichtig. wenn das update nur maximal einmal in der
-    // liste stehen kann, ist das nicht problematisch wenn man beide wissen müsste?
-    // man könnte sich überlegen zwei neue listen zu machen wo updates nur einmal gespeichert werden
-    //size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
-    //size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
+    size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
+    size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
     size_t[StaticAddUpdates.length] staticAddUpdates = size_t.max;
     size_t[StaticViews.length] staticViews = size_t.max;
 }
@@ -41,13 +37,17 @@ struct VirtualEntity(ECS) {
     }
     auto ref get(Component)() if (
         findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length == 0 &&
-        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length == 0
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length == 0 &&
+        findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length == 0 &&
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length == 0
     ) {
         return ecs.getComponents!Component()[ecs.getComponentId!Component()];
     }
     auto get(Component)() if (
         findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0 ||
-        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length > 0
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length > 0 ||
+        findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0 ||
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length > 0
     ) {
         return VirtualComponent!(ECS, Component)(&this);
     }
@@ -66,7 +66,13 @@ struct VirtualComponent(ECS, Component) {
         //virtualEntity.add!Component(component);
         getComponent() = component;
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
-            virtualEntity.ecs.getGeneralUpdateList!Component().add(virtualEntity.entityId);
+            if (virtualEntity.ecs.entities[virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
+                size_t updateId = virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualEntity.entityId);
+                virtualEntity.ecs.entities[virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] = updateId;
+            }
+        }
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0) {
+            virtualEntity.ecs.getGeneralUpdateListMultiple!Component().add(virtualEntity.entityId);
         }
         return this;
     }
@@ -76,47 +82,85 @@ struct VirtualComponent(ECS, Component) {
     alias getComponent this;
     template opDispatch(string member) {
         @property auto opDispatch() {
-            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return VirtualMember!(ECS, Component, member, findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0])(&this);
+            auto virtualComponent = &this;
+            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member,
+                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
+            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
+            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent));
             } else {
-                return VirtualMember!(ECS, Component, member)(&this);
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent));
             }
         }
         @property auto opDispatch(T)(lazy T t) {
-            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member, findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0])(&this) = t);
+            auto virtualComponent = &this;
+            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member,
+                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent) = t);
             } else {
-                return (VirtualMember!(ECS, Component, member)(&this) = t);
+                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent) = t);
             }
         }
     }
 }
 
-struct VirtualMember(ECS, Component, string member, StaticSpecificIndices...) {
+struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, StaticSpecificIndicesMultiple) {
     VirtualComponent!(ECS, Component)* virtualComponent;
     auto ref opAssign(T)(lazy T t) {
         getMember = t;
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
-            virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().add(virtualComponent.virtualEntity.entityId);
+            if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
+                size_t updateId = virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualComponent.virtualEntity.entityId);
+                virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] = updateId;
+            }
         }
-        static foreach (size_t i; StaticSpecificIndices) {
-            virtualComponent.virtualEntity.ecs.specificUpdates[i].add(virtualComponent.virtualEntity.entityId);
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0) {
+            virtualComponent.virtualEntity.ecs.getGeneralUpdateListMultiple!Component().add(virtualComponent.virtualEntity.entityId);
+        }
+        static foreach (size_t i; StaticSpecificIndices.TypeSeq) {
+            if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticSpecificUpdates[i] == size_t.max) {
+                size_t updateId = virtualComponent.virtualEntity.ecs.specificUpdates[i].addId(virtualComponent.virtualEntity.entityId);
+                virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticSpecificUpdates[i] = updateId;
+            }
+        }
+        static foreach (size_t i; StaticSpecificIndicesMultiple.TypeSeq) {
+            virtualComponent.virtualEntity.ecs.specificUpdatesMultiple[i].add(virtualComponent.virtualEntity.entityId);
         }
         return this;
     }
 	template opDispatch(string member2) {
 		@property auto ref opDispatch() {
-            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0])(virtualComponent);
+            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2,
+                        TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                        TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent);
             } else {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices)(virtualComponent);
+                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent);
             }
 		}
 		@property auto ref opDispatch(T)(lazy T t) {
-            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0])(virtualComponent) = t);
+            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2,
+                        TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                        TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent) = t);
             } else {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices)(virtualComponent) = t);
+                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent) = t);
             }
 		}
 	}
@@ -136,6 +180,8 @@ struct DynamicECS(
     StaticComponents,
     StaticGeneralUpdates,
     StaticSpecificUpdates,
+    StaticGeneralUpdatesMultiple,
+    StaticSpecificUpdatesMultiple,
     StaticAddUpdates,
     StaticRemoveUpdates,
     StaticViews,
@@ -143,13 +189,18 @@ struct DynamicECS(
 ) {
     alias TemplateGeneralUpdates = StaticGeneralUpdates;
     alias TemplateSpecificUpdates = StaticSpecificUpdates;
+    alias TemplateGeneralUpdatesMultiple = StaticGeneralUpdatesMultiple;
+    alias TemplateSpecificUpdatesMultiple = StaticSpecificUpdatesMultiple;
     alias ExtractComponent(T) = T.TypeSeq[0];
     alias SpecificUpdatesOnlyComponents = ApplyTypeSeq!(ExtractComponent, StaticSpecificUpdates.TypeSeq);
+    alias SpecificUpdatesOnlyComponentsMultiple = ApplyTypeSeq!(ExtractComponent, StaticSpecificUpdatesMultiple.TypeSeq);
     alias ECSType = DynamicECS!(
         BaseVector,
         StaticComponents,
         StaticGeneralUpdates,
         StaticSpecificUpdates,
+        StaticGeneralUpdatesMultiple,
+        StaticSpecificUpdatesMultiple,
         StaticAddUpdates,
         StaticRemoveUpdates,
         StaticViews,
@@ -176,6 +227,8 @@ struct DynamicECS(
     ToList!size_t[ComponentLists.length] componentEntityIds;
     VectorList!(BaseVector, size_t)[StaticGeneralUpdates.length] generalUpdates;
     VectorList!(BaseVector, size_t)[StaticSpecificUpdates.length] specificUpdates;
+    VectorList!(BaseVector, size_t)[StaticGeneralUpdatesMultiple.length] generalUpdatesMultiple;
+    VectorList!(BaseVector, size_t)[StaticSpecificUpdatesMultiple.length] specificUpdatesMultiple;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
     RemoveLists removeUpdates;
     static if (config.compact) {
@@ -194,6 +247,12 @@ struct DynamicECS(
     }
     auto ref getSpecificUpdateList(Component, string member)() {
         return specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]];
+    }
+    auto ref getGeneralUpdateListMultiple(Component)() {
+        return generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]];
+    }
+    auto ref getSpecificUpdateListMultiple(Component, string member)() {
+        return specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]];
     }
     auto ref getAddUpdateList(Component)() {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
@@ -328,6 +387,10 @@ unittest {
             TypeSeqStruct!(TestStruct, "testInt")
         ),
         TypeSeqStruct!(int),
+        TypeSeqStruct!(
+            TypeSeqStruct!(TestStruct, "testInt")
+        ),
+        TypeSeqStruct!(int),
         TypeSeqStruct!(int),
         TypeSeqStruct!(
             TypeSeqStruct!(int, double)
@@ -340,6 +403,7 @@ unittest {
     foreach (size_t e; ecs.getGeneralUpdateList!int()) {
         writeln("index of updates: ", e);
     }
+    entity.get!int() = 7;
     writeln("view size: ", ecs.getView!(int, double).length);
     entity.add!double(3.0);
     ecs.add().add!int(10);
@@ -368,8 +432,7 @@ unittest {
     foreach (size_t e; ecs.getGeneralUpdateList!int()) {
         writeln("index of updates: ", e);
     }
-    ecs.getGeneralUpdateList!int().clear();
-    foreach (size_t e; ecs.getGeneralUpdateList!int()) {
-        writeln("index of updates: ", e);
+    foreach (size_t e; ecs.getGeneralUpdateListMultiple!int()) {
+        writeln("index of updates multiple: ", e);
     }
 }

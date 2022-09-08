@@ -554,8 +554,13 @@ struct VectorList(alias BaseVector, T) {
 		}
 	}
 	auto ref clear() {
+		writeln("clear");
+		//vector.renew(defaultLength);
+		//empty.renew(defaultLength);
 		vector = BaseVector!T(defaultLength);
 		empty = BaseVector!bool(defaultLength);
+		emptyEntries.clear();
+		length = 0;
 		return this;
 	}
 	ref T add() {
@@ -750,7 +755,9 @@ struct CompactVectorList(alias BaseVector, T) {
 		}
 	}
 	auto ref clear() {
+		//vector.renew(defaultLength);
 		vector = BaseVector!T(defaultLength);
+		length = 0;
 		return this;
 	}
 	ref T add() {
