@@ -41,7 +41,10 @@ struct VirtualEntity(ECS) {
         findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length == 0 &&
         findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length == 0
     ) {
-        return ecs.getComponents!Component()[ecs.getComponentId!Component()];
+        version (Debug) {
+            assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
+        return ecs.getComponents!Component()[ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()]];
     }
     auto get(Component)() if (
         findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0 ||
@@ -49,10 +52,16 @@ struct VirtualEntity(ECS) {
         findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0 ||
         findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length > 0
     ) {
+        version (Debug) {
+            assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
         return VirtualComponent!(ECS, Component)(&this);
     }
     auto ref getForced(Component)() {
-        return ecs.getComponents!Component()[ecs.getComponentId!Component()];
+        version (Debug) {
+            assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
+        return ecs.getComponents!Component()[ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()]];
     }
 }
 
@@ -174,7 +183,6 @@ struct ECSConfig {
     bool compact;
 }
 
-// todo: asserts verwenden wenn im debug modus
 struct DynamicECS(
     alias BaseVector,
     StaticComponents,
@@ -288,6 +296,9 @@ struct DynamicECS(
     }
     void removeComponent(Component)(size_t id) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
+        version (Debug) {
+            assert(entities[id].staticComponents[componentId] != size_t.max, "Entity does not have component");
+        }
         size_t componentEntityId = entities[id].staticComponents[componentId];
         componentEntityIds[componentId].removeById(componentEntityId);
         static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
