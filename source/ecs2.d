@@ -446,4 +446,20 @@ unittest {
     foreach (size_t e; ecs.getGeneralUpdateListMultiple!int()) {
         writeln("index of updates multiple: ", e);
     }
+
+    Vector!size_t toSort = Vector!size_t(5);
+    toSort[0] = 12;
+    toSort[1] = 10;
+    toSort[2] = 5;
+    toSort[3] = 2;
+    toSort[4] = 1;
+    toSort.sort!checkSort();
+    foreach (size_t i; toSort) {
+        write(i, " ");
+    }
+    writeln();
+}
+
+bool checkSort(size_t a, size_t b) {
+    return a < b;
 }

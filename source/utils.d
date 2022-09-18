@@ -460,6 +460,87 @@ struct Vector(T) if (!is(T == class)) {
 	size_t getId(ref T e) {
 		return getId(&e);
 	}
+	private bool refCompare(alias compare)(T* a, T* b) {
+		return compare(*a, *b);
+	}
+	// todo: falls T nicht kopierbar, und falls ctfe (momentan ist memcpy mit this = copy gemischt haha)
+	auto ref sort(alias compare)() {
+		if (length <= 1) {
+			return this;
+		}
+		static if (T.sizeof > size_t.sizeof) {
+			Vector!T copy = this;
+			Vector!(T*) refToSort = Vector!(T*)(length);
+			foreach (i; 0 .. length) {
+				refToSort[i] = &copy[i];
+			}
+			refToSort.sort!(refCompare!compare)();
+			foreach (i; 0 .. length) {
+				this[i] = *refToSort[i];
+			}
+			return this;
+		} else {
+			size_t l = length;
+			size_t depth = 1;
+			Vector!T copy = Vector!T(length);
+			Vector!T* ref1 = &copy;
+			Vector!T* ref2 = &this;
+			while (l != 0) {
+				l /= 2;
+				size_t leftover = length - depth * 2 * l;
+				foreach (i; 0 .. l) {
+					size_t left, right;
+					foreach (j; 0 .. depth * 2) {
+						if (!compare((*ref2)[i * depth * 2 + left], (*ref2)[i * depth * 2 + depth + right])) {
+							memcpy(cast(void*)&(*ref1)[i * depth * 2 + j], cast(void*)&(*ref2)[i * depth * 2 + depth + right], T.sizeof);
+							right++;
+						} else {
+							memcpy(cast(void*)&(*ref1)[i * depth * 2 + j], cast(void*)&(*ref2)[i * depth * 2 + left], T.sizeof);
+							left++;
+						}
+						if (left == depth) {
+							memcpy(cast(void*)&(*ref1)[i * depth * 2 + j + 1], cast(void*)&(*ref2)[i * depth * 2 + depth + right], T.sizeof * (depth - right));
+							break;
+						}
+						if (right == depth) {
+							memcpy(cast(void*)&(*ref1)[i * depth * 2 + j + 1], cast(void*)&(*ref2)[i * depth * 2 + left], T.sizeof * (depth - left));
+							break;
+						}
+					}
+				}
+				size_t left, right;
+				if (leftover > depth) {
+					foreach (i; 0 .. leftover) {
+						if (!compare((*ref2)[l * depth * 2 + left], (*ref2)[l * depth * 2 + depth + right])) {
+							memcpy(cast(void*)&(*ref1)[l * depth * 2 + i], cast(void*)&(*ref2)[l * depth * 2 + depth + right], T.sizeof);
+							right++;
+						} else {
+							memcpy(cast(void*)&(*ref1)[l * depth * 2 + i], cast(void*)&(*ref2)[l * depth * 2 + left], T.sizeof);
+							left++;
+						}
+						if (left == depth) {
+							memcpy(cast(void*)&(*ref1)[l * depth * 2 + i + 1], cast(void*)&(*ref2)[l * depth * 2 + depth + right], T.sizeof * (leftover - depth - right));
+							break;
+						}
+						if (right == leftover - depth) {
+							memcpy(cast(void*)&(*ref1)[l * depth * 2 + i + 1], cast(void*)&(*ref2)[l * depth * 2 + left], T.sizeof * (depth - left));
+							break;
+						}
+					}
+				} else {
+					memcpy(cast(void*)&(*ref1)[l * depth * 2], cast(void*)&(*ref2)[l * depth * 2], T.sizeof * leftover);
+				}
+				depth *= 2;
+				Vector!T* ref3 = ref2;
+				ref2 = ref1;
+				ref1 = ref3;
+			}
+			if (ref2 == &copy) {
+				this = copy;
+			}
+			return this;
+		}
+	}
 }
 
 alias String = Vector!char;
