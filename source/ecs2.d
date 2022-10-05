@@ -11,7 +11,8 @@ struct ECSEntity(
     StaticGeneralUpdates,
     StaticSpecificUpdates,
     StaticAddUpdates,
-    StaticViews
+    StaticViews,
+    ECSConfig config
 ) {
     size_t[StaticComponents.length] staticComponents = size_t.max;
     size_t[StaticGeneralUpdates.length] staticGeneralUpdates = size_t.max;
@@ -181,6 +182,19 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
 
 struct ECSConfig {
     bool compact;
+    bool dynamicComponents;
+}
+
+struct DynamicComponentStruct {
+    string s;
+    size_t id;
+    size_t size;
+    static bool sortFunc(ref DynamicComponentStruct dcs1, ref DynamicComponentStruct dcs2) {
+        if (dcs1.s.length == 0 || dcs2.s.length == 0) {
+            return true;
+        }
+        return strcmp(dcs1.s.ptr, dcs2.s.ptr) < 0;
+    }
 }
 
 struct DynamicECS(
@@ -199,6 +213,7 @@ struct DynamicECS(
     alias TemplateSpecificUpdates = StaticSpecificUpdates;
     alias TemplateGeneralUpdatesMultiple = StaticGeneralUpdatesMultiple;
     alias TemplateSpecificUpdatesMultiple = StaticSpecificUpdatesMultiple;
+    alias TemplateConfig = config;
     alias ExtractComponent(T) = T.TypeSeq[0];
     alias SpecificUpdatesOnlyComponents = ApplyTypeSeq!(ExtractComponent, StaticSpecificUpdates.TypeSeq);
     alias SpecificUpdatesOnlyComponentsMultiple = ApplyTypeSeq!(ExtractComponent, StaticSpecificUpdatesMultiple.TypeSeq);
@@ -219,7 +234,8 @@ struct DynamicECS(
         StaticGeneralUpdates,
         StaticSpecificUpdates,
         StaticAddUpdates,
-        StaticViews
+        StaticViews,
+        config
     );
     static if (config.compact) {
         alias ToList(T) = CompactVectorList!(BaseVector, T);
@@ -229,6 +245,7 @@ struct DynamicECS(
     alias ComponentLists = ApplyTypeSeq!(ToList, StaticComponents.TypeSeq);
     alias RemoveLists = ApplyTypeSeq!(ToList, StaticRemoveUpdates.TypeSeq);
 
+    // static -------------------
     VectorList!(BaseVector, Entity) entities;
     ComponentLists componentLists;
     // speichert zu welchem entity ein component gehört
@@ -243,6 +260,10 @@ struct DynamicECS(
         VectorList!(BaseVector, Moved)[StaticRemoveUpdates.length] movedComponents;
     }
     VectorList!(BaseVector, size_t)[StaticViews.length] views;
+
+    // dynamic ------------------
+    alias VectorListType(T) = VectorList!(Vector, T);
+    OrderedList!(VectorListType, DynamicComponentStruct, DynamicComponentStruct.sortFunc) dynamicComponentStructs;
 
     size_t getComponentId(Component)() {
         return findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -406,7 +427,7 @@ unittest {
         TypeSeqStruct!(
             TypeSeqStruct!(int, double)
         ),
-        ECSConfig(true)
+        ECSConfig(true, true)
     ) ecs;
     auto entity = ecs.add();
     entity.add!int(3);
@@ -447,7 +468,7 @@ unittest {
         writeln("index of updates multiple: ", e);
     }
 
-    Vector!size_t toSort = Vector!size_t(5);
+    Vector!size_t toSort = Vector!size_t(8);
     toSort[0] = 12;
     toSort[1] = 10;
     toSort[2] = 5;
@@ -458,6 +479,21 @@ unittest {
         write(i, " ");
     }
     writeln();
+
+    alias TestType(T) = VectorList!(Vector, T);
+    OrderedList!(TestType, size_t, checkSort) ol;
+    ol.addNoSort(3).addNoSort(2).addNoSort(1).sort();
+    foreach (size_t i; ol) {
+        writeln(i);
+    }
+
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3, 16));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("zbla", 1, 16));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("abla", 2, 16));
+    ecs.dynamicComponentStructs.sort();
+    foreach (DynamicComponentStruct i; ecs.dynamicComponentStructs) {
+        writeln(i.s, " ", i.id, " ", i.size);
+    }
 }
 
 bool checkSort(size_t a, size_t b) {

@@ -460,7 +460,7 @@ struct Vector(T) if (!is(T == class)) {
 	size_t getId(ref T e) {
 		return getId(&e);
 	}
-	private bool refCompare(alias compare)(T* a, T* b) {
+	private static bool refCompare(alias compare)(T* a, T* b) {
 		return compare(*a, *b);
 	}
 	// todo: falls T nicht kopierbar, und falls ctfe (momentan ist memcpy mit this = copy gemischt haha)
@@ -527,7 +527,7 @@ struct Vector(T) if (!is(T == class)) {
 							break;
 						}
 					}
-				} else {
+				} else if (leftover != 0) {
 					memcpy(cast(void*)&(*ref1)[l * depth * 2], cast(void*)&(*ref2)[l * depth * 2], T.sizeof * leftover);
 				}
 				depth *= 2;
@@ -624,7 +624,7 @@ struct VectorList(alias BaseVector, T) {
 	alias vector this;
 	size_t length;
 	LinkedList!size_t emptyEntries;
-	size_t defaultLength = 1024;
+	size_t defaultLength = 1;
 	this(size_t initialLength) {
 		vector = BaseVector!T(initialLength);
 		empty = BaseVector!bool(initialLength);
@@ -937,6 +937,24 @@ struct CompactVectorList(alias BaseVector, T) {
 				return result;
 		}
 		return 0;
+	}
+}
+
+struct OrderedList(alias VectorListType, T, alias SortFunction) {
+	VectorListType!T list;
+	alias list this;
+	
+	ref auto sort() {
+		list.sort!SortFunction();
+		return this;
+	}
+	ref auto add(lazy T t) {
+		list.add(t);
+		return sort();
+	}
+	ref auto addNoSort(lazy T t) {
+		list.add(t);
+		return this;
 	}
 }
 
