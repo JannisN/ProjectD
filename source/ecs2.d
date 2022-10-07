@@ -19,6 +19,18 @@ struct ECSEntity(
     size_t[StaticSpecificUpdates.length] staticSpecificUpdates = size_t.max;
     size_t[StaticAddUpdates.length] staticAddUpdates = size_t.max;
     size_t[StaticViews.length] staticViews = size_t.max;
+    static if (config.dynamicComponents) {
+        alias VectorListType(T) = VectorList!(Vector, T);
+        OrderedList!(VectorListType, DynamicEntityComponent, DynamicEntityComponent.sortFunc) dynamicComponents;
+    }
+}
+
+struct DynamicEntityComponent {
+    size_t structId;
+    size_t componentId;
+    static bool sortFunc(ref DynamicEntityComponent dec1, ref DynamicEntityComponent dec2) {
+        return dec1.structId < dec2.structId;
+    }
 }
 
 struct VirtualEntity(ECS) {
@@ -188,7 +200,8 @@ struct ECSConfig {
 struct DynamicComponentStruct {
     string s;
     size_t id;
-    size_t size;
+    // vlt für debug später
+    //size_t size;
     static bool sortFunc(ref DynamicComponentStruct dcs1, ref DynamicComponentStruct dcs2) {
         if (dcs1.s.length == 0 || dcs2.s.length == 0) {
             return true;
@@ -264,6 +277,9 @@ struct DynamicECS(
     // dynamic ------------------
     alias VectorListType(T) = VectorList!(Vector, T);
     OrderedList!(VectorListType, DynamicComponentStruct, DynamicComponentStruct.sortFunc) dynamicComponentStructs;
+    ToList!Unknown dynamicComponentLists;
+    // speichert zu welchem entity ein component gehört
+    ToList!(ToList!size_t) dynamicComponentEntityIds;
 
     size_t getComponentId(Component)() {
         return findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -487,12 +503,12 @@ unittest {
         writeln(i);
     }
 
-    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3, 16));
-    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("zbla", 1, 16));
-    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("abla", 2, 16));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("zbla", 1));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("abla", 2));
     ecs.dynamicComponentStructs.sort();
     foreach (DynamicComponentStruct i; ecs.dynamicComponentStructs) {
-        writeln(i.s, " ", i.id, " ", i.size);
+        writeln(i.s, " ", i.id);
     }
 }
 

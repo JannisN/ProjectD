@@ -958,6 +958,33 @@ struct OrderedList(alias VectorListType, T, alias SortFunction) {
 	}
 }
 
+struct Unknown {
+	@disable this(ref return scope Unknown rhs);
+	void* data;
+	// evt für debug
+	//size_t size;
+	//string s;
+	void delegate() destructor = null;
+	this(T)(lazy T t) {
+		data = malloc(T.sizeof);
+		*(cast(T*)data) = t;
+		static if (__traits(hasMember, T, "__xdtor") && __traits(isSame, T, __traits(parent, (cast(T*)data).__xdtor))) {
+			destructor = &((cast(T*)data).__xdtor);
+		}
+	}
+	~this() {
+		if (!(destructor is null)) {
+			destructor();
+		}
+		if (data != null) {
+			free(data);
+		}
+	}
+	ref auto get(T)() {
+		return *(cast(T*)data);
+	}
+}
+
 /*struct String {
 	char[] s;
 	@disable this(ref return scope String rhs);
