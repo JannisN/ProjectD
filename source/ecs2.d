@@ -21,15 +21,15 @@ struct ECSEntity(
     size_t[StaticViews.length] staticViews = size_t.max;
     static if (config.dynamicComponents) {
         alias VectorListType(T) = VectorList!(Vector, T);
-        OrderedList!(VectorListType, DynamicEntityComponent, DynamicEntityComponent.sortFunc) dynamicComponents;
+        OrderedList!(VectorListType, DynamicEntityComponent) dynamicComponents;
     }
 }
 
 struct DynamicEntityComponent {
     size_t structId;
     size_t componentId;
-    static bool sortFunc(ref DynamicEntityComponent dec1, ref DynamicEntityComponent dec2) {
-        return dec1.structId < dec2.structId;
+    int opCmp(ref const DynamicEntityComponent dec) const {
+        return cast(int)(structId - dec.structId);
     }
 }
 
@@ -202,11 +202,11 @@ struct DynamicComponentStruct {
     size_t id;
     // vlt für debug später
     //size_t size;
-    static bool sortFunc(ref DynamicComponentStruct dcs1, ref DynamicComponentStruct dcs2) {
-        if (dcs1.s.length == 0 || dcs2.s.length == 0) {
-            return true;
+    int opCmp(ref const DynamicComponentStruct dcs) const {
+        if (s.length == 0 || dcs.s.length == 0) {
+            return -1;
         }
-        return strcmp(dcs1.s.ptr, dcs2.s.ptr) < 0;
+        return strcmp(s.ptr, dcs.s.ptr);
     }
 }
 
@@ -276,7 +276,7 @@ struct DynamicECS(
 
     // dynamic ------------------
     alias VectorListType(T) = VectorList!(Vector, T);
-    OrderedList!(VectorListType, DynamicComponentStruct, DynamicComponentStruct.sortFunc) dynamicComponentStructs;
+    OrderedList!(VectorListType, DynamicComponentStruct) dynamicComponentStructs;
     ToList!Unknown dynamicComponentLists;
     // speichert zu welchem entity ein component gehört
     ToList!(ToList!size_t) dynamicComponentEntityIds;
@@ -490,17 +490,17 @@ unittest {
     toSort[2] = 5;
     toSort[3] = 2;
     toSort[4] = 1;
-    toSort.sort!checkSort();
+    toSort.sort();
     foreach (size_t i; toSort) {
         write(i, " ");
     }
     writeln();
 
     alias TestType(T) = VectorList!(Vector, T);
-    OrderedList!(TestType, size_t, checkSort) ol;
+    OrderedList!(TestType, size_t) ol;
     ol.addNoSort(3).addNoSort(2).addNoSort(1).sort();
     foreach (size_t i; ol) {
-        writeln(i);
+        writeln(ol.findUnique(i));
     }
 
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3));
@@ -510,8 +510,4 @@ unittest {
     foreach (DynamicComponentStruct i; ecs.dynamicComponentStructs) {
         writeln(i.s, " ", i.id);
     }
-}
-
-bool checkSort(size_t a, size_t b) {
-    return a < b;
 }

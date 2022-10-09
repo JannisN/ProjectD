@@ -294,6 +294,7 @@ auto array(T, Args...)(ref Args args) {
 	return a;
 }
 
+// sollte memcpy verwenden?
 auto move(T)(ref T t) {
 	T moved = t;
 	emplace(&t);
@@ -461,10 +462,25 @@ struct Vector(T) if (!is(T == class)) {
 		return getId(&e);
 	}
 	private static bool refCompare(alias compare)(T* a, T* b) {
+		//return *a < *b;
 		return compare(*a, *b);
 	}
-	// todo: falls T nicht kopierbar, und falls ctfe (momentan ist memcpy mit this = copy gemischt haha)
+	static if (__traits(hasMember, T, "opCmp") || __traits(isScalar, T)) {
+		private static bool defaultCompare(ref T a, ref T b) {
+			return a < b;
+		}
+		auto ref sort()  {
+			return sort!defaultCompare(length);
+		}
+		auto ref sort(size_t length) {
+			return sort!defaultCompare(length);
+		}
+	}
 	auto ref sort(alias compare)() {
+		return sort!compare(length);
+	}
+	// todo: falls T nicht kopierbar, und falls ctfe (momentan ist memcpy mit this = copy gemischt haha)
+	auto ref sort(alias compare)(size_t length) {
 		if (length <= 1) {
 			return this;
 		}
@@ -635,7 +651,6 @@ struct VectorList(alias BaseVector, T) {
 		}
 	}
 	auto ref clear() {
-		writeln("clear");
 		//vector.renew(defaultLength);
 		//empty.renew(defaultLength);
 		vector = BaseVector!T(defaultLength);
@@ -760,23 +775,46 @@ struct VectorList(alias BaseVector, T) {
 	void remove(ref T t) {
 		remove(&t);
 	}
+	// diese funktion verbessern für sortieren
 	void compactify() {
-		size_t actualLength = length;
-		while (empty[actualLength - 1] == true) {
+		//size_t actualLength = length;
+		/*while (empty[actualLength - 1] == true) {
 			actualLength--;
-		}
-		vector.resize(actualLength);
-		empty.resize(actualLength);
-		length = actualLength;
+		}*/
+		//vector.resize(actualLength);
+		//empty.resize(actualLength);
+		//length = actualLength;
 
 		ListElement!size_t* current = emptyEntries.first;
 		while (current != null) {
 			ListElement!size_t* next = current.next;
-			if (current.t >= length) {
+
+			length--;
+            T dummy;
+            memcpy(
+                cast(void*)&vector[current.t],
+                cast(void*)&vector[length],
+                T.sizeof
+            );
+            memcpy(cast(void*)&vector[length], cast(void*)&dummy, T.sizeof);
+			empty[length] = true;
+			empty[current.t] = false;
+
+			//if (current.t >= length) {
 				emptyEntries.remove(current);
-			}
+			//}
 			current = next;
 		}
+	}
+	static if ((__traits(hasMember, T, "opCmp") || __traits(isScalar, T)) && __traits(hasMember, BaseVector!T, "sort")) {
+		void sort() {
+			compactify();
+			vector.sort(length);
+		}
+	}
+	void sort(alias SortFunc)() {
+		compactify();
+		vector.sort!SortFunc(length);
 	}
 	int opApply(scope int delegate(ref T) dg) {
 		foreach (i; 0 .. length) {
@@ -940,21 +978,50 @@ struct CompactVectorList(alias BaseVector, T) {
 	}
 }
 
-struct OrderedList(alias VectorListType, T, alias SortFunction) {
+struct OrderedList(alias VectorListType, T) {
 	VectorListType!T list;
 	alias list this;
 	
 	ref auto sort() {
-		list.sort!SortFunction();
+		list.sort();
 		return this;
 	}
 	ref auto add(lazy T t) {
 		list.add(t);
 		return sort();
 	}
+	ref auto add(Args...)(lazy Args args) {
+		static foreach (i; args.length) {
+			list.add(args[i]);
+		}
+		return sort();
+	}
 	ref auto addNoSort(lazy T t) {
 		list.add(t);
 		return this;
+	}
+	// remove funktion noch nötig
+	ref T findUnique(T t) {
+		size_t lowerBound = 0;
+		size_t upperBound = list.length;
+		assert(upperBound > 0);
+		while (lowerBound != upperBound - 1) {
+			size_t index = lowerBound + (upperBound - lowerBound) / 2;
+			bool lower = t < list[index];
+			if (lower) {
+				upperBound = index;
+			} else {
+				lowerBound = index;
+			}
+		}
+		assert((t < list[lowerBound]) == (list[lowerBound] < t));
+		return list[lowerBound];
+	}
+	int opApply(scope int delegate(ref T) dg) {
+		return list.opApply(dg);
+	}
+	int opApplyReverse(scope int delegate(ref T) dg) {
+		return list.opApplyReverse(dg);
 	}
 }
 
