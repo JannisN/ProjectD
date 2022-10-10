@@ -281,31 +281,32 @@ struct DynamicECS(
     // speichert zu welchem entity ein component gehört
     ToList!(ToList!size_t) dynamicComponentEntityIds;
 
-    size_t getComponentId(Component)() {
+    enum bool isComponentStatic(Component) = (findTypes!(Component, StaticComponents.TypeSeq).length > 0);
+    size_t getComponentId(Component)() if (isComponentStatic!Component) {
         return findTypes!(Component, StaticComponents.TypeSeq)[0];
     }
-    auto ref getComponents(Component)() {
+    auto ref getComponents(Component)() if (isComponentStatic!Component) {
         return componentLists[findTypes!(Component, StaticComponents.TypeSeq)[0]];
     }
-    auto ref getGeneralUpdateList(Component)() {
+    auto ref getGeneralUpdateList(Component)() if (isComponentStatic!Component) {
         return generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
     }
-    auto ref getSpecificUpdateList(Component, string member)() {
+    auto ref getSpecificUpdateList(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]];
     }
-    auto ref getGeneralUpdateListMultiple(Component)() {
+    auto ref getGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         return generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]];
     }
-    auto ref getSpecificUpdateListMultiple(Component, string member)() {
+    auto ref getSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]];
     }
-    auto ref getAddUpdateList(Component)() {
+    auto ref getAddUpdateList(Component)() if (isComponentStatic!Component) {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
     }
-    auto ref getRemoveUpdateList(Component)() {
+    auto ref getRemoveUpdateList(Component)() if (isComponentStatic!Component) {
         return removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
-    auto ref getMovedComponentsList(Component)() if (config.compact) {
+    auto ref getMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
         return movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
     auto ref getView(Components...)() {
@@ -315,7 +316,7 @@ struct DynamicECS(
         size_t id = entities.addId(Entity());
         return VirtualEntity!ECSType(&this, id);
     }
-    void addComponent(Component)(size_t id) {
+    void addComponent(Component)(size_t id) if (isComponentStatic!Component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         size_t componentEntityId = componentLists[componentId].addId();
         componentEntityIds[componentId].addId(id);
@@ -323,7 +324,7 @@ struct DynamicECS(
         updateAddUpdateList!Component(id);
         updateViews!(Component, true)(id);
     }
-    void addComponent(Component)(size_t id, lazy Component component) {
+    void addComponent(Component)(size_t id, lazy Component component) if (isComponentStatic!Component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         size_t componentEntityId = componentLists[componentId].addId(component);
         componentEntityIds[componentId].addId(id);
@@ -331,7 +332,7 @@ struct DynamicECS(
         updateAddUpdateList!Component(id);
         updateViews!(Component, true)(id);
     }
-    void removeComponent(Component)(size_t id) {
+    void removeComponent(Component)(size_t id) if (isComponentStatic!Component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         version (Debug) {
             assert(entities[id].staticComponents[componentId] != size_t.max, "Entity does not have component");
@@ -370,14 +371,14 @@ struct DynamicECS(
         }
         updateViews!(Component, false)(id);
     }
-    void updateAddUpdateList(Component)(size_t id) {
+    void updateAddUpdateList(Component)(size_t id) if (isComponentStatic!Component) {
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
             enum size_t typeId = findTypes!(Component, StaticAddUpdates.TypeSeq)[0];
             size_t addUpdatesId = addUpdates[typeId].addId(id);
             entities[id].staticAddUpdates[typeId] = addUpdatesId;
         }
     }
-    void updateViews(Component, bool added)(size_t id) {
+    void updateViews(Component, bool added)(size_t id) if (isComponentStatic!Component) {
         static foreach (typeId, View; StaticViews.TypeSeq) {
             static if (findTypes!(Component, View.TypeSeq).length > 0) {
                 bool partOfView = true;

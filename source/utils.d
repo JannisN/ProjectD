@@ -1002,6 +1002,11 @@ struct OrderedList(alias VectorListType, T) {
 	}
 	// remove funktion noch nötig
 	ref T findUnique(T t) {
+		size_t id = findIndex(t);
+		assert(id != size_t.max);
+		return list[id];
+	}
+	size_t findIndex(T t) {
 		size_t lowerBound = 0;
 		size_t upperBound = list.length;
 		assert(upperBound > 0);
@@ -1014,8 +1019,11 @@ struct OrderedList(alias VectorListType, T) {
 				lowerBound = index;
 			}
 		}
-		assert((t < list[lowerBound]) == (list[lowerBound] < t));
-		return list[lowerBound];
+		if ((t < list[lowerBound]) == (list[lowerBound] < t)) {
+			return lowerBound;
+		} else {
+			return size_t.max;
+		}
 	}
 	int opApply(scope int delegate(ref T) dg) {
 		return list.opApply(dg);
