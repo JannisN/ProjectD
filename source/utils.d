@@ -1001,6 +1001,11 @@ struct OrderedList(alias VectorListType, T) {
 		return this;
 	}
 	// remove funktion noch nötig
+	ref auto remove(size_t id) {
+		list.remove(id);
+		list.sort();
+		return this;
+	}
 	ref T findUnique(T t) {
 		size_t id = findIndex(t);
 		assert(id != size_t.max);
@@ -1009,7 +1014,9 @@ struct OrderedList(alias VectorListType, T) {
 	size_t findIndex(T t) {
 		size_t lowerBound = 0;
 		size_t upperBound = list.length;
-		assert(upperBound > 0);
+		if (upperBound == 0) {
+			return size_t.max;
+		}
 		while (lowerBound != upperBound - 1) {
 			size_t index = lowerBound + (upperBound - lowerBound) / 2;
 			bool lower = t < list[index];
@@ -1018,10 +1025,12 @@ struct OrderedList(alias VectorListType, T) {
 			} else {
 				lowerBound = index;
 			}
+			//writeln(lowerBound, " ", upperBound);
 		}
 		if ((t < list[lowerBound]) == (list[lowerBound] < t)) {
 			return lowerBound;
 		} else {
+			//writeln((t < list[lowerBound]), " ", (list[lowerBound] < t), " ", lowerBound, " ", upperBound);
 			return size_t.max;
 		}
 	}

@@ -3,9 +3,10 @@ module ecs2;
 import utils;
 import functions;
 
-// für dynamisch: sortierte liste
-// initial length soll standardmässig in ECSEntity auf 0 initialisiert werden
-
+// noch eine funktion zum entity entfernen nötig; muss alle static und dynamic components löschen und updates
+// funktionen zum leeren von updatelisten nötig
+// wenn component entfernt wird sollten update listen einträge gelöscht werden, wie bei addUpdate
+// funktion hinzufügen ob zum schauen ob entity component hat
 struct ECSEntity(
     StaticComponents,
     StaticGeneralUpdates,
@@ -49,6 +50,7 @@ struct VirtualEntity(ECS) {
         return this;
     }
     auto ref get(Component)() if (
+        ecs.isComponentStatic!Component &&
         findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length == 0 &&
         findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length == 0 &&
         findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length == 0 &&
@@ -60,15 +62,21 @@ struct VirtualEntity(ECS) {
         return ecs.getComponents!Component()[ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()]];
     }
     auto get(Component)() if (
+        ecs.isComponentStatic!Component && (
         findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0 ||
         findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length > 0 ||
         findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0 ||
-        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length > 0
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length > 0)
     ) {
         version (Debug) {
             assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
         return VirtualComponent!(ECS, Component)(&this);
+    }
+    auto ref get(Component)() if (!ecs.isComponentStatic!Component) {
+        size_t dcs = ecs.dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        DynamicEntityComponent dec = ecs.entities[entityId].dynamicComponents.findUnique(DynamicEntityComponent(dcs));
+        return ecs.dynamicComponentLists[ecs.dynamicComponentStructs[dcs].id].get!(ECS.ToList!Component)()[dec.componentId];
     }
     auto ref getForced(Component)() {
         version (Debug) {
@@ -280,6 +288,7 @@ struct DynamicECS(
     ToList!Unknown dynamicComponentLists;
     // speichert zu welchem entity ein component gehört
     ToList!(ToList!size_t) dynamicComponentEntityIds;
+    ToList!(typeof((ToList!size_t).removeById(0)) delegate(size_t)) componentDestructors;
 
     enum bool isComponentStatic(Component) = (findTypes!(Component, StaticComponents.TypeSeq).length > 0);
     size_t getComponentId(Component)() if (isComponentStatic!Component) {
@@ -287,6 +296,11 @@ struct DynamicECS(
     }
     auto ref getComponents(Component)() if (isComponentStatic!Component) {
         return componentLists[findTypes!(Component, StaticComponents.TypeSeq)[0]];
+    }
+    auto ref getComponents(Component)() if (!(isComponentStatic!Component)) {
+        size_t dcsId = addDynamicComponentStruct!Component();
+        size_t dclId = dynamicComponentStructs[dcsId].id;
+        return dynamicComponentLists[dclId].get!(ToList!Component)();
     }
     auto ref getGeneralUpdateList(Component)() if (isComponentStatic!Component) {
         return generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
@@ -316,6 +330,9 @@ struct DynamicECS(
         size_t id = entities.addId(Entity());
         return VirtualEntity!ECSType(&this, id);
     }
+    auto getEntity(size_t id) {
+        return VirtualEntity!ECSType(&this, id);
+    }
     void addComponent(Component)(size_t id) if (isComponentStatic!Component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
         size_t componentEntityId = componentLists[componentId].addId();
@@ -331,6 +348,33 @@ struct DynamicECS(
         entities[id].staticComponents[componentId] = componentEntityId;
         updateAddUpdateList!Component(id);
         updateViews!(Component, true)(id);
+    }
+    void addComponent(Component)(size_t id) if (!(isComponentStatic!Component)) {
+        size_t dcsId = addDynamicComponentStruct!Component();
+        size_t dclId = dynamicComponentStructs[dcsId].id;
+        size_t componentId = dynamicComponentLists[dclId].get!(ToList!Component)().addId();
+        dynamicComponentEntityIds[dclId].add(id);
+        entities[id].dynamicComponents.add(DynamicEntityComponent(dcsId, componentId));
+    }
+    void addComponent(Component)(size_t id, lazy Component component) if (!(isComponentStatic!Component)) {
+        size_t dcsId = addDynamicComponentStruct!Component();
+        size_t dclId = dynamicComponentStructs[dcsId].id;
+        size_t componentId = dynamicComponentLists[dclId].get!(ToList!Component)().addId(component);
+        dynamicComponentEntityIds[dclId].add(id);
+        entities[id].dynamicComponents.add(DynamicEntityComponent(dcsId, componentId));
+    }
+    size_t addDynamicComponentStruct(Component)() {
+        size_t dcsId = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        if (dcsId == size_t.max) {
+            size_t dclId = dynamicComponentLists.addId(Unknown(ToList!Component()));
+            size_t dceId = dynamicComponentEntityIds.addId();
+            componentDestructors.add(&(dynamicComponentLists[dclId].get!(ToList!Component)().removeById));
+            assert(dclId == dceId);
+            //writeln(dceId, " ", dclId, " ", dcsId);
+            dynamicComponentStructs.add(DynamicComponentStruct(Component.stringof, dclId));
+            dcsId = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        }
+        return dcsId;
     }
     void removeComponent(Component)(size_t id) if (isComponentStatic!Component) {
         enum size_t componentId = findTypes!(Component, StaticComponents.TypeSeq)[0];
@@ -370,6 +414,12 @@ struct DynamicECS(
             }
         }
         updateViews!(Component, false)(id);
+    }
+    void removeComponent(Component)(size_t id) if (!(isComponentStatic!Component)) {
+        size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        size_t dec = entities[id].dynamicComponents.findIndex(DynamicEntityComponent(dcs));
+        dynamicComponentLists[dynamicComponentStructs[dcs].id].get!(ToList!Component)().remove(entities[id].dynamicComponents[dec].componentId);
+        entities[id].dynamicComponents.remove(dec);
     }
     void updateAddUpdateList(Component)(size_t id) if (isComponentStatic!Component) {
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
@@ -422,6 +472,10 @@ template findView(U, T...) {
 }
 
 struct TestStruct {
+    int testInt;
+}
+
+struct TestStruct2 {
     int testInt;
 }
 
@@ -506,9 +560,20 @@ unittest {
 
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3));
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("zbla", 1));
+    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("Tbla", 1));
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("abla", 2));
     ecs.dynamicComponentStructs.sort();
     foreach (DynamicComponentStruct i; ecs.dynamicComponentStructs) {
         writeln(i.s, " ", i.id);
+    }
+
+    entity.add(TestStruct2(10));
+    entity.get!TestStruct2().testInt = 20;
+    foreach (i; ecs.getComponents!TestStruct2()) {
+        writeln(i.testInt);
+    }
+    entity.remove!TestStruct2();
+    foreach (i; ecs.getComponents!TestStruct2()) {
+        writeln(i.testInt);
     }
 }
