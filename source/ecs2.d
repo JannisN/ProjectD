@@ -3,10 +3,6 @@ module ecs2;
 import utils;
 import functions;
 
-// noch eine funktion zum entity entfernen nötig; muss alle static und dynamic components löschen und updates
-// funktionen zum leeren von updatelisten nötig
-// wenn component entfernt wird sollten update listen einträge gelöscht werden, wie bei addUpdate
-// funktion hinzufügen ob zum schauen ob entity component hat
 struct ECSEntity(
     StaticComponents,
     StaticGeneralUpdates,
@@ -83,6 +79,14 @@ struct VirtualEntity(ECS) {
             assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
         return ecs.getComponents!Component()[ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()]];
+    }
+    bool has(Component)() if (ecs.isComponentStatic!Component) {
+        return ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max;
+    }
+    bool has(Component)() if (!ecs.isComponentStatic!Component) {
+        size_t dcs = ecs.dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        size_t index = ecs.entities[entityId].dynamicComponents.findIndex(DynamicEntityComponent(dcs));
+        return index != size_t.max;
     }
 }
 
@@ -305,23 +309,53 @@ struct DynamicECS(
     auto ref getGeneralUpdateList(Component)() if (isComponentStatic!Component) {
         return generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
     }
+    void clearGeneralUpdateList(Component)() if (isComponentStatic!Component) {
+        foreach (i; generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]]) {
+            entities[i].staticGeneralUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]] = size_t.max;
+        }
+        generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]].clear();
+    }
     auto ref getSpecificUpdateList(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]];
+    }
+    void clearSpecificUpdateList(Component, string member)() if (isComponentStatic!Component) {
+        foreach (i; specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]]) {
+            entities[i].staticSpecificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]] = size_t.max;
+        }
+        specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]].clear();
     }
     auto ref getGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         return generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]];
     }
+    void clearGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
+        generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]].clear();
+    }
     auto ref getSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]];
+    }
+    void clearSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
+        specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]].clear();
     }
     auto ref getAddUpdateList(Component)() if (isComponentStatic!Component) {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
     }
+    void clearAddUpdateList(Component)() if (isComponentStatic!Component) {
+        foreach (i; addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]]) {
+            entities[i].staticAddUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]] = size_t.max;
+        }
+        addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]].clear();
+    }
     auto ref getRemoveUpdateList(Component)() if (isComponentStatic!Component) {
         return removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
+    void clearRemoveUpdateListMultiple(Component)() if (isComponentStatic!Component) {
+        removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
+    }
     auto ref getMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
         return movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
+    }
+    void clearMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
+        movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
     }
     auto ref getView(Components...)() {
         return views[findView!(StaticViews, Components)];
@@ -383,6 +417,22 @@ struct DynamicECS(
         }
         size_t componentEntityId = entities[id].staticComponents[componentId];
         componentEntityIds[componentId].removeById(componentEntityId);
+        static if (findTypes!(Component, StaticGeneralUpdates.TypeSeq).length > 0) {
+            size_t entry = entities[id].staticGeneralUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
+            if (entry != size_t.max) {
+                generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]].removeById(entry);
+                entities[id].staticGeneralUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]] = size_t.max;
+            }
+        }
+        static if (findTypes!(Component, SpecificUpdatesOnlyComponents).length > 0) {
+            static foreach (i; findTypes!(Component, SpecificUpdatesOnlyComponents)) {
+                size_t entry = entities[id].staticSpecificUpdates[i];
+                if (entry != size_t.max) {
+                    specificUpdates[i].removeById(entry);
+                    entities[id].staticSpecificUpdates[i] = size_t.max;
+                }
+            }
+        }
         static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
             size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
             Component dummy;
@@ -394,7 +444,7 @@ struct DynamicECS(
             memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)&dummy, Component.sizeof);
         }
         static if (config.compact) {
-            auto moved = componentLists[componentId].remove(componentEntityId);
+            auto moved = componentLists[componentId].removeById(componentEntityId);
             if (moved.oldId != moved.newId) {
                 entities[componentEntityIds[componentId][moved.newId]].staticComponents[componentId] = moved.newId;
                 static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
@@ -402,7 +452,7 @@ struct DynamicECS(
                 }
             }
         } else {
-            componentLists[componentId].remove(componentEntityId);
+            componentLists[componentId].removeById(componentEntityId);
         }
         entities[id].staticComponents[componentId] = size_t.max;
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
@@ -419,7 +469,64 @@ struct DynamicECS(
         size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
         size_t dec = entities[id].dynamicComponents.findIndex(DynamicEntityComponent(dcs));
         dynamicComponentLists[dynamicComponentStructs[dcs].id].get!(ToList!Component)().remove(entities[id].dynamicComponents[dec].componentId);
-        entities[id].dynamicComponents.remove(dec);
+        entities[id].dynamicComponents.removeById(dec);
+        dynamicComponentEntityIds[dynamicComponentStructs[dcs].id].removeById(entities[id].dynamicComponents[dec].componentId);
+    }
+    void remove(size_t id) {
+        foreach (i, entry; entities[id].staticGeneralUpdates) {
+            if (entry != size_t.max) {
+                generalUpdates[i].removeById(entry);
+            }
+        }
+        foreach (i, entry; entities[id].staticSpecificUpdates) {
+            if (entry != size_t.max) {
+                specificUpdates[i].removeById(entry);
+            }
+        }
+        static foreach (componentId, Component; StaticComponents.TypeSeq) {{
+            size_t componentEntityId = entities[id].staticComponents[componentId];
+            if (componentEntityId != size_t.max) {
+                componentEntityIds[componentId].removeById(componentEntityId);
+                static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
+                    size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
+                    Component dummy;
+                    memcpy(
+                        cast(void*)&removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]][removedId],
+                        cast(void*)&componentLists[componentId][componentEntityId],
+                        Component.sizeof
+                    );
+                    memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)&dummy, Component.sizeof);
+                }
+                static if (config.compact) {
+                    auto moved = componentLists[componentId].remove(componentEntityId);
+                    if (moved.oldId != moved.newId) {
+                        entities[componentEntityIds[componentId][moved.newId]].staticComponents[componentId] = moved.newId;
+                        static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
+                            movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(moved);
+                        }
+                    }
+                } else {
+                    componentLists[componentId].remove(componentEntityId);
+                }
+                static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
+                    enum size_t typeId = findTypes!(Component, StaticAddUpdates.TypeSeq)[0];
+                    size_t addUpdatesId = entities[id].staticAddUpdates[typeId];
+                    if (addUpdatesId != size_t.max) {
+                        addUpdates[typeId].removeById(cast(size_t)addUpdatesId);
+                        entities[id].staticAddUpdates[typeId] = size_t.max;
+                    }
+                }
+                updateViews!(Component, false)(id);
+            }
+        }}
+        static if (config.dynamicComponents) {
+            foreach (dec; entities[id].dynamicComponents) {
+                size_t dclId = dynamicComponentStructs[dec.structId].id;
+                dynamicComponentEntityIds[dclId].removeById(dec.componentId);
+                componentDestructors[dclId](dec.componentId);
+            }
+        }
+        entities.removeById(id);
     }
     void updateAddUpdateList(Component)(size_t id) if (isComponentStatic!Component) {
         static if (findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0) {
@@ -515,7 +622,9 @@ unittest {
         writeln(i);
     }
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
+    writeln("has int ", entity.has!int());
     entity.remove!int();
+    writeln("has int ", entity.has!int());
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
     writeln("removeUpdateList length: ", ecs.getRemoveUpdateList!int().length);
     foreach (e; ecs.getRemoveUpdateList!int()) {
@@ -558,21 +667,22 @@ unittest {
         writeln(ol.findUnique(i));
     }
 
-    ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3));
+    /*ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("bla", 3));
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("zbla", 1));
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("Tbla", 1));
     ecs.dynamicComponentStructs.addNoSort(DynamicComponentStruct("abla", 2));
     ecs.dynamicComponentStructs.sort();
     foreach (DynamicComponentStruct i; ecs.dynamicComponentStructs) {
         writeln(i.s, " ", i.id);
-    }
+    }*/
 
     entity.add(TestStruct2(10));
     entity.get!TestStruct2().testInt = 20;
     foreach (i; ecs.getComponents!TestStruct2()) {
         writeln(i.testInt);
     }
-    entity.remove!TestStruct2();
+    ecs.remove(entity.entityId);
+    //entity.remove!TestStruct2();
     foreach (i; ecs.getComponents!TestStruct2()) {
         writeln(i.testInt);
     }
