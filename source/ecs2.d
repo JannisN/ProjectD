@@ -67,14 +67,14 @@ struct VirtualEntity(ECS) {
         version (Debug) {
             assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
-        return VirtualComponent!(ECS, Component)(&this);
+        return VirtualComponent!(ECS, Component)(this);
     }
     auto ref get(Component)() if (!ecs.isComponentStatic!Component) {
         size_t dcs = ecs.dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
         DynamicEntityComponent dec = ecs.entities[entityId].dynamicComponents.findUnique(DynamicEntityComponent(dcs));
         return ecs.dynamicComponentLists[ecs.dynamicComponentStructs[dcs].id].get!(ECS.ToList!Component)()[dec.componentId];
     }
-    auto ref getForced(Component)() {
+    auto ref getForced(Component)() if (ecs.isComponentStatic!Component) {
         version (Debug) {
             assert(ecs.entities[entityId].staticComponents[ecs.getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
@@ -91,7 +91,7 @@ struct VirtualEntity(ECS) {
 }
 
 struct VirtualComponent(ECS, Component) {
-    VirtualEntity!ECS* virtualEntity;
+    VirtualEntity!ECS virtualEntity;
     auto ref opAssign(lazy Component component) {
         // vlt ist hier remove, add doch besser da man dann weiss dass das ganze objekt neu ist
         // dann müsste aber auch ein virtualcomponent zurückgegeben werden bei virtualentity falls es eine add/remove list gibt
@@ -281,10 +281,11 @@ struct DynamicECS(
     VectorList!(BaseVector, size_t)[StaticSpecificUpdatesMultiple.length] specificUpdatesMultiple;
     VectorList!(BaseVector, size_t)[StaticAddUpdates.length] addUpdates;
     RemoveLists removeUpdates;
+    ToList!size_t[StaticRemoveUpdates.length] removeIds;
     static if (config.compact) {
         VectorList!(BaseVector, Moved)[StaticRemoveUpdates.length] movedComponents;
     }
-    VectorList!(BaseVector, size_t)[StaticViews.length] views;
+    ToList!size_t[StaticViews.length] views;
 
     // dynamic ------------------
     alias VectorListType(T) = VectorList!(Vector, T);
@@ -315,6 +316,9 @@ struct DynamicECS(
         }
         generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]].clear();
     }
+    bool hasGeneralUpdateList(Component)() {
+        return findTypes!(Component, StaticGeneralUpdates.TypeSeq).length > 0;
+    }
     auto ref getSpecificUpdateList(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]];
     }
@@ -324,17 +328,26 @@ struct DynamicECS(
         }
         specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]].clear();
     }
+    bool hasSpecificUpdateList(Component, string member)() {
+        return findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq).length > 0;
+    }
     auto ref getGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         return generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]];
     }
     void clearGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]].clear();
     }
+    bool hasGeneralUpdateListMultiple(Component)() {
+        return findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq).length > 0;
+    }
     auto ref getSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
         return specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]];
     }
     void clearSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
         specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]].clear();
+    }
+    bool hasSpecificUpdateListMultiple(Component, string member)() {
+        return findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq).length > 0;
     }
     auto ref getAddUpdateList(Component)() if (isComponentStatic!Component) {
         return addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]];
@@ -345,17 +358,30 @@ struct DynamicECS(
         }
         addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]].clear();
     }
+    bool hasAddUpdateList(Component)() {
+        return findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0;
+    }
     auto ref getRemoveUpdateList(Component)() if (isComponentStatic!Component) {
         return removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
+    auto ref getRemoveIdsList(Component)() if (isComponentStatic!Component) {
+        return removeIds[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
+    }
     void clearRemoveUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
+        removeIds.clear();
+    }
+    bool hasRemoveUpdateList(Component)() {
+        return findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0;
     }
     auto ref getMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
         return movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
     void clearMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
         movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
+    }
+    bool hasMovedComponentsList(Component)() {
+        return (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) && config.compact;
     }
     auto ref getView(Components...)() {
         return views[findView!(StaticViews, Components)];
@@ -435,6 +461,7 @@ struct DynamicECS(
         }
         static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
             size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
+            removeIds[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(id);
             Component dummy;
             memcpy(
                 cast(void*)&removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]][removedId],
@@ -489,6 +516,7 @@ struct DynamicECS(
                 componentEntityIds[componentId].removeById(componentEntityId);
                 static if (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) {
                     size_t removedId = removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].addId();
+                    removeIds[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].add(id);
                     Component dummy;
                     memcpy(
                         cast(void*)&removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]][removedId],
@@ -555,6 +583,52 @@ struct DynamicECS(
                 }
             }
         }
+    }
+    auto ref getComponent(Component)(size_t id) if (
+        isComponentStatic!Component &&
+        findTypes!(Component, TemplateGeneralUpdates.TypeSeq).length == 0 &&
+        findTypes!(Component, SpecificUpdatesOnlyComponents).length == 0 &&
+        findTypes!(Component, TemplateGeneralUpdatesMultiple.TypeSeq).length == 0 &&
+        findTypes!(Component, SpecificUpdatesOnlyComponentsMultiple).length == 0
+    ) {
+        version (Debug) {
+            assert(entities[id].staticComponents[getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
+        return getComponents!Component()[entities[id].staticComponents[getComponentId!Component()]];
+    }
+    auto getComponent(Component)(size_t id) if (
+        isComponentStatic!Component && (
+        findTypes!(Component, TemplateGeneralUpdates.TypeSeq).length > 0 ||
+        findTypes!(Component, SpecificUpdatesOnlyComponents).length > 0 ||
+        findTypes!(Component, TemplateGeneralUpdatesMultiple.TypeSeq).length > 0 ||
+        findTypes!(Component, SpecificUpdatesOnlyComponentsMultiple).length > 0)
+    ) {
+        version (Debug) {
+            assert(entities[id].staticComponents[getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
+        return VirtualComponent!(ECS, Component)(getEntity(id));
+    }
+    auto ref getComponent(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+        size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        DynamicEntityComponent dec = entities[id].dynamicComponents.findUnique(DynamicEntityComponent(dcs));
+        return dynamicComponentLists[dynamicComponentStructs[dcs].id].get!(ToList!Component)()[dec.componentId];
+    }
+    auto ref getForced(Component)(size_t id) if (ecs.isComponentStatic!Component) {
+        version (Debug) {
+            assert(entities[id].staticComponents[getComponentId!Component()] != size_t.max, "Entity does not have component");
+        }
+        return getComponents!Component()[entities[id].staticComponents[getComponentId!Component()]];
+    }
+    auto ref getForced(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+        return getComponent!Component(id);
+    }
+    bool entityHas(Component)(size_t id) if (isComponentStatic!Component) {
+        return entities[id].staticComponents[getComponentId!Component()] != size_t.max;
+    }
+    bool entityHas(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+        size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
+        size_t index = entities[id].dynamicComponents.findIndex(DynamicEntityComponent(dcs));
+        return index != size_t.max;
     }
 }
 

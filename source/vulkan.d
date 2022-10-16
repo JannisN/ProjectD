@@ -2626,6 +2626,123 @@ struct ShaderList(T) {
 			ecs.clearUpdateList!(T, E[1])();
 		}
 	}
+	// removeupdate für T und ShaderListIndex nötig, denn wenn T von entity entfernt wird passt der code,
+	// wenn aber entity entfernt wird würde auch ShaderListIndex verschwinden!
+	// todo
+	void update2(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer) {
+		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
+		uint updateRangeCount = 0;
+		uint* tCount = cast(uint*) mappedMemory;
+		T* t = cast(T*) (mappedMemory + uint.sizeof);
+		size_t oldLength = length;
+		static if (ecs.hasRemoveUpdateList!T()) {
+			foreach (id; ecs.getRemoveIdsList!T()) {
+				// könnte problem geben wenn id für ein neues objekt verwendet wird
+				if (ecs.entityHas!(ShaderListIndex!T)(id)) {
+					ecs.removeComponent!(ShaderListIndex!T)(id);
+				}
+			}
+		}
+		static if (ecs.hasAddUpdateList!T()) {
+			foreach (id; ecs.getAddUpdateList!T()) {
+				ecs.addComponent!(ShaderListIndex!T)(id, ShaderListIndex!T(length));
+				t[length] = ecs.getForced!T(id);
+				entities[length] = id;
+				length++;
+				updateRangeCount++;
+			}
+		}
+		static if (ecs.hasGeneralUpdateList!T()) {
+			foreach (id; ecs.getGeneralUpdateList!T()) {
+				uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
+				t[shaderListIndex] = ecs.getForced!T(id);
+				updateRangeCount++;
+			}
+		}
+		// noch ungetestet
+		static foreach (i, Component; typeof(ecs).SpecificUpdatesOnlyComponents) {
+			static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
+				foreach (id; ecs.specificUpdates[i]) {
+					uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
+					//t[shaderListIndex] = ecs.entities[e].getWithoutUpdate!T();
+					mixin("t[shaderListIndex]." ~ typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1] ~ " = ecs.getForced!T(" ~ "id" ~ ")." ~ typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1] ~ ";");
+					updateRangeCount++;
+				}
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
+			foreach (e; ecs.getRemoveUpdateList!(ShaderListIndex!T)()) {
+				uint shaderListIndex = e.index;
+				if (shaderListIndex != length - 1) {
+					t[shaderListIndex] = t[length - 1];
+					entities[shaderListIndex] = entities[length - 1];
+					ecs.getComponent!(ShaderListIndex!T)(entities[shaderListIndex]).index = shaderListIndex;
+					updateRangeCount++;
+				}
+				length--;
+			}
+		}
+		*tCount = length;
+		cpuMemory.flush(array(mappedMemoryRange(*cpuMemory, cpuBuffer.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
+		cpuMemory.unmap();
+		Vector!VkBufferCopy copies = Vector!VkBufferCopy(updateRangeCount);
+		size_t copyIndex = 0;
+		static if (ecs.hasAddUpdateList!T()) {
+			foreach (id; ecs.getAddUpdateList!T()) {
+				uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
+				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copyIndex++;
+			}
+		}
+		static if (ecs.hasGeneralUpdateList!T()) {
+			foreach (id; ecs.getGeneralUpdateList!T()) {
+				uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
+				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copyIndex++;
+			}
+		}
+		// noch ungetestet
+		static foreach (i, Component; typeof(ecs).SpecificUpdatesOnlyComponents) {
+			static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
+				foreach (id; ecs.specificUpdates[i]) {
+					uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
+					copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), uint.sizeof + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), getSize!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])());
+				}
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
+			foreach (e; ecs.getRemoveUpdateList!(ShaderListIndex!T)()) {
+				uint shaderListIndex = e.index;
+				if (shaderListIndex < length) {
+					copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+					copyIndex++;
+				}
+			}
+		}
+		if (oldLength != length) {
+			cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+		}
+		if (updateRangeCount > 0) {
+			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
+		}
+		static if (ecs.hasAddUpdateList!T()) {
+			ecs.clearAddUpdateList!T();
+		}
+		static if (ecs.hasGeneralUpdateList!T()) {
+			ecs.clearGeneralUpdateList!T();
+		}
+		static if (ecs.hasRemoveUpdateList!T()) {
+			ecs.clearRemoveUpdateList!T();
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
+			ecs.clearRemoveUpdateList!(ShaderListIndex!T)();
+		}
+		static foreach (i, Component; typeof(ecs).SpecificUpdatesOnlyComponents) {
+			static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
+				ecs.clearSpecificUpdateList!(T, typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1]);
+			}
+		}
+	}
 }
 
 // ----------------------------------------------------------
