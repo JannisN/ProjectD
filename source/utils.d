@@ -671,6 +671,7 @@ struct VectorList(alias BaseVector, T) {
 				}
 			}
 			length++;
+			empty[length - 1] = false;
 			return vector[length - 1];
 		} else {
 			size_t id = emptyEntries.get(0);
@@ -692,6 +693,7 @@ struct VectorList(alias BaseVector, T) {
 			}
 			length++;
 			vector[length - 1] = t;
+			empty[length - 1] = false;
 			return vector[length - 1];
 		} else {
 			size_t id = emptyEntries.get(0);
@@ -713,6 +715,7 @@ struct VectorList(alias BaseVector, T) {
 				}
 			}
 			length++;
+			empty[length - 1] = false;
 			return length - 1;
 		} else {
 			size_t id = emptyEntries.get(0);
@@ -734,6 +737,7 @@ struct VectorList(alias BaseVector, T) {
 			}
 			length++;
 			vector[length - 1] = t;
+			empty[length - 1] = false;
 			return length - 1;
 		} else {
 			size_t id = emptyEntries.get(0);

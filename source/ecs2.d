@@ -296,7 +296,7 @@ struct DynamicECS(
     ToList!(typeof((ToList!size_t).removeById(0)) delegate(size_t)) componentDestructors;
 
     enum bool isComponentStatic(Component) = (findTypes!(Component, StaticComponents.TypeSeq).length > 0);
-    size_t getComponentId(Component)() if (isComponentStatic!Component) {
+    static size_t getComponentId(Component)() if (isComponentStatic!Component) {
         return findTypes!(Component, StaticComponents.TypeSeq)[0];
     }
     auto ref getComponents(Component)() if (isComponentStatic!Component) {
@@ -307,6 +307,14 @@ struct DynamicECS(
         size_t dclId = dynamicComponentStructs[dcsId].id;
         return dynamicComponentLists[dclId].get!(ToList!Component)();
     }
+    auto ref getComponentEntityIds(Component)() if (isComponentStatic!Component) {
+        return componentEntityIds[findTypes!(Component, StaticComponents.TypeSeq)[0]];
+    }
+    auto ref getComponentEntityIds(Component)() if (!isComponentStatic!Component) {
+        size_t dcsId = addDynamicComponentStruct!Component();
+        size_t dclId = dynamicComponentStructs[dcsId].id;
+        return dynamicComponentEntityIds[dclId];
+    }
     auto ref getGeneralUpdateList(Component)() if (isComponentStatic!Component) {
         return generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
     }
@@ -316,7 +324,7 @@ struct DynamicECS(
         }
         generalUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]].clear();
     }
-    bool hasGeneralUpdateList(Component)() {
+    static bool hasGeneralUpdateList(Component)() {
         return findTypes!(Component, StaticGeneralUpdates.TypeSeq).length > 0;
     }
     auto ref getSpecificUpdateList(Component, string member)() if (isComponentStatic!Component) {
@@ -328,7 +336,7 @@ struct DynamicECS(
         }
         specificUpdates[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq)[0]].clear();
     }
-    bool hasSpecificUpdateList(Component, string member)() {
+    static bool hasSpecificUpdateList(Component, string member)() {
         return findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdates.TypeSeq).length > 0;
     }
     auto ref getGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
@@ -337,7 +345,7 @@ struct DynamicECS(
     void clearGeneralUpdateListMultiple(Component)() if (isComponentStatic!Component) {
         generalUpdatesMultiple[findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq)[0]].clear();
     }
-    bool hasGeneralUpdateListMultiple(Component)() {
+    static bool hasGeneralUpdateListMultiple(Component)() {
         return findTypes!(Component, StaticGeneralUpdatesMultiple.TypeSeq).length > 0;
     }
     auto ref getSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
@@ -346,7 +354,7 @@ struct DynamicECS(
     void clearSpecificUpdateListMultiple(Component, string member)() if (isComponentStatic!Component) {
         specificUpdatesMultiple[findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq)[0]].clear();
     }
-    bool hasSpecificUpdateListMultiple(Component, string member)() {
+    static bool hasSpecificUpdateListMultiple(Component, string member)() {
         return findTypes!(TypeSeqStruct!(Component, member), StaticSpecificUpdatesMultiple.TypeSeq).length > 0;
     }
     auto ref getAddUpdateList(Component)() if (isComponentStatic!Component) {
@@ -358,7 +366,7 @@ struct DynamicECS(
         }
         addUpdates[findTypes!(Component, StaticAddUpdates.TypeSeq)[0]].clear();
     }
-    bool hasAddUpdateList(Component)() {
+    static bool hasAddUpdateList(Component)() {
         return findTypes!(Component, StaticAddUpdates.TypeSeq).length > 0;
     }
     auto ref getRemoveUpdateList(Component)() if (isComponentStatic!Component) {
@@ -367,11 +375,11 @@ struct DynamicECS(
     auto ref getRemoveIdsList(Component)() if (isComponentStatic!Component) {
         return removeIds[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]];
     }
-    void clearRemoveUpdateListMultiple(Component)() if (isComponentStatic!Component) {
+    void clearRemoveUpdateList(Component)() if (isComponentStatic!Component) {
         removeUpdates[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
-        removeIds.clear();
+        removeIds[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
     }
-    bool hasRemoveUpdateList(Component)() {
+    static bool hasRemoveUpdateList(Component)() {
         return findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0;
     }
     auto ref getMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
@@ -380,7 +388,7 @@ struct DynamicECS(
     void clearMovedComponentsList(Component)() if (config.compact && isComponentStatic!Component) {
         movedComponents[findTypes!(Component, StaticRemoveUpdates.TypeSeq)[0]].clear();
     }
-    bool hasMovedComponentsList(Component)() {
+    static bool hasMovedComponentsList(Component)() {
         return (findTypes!(Component, StaticRemoveUpdates.TypeSeq).length > 0) && config.compact;
     }
     auto ref getView(Components...)() {
@@ -606,26 +614,26 @@ struct DynamicECS(
         version (Debug) {
             assert(entities[id].staticComponents[getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
-        return VirtualComponent!(ECS, Component)(getEntity(id));
+        return VirtualComponent!(ECSType, Component)(getEntity(id));
     }
-    auto ref getComponent(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+    auto ref getComponent(Component)(size_t id) if (!isComponentStatic!Component) {
         size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
         DynamicEntityComponent dec = entities[id].dynamicComponents.findUnique(DynamicEntityComponent(dcs));
         return dynamicComponentLists[dynamicComponentStructs[dcs].id].get!(ToList!Component)()[dec.componentId];
     }
-    auto ref getForced(Component)(size_t id) if (ecs.isComponentStatic!Component) {
+    auto ref getForced(Component)(size_t id) if (isComponentStatic!Component) {
         version (Debug) {
             assert(entities[id].staticComponents[getComponentId!Component()] != size_t.max, "Entity does not have component");
         }
         return getComponents!Component()[entities[id].staticComponents[getComponentId!Component()]];
     }
-    auto ref getForced(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+    auto ref getForced(Component)(size_t id) if (!isComponentStatic!Component) {
         return getComponent!Component(id);
     }
     bool entityHas(Component)(size_t id) if (isComponentStatic!Component) {
         return entities[id].staticComponents[getComponentId!Component()] != size_t.max;
     }
-    bool entityHas(Component)(size_t id) if (!ecs.isComponentStatic!Component) {
+    bool entityHas(Component)(size_t id) if (!isComponentStatic!Component) {
         size_t dcs = dynamicComponentStructs.findIndex(DynamicComponentStruct(Component.stringof));
         size_t index = entities[id].dynamicComponents.findIndex(DynamicEntityComponent(dcs));
         return index != size_t.max;

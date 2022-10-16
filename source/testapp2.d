@@ -1,3 +1,5 @@
+module testapp2;
+
 import vulkan;
 import glfw_vulkan_window;
 import utils;
@@ -6,6 +8,12 @@ import functions;
 import ecs;
 import png;
 import font;
+import ecs2;
+
+// todo:
+// shaderlist verbessern
+// getcomponents sollte virtualcomponents zurückgeben(das heisst neue iterator struct)
+// siehe unten //wieso ist das in testapp(1) in einer doppelten TypeSeqStruct? wurde ein feature vergessen?
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -17,11 +25,12 @@ struct TestApp(ECS) {
 		char[10] fval;
 		import core.stdc.stdio;
 		snprintf(fval.ptr, 10, "%f", 0f);
-		timeCounter = dynEcs.add().id;
-		dynEcs.entities[timeCounter].add!Text().get!Text.text = String(fval);
-		dynEcs.entities[timeCounter].get!Text.x = -1;
-		dynEcs.entities[timeCounter].get!Text.y = -1;
-		dynEcs.entities[timeCounter].get!Text.scale = 1;
+		timeCounter = dynEcs.add().entityId;
+        dynEcs.addComponent!Text(timeCounter);
+        dynEcs.getComponent!Text(timeCounter).text = String(fval);
+        dynEcs.getComponent!Text(timeCounter).x = -1;
+        dynEcs.getComponent!Text(timeCounter).y = -1;
+        dynEcs.getComponent!Text(timeCounter).scale = 1;
 		dynEcs.add().add!Circle(Circle(
 			4, 4, 0.3,
 			1, 0, 0
@@ -33,12 +42,12 @@ struct TestApp(ECS) {
 			char[20] fval;
 			import core.stdc.stdio;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
-			dynEcs.entities[timeCounter].get!Text.text = String(fval);
-			dynEcs.entities[timeCounter].get!Text.x = -1;
-			dynEcs.entities[timeCounter].get!Text.y = -1;
-			dynEcs.entities[timeCounter].get!Text.scale = 1;
-			foreach (e; dynEcs.getView!(Circle).iterate) {
-				dynEcs.remove(e);
+            dynEcs.getComponent!Text(timeCounter).text = String(fval);
+            dynEcs.getComponent!Text(timeCounter).x = -1;
+            dynEcs.getComponent!Text(timeCounter).y = -1;
+            dynEcs.getComponent!Text(timeCounter).scale = 1;
+			foreach (id; dynEcs.getComponentEntityIds!(Circle)()) {
+				dynEcs.remove(id);
 			}
 		}
 	}
@@ -379,19 +388,12 @@ struct TestApp(ECS) {
 	void update() {
 		auto dt = timer.update();
 		passedTime += dt;
-		// neue utils datastructures: ein vektor aus statischen arrays, eine liste die aus einem vektor besteht(wie entities in StaticViewECS)
-		// nicht gut: views liste sollte pointer beinhalten zu den components
-		// get funktion sollte zuerst prüfen ob component in static view ist, dann kann component sofort gefunden werden
-		// wenn man über ein view iteriert soll kein virtualcomponent benutzt werden/update listen ignorieren. für performance
-		// generell sollte virtualcomponent bei get nur benutzt werden wenn struct in update liste enthalten.
-		// getwithoutupdate sollte zudem ein immutable objekt zurückgeben
-		// das gleiche evt. mit den update listen?
-		// auch noch zu implementieren: views sollten alle components erhalten; schneller für den cache,
-		// und sollte daher eine spezielle liste sein die mehrere anzahl an components enthält pro listeneintrag
-		// zweite update funktion für shader list so dass alles kopiert wird, bzw zweite shaderlist die mit view arbeitet
-		foreach (e; dynEcs.getView!(Circle).iterate) {
+		// ?zweite update funktion für shader list so dass alles kopiert wird, bzw zweite shaderlist die mit view arbeitet
+
+        // problem: getComponents sollte virtualcomponent zurückgeben wegen updates
+		foreach (id; dynEcs.getComponentEntityIds!Circle()) {
 			import std.math.trigonometry;
-			dynEcs.entities[e].get!Circle.x = 5 + sin(10.0 * passedTime);
+            dynEcs.getComponent!Circle(id).x = 5 + sin(10.0 * passedTime);
 		}
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
 		if (swapchain.result.result != VkResult.VK_SUCCESS) {
@@ -402,18 +404,18 @@ struct TestApp(ECS) {
 		fence.wait();
 		fence.reset();
 		cmdBuffer.begin();
-		foreach (i; dynEcs.getEditUpdateList!Text.iterate()) {
-			Text text = dynEcs.entities[i].getWithoutUpdate!Text();
-			dynEcs.entities[i].remove!Text();
-			dynEcs.entities[i].add!Text(text);
+		foreach (id; dynEcs.getGeneralUpdateList!Text()) {
+			Text text = dynEcs.getForced!Text(id);
+            dynEcs.removeComponent!Text(id);
+            dynEcs.addComponent!Text(id, text);
 		}
-		foreach (i; dynEcs.getAddUpdateList!Text.iterate) {
-			auto textRef = dynEcs.entities[i].get!Text;
+		foreach (i; dynEcs.getAddUpdateList!Text()) {
+			auto textRef = dynEcs.getComponent!Text(i);//dynEcs.entities[i].get!Text;
 			auto vertPos = font.createText(cast(string)textRef.text, textRef.x, textRef.y, textRef.scale);
-			dynEcs.entities[i].add!(GpuLocal!Buffer);
-			dynEcs.entities[i].add!(CpuLocal!Buffer);
-			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
-			auto cpuBuffer = dynEcs.entities[i].get!(CpuLocal!Buffer);
+            dynEcs.addComponent!(GpuLocal!Buffer)(i);
+            dynEcs.addComponent!(CpuLocal!Buffer)(i);
+			auto gpuBuffer = &dynEcs.getComponent!(GpuLocal!Buffer)(i);
+			auto cpuBuffer = &dynEcs.getComponent!(CpuLocal!Buffer)(i);
 			size_t dataSize = 24 * float.sizeof * textRef.text.length;
 			gpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
 			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
@@ -429,14 +431,14 @@ struct TestApp(ECS) {
 			memoryCpu.unmap();
 			cmdBuffer.copyBuffer(cast(Buffer)cpuBuffer.resource, 0, cast(Buffer)gpuBuffer.resource, 0, dataSize);
 		}
-		circleShaderList.update(dynEcs, cmdBuffer);
+		circleShaderList.update2(dynEcs, cmdBuffer);
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		cmdBuffer.reset();
 		fence.reset();
 		dynEcs.clearAddUpdateList!Text();
-		dynEcs.clearEditUpdateList!Text();
+		dynEcs.clearGeneralUpdateList!Text();
 		
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
@@ -477,9 +479,9 @@ struct TestApp(ECS) {
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
-		foreach (i; dynEcs.getView!Text.iterate) {
-			auto text = dynEcs.entities[i].get!Text;
-			auto gpuBuffer = dynEcs.entities[i].get!(GpuLocal!Buffer);
+		foreach (i; dynEcs.getComponentEntityIds!Text()) {
+			auto text = dynEcs.getComponent!Text(i);
+			auto gpuBuffer = &dynEcs.getComponent!(GpuLocal!Buffer)(i);
 			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)gpuBuffer.resource), array(cast(ulong) 0));
 			cmdBuffer.draw(6 * cast(uint)text.text.length, cast(uint)text.text.length * 2, 0, 0);
 		}
@@ -547,18 +549,25 @@ struct TestApp(ECS) {
 	DescriptorSet graphicsDescriptorSet;
 
 	AsciiBitfont font;
-	StaticViewECS!(
+    alias PartialVec(T) = PartialVector!(T, 100);
+	DynamicECS!(
+        PartialVec,//Vector
+        // wieso ist das in testapp(1) in einer doppelten TypeSeqStruct? wurde ein feature vergessen?
 		TypeSeqStruct!(
-			TypeSeqStruct!(CpuLocal!Buffer),
-			TypeSeqStruct!(GpuLocal!Buffer),
-			TypeSeqStruct!(Text),
-			TypeSeqStruct!(Circle),
+			CpuLocal!Buffer,
+			GpuLocal!Buffer,
+			Text,
+			Circle,
+            ShaderListIndex!Circle
 		),
-		TypeSeqStruct!(
-		),
+		TypeSeqStruct!(Text, Circle), // general
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
 		TypeSeqStruct!(Text, Circle), // add
 		TypeSeqStruct!(/*Text*/Circle, ShaderListIndex!Circle), // remove
-		TypeSeqStruct!(Text, Circle), // editupdate
+		TypeSeqStruct!(),
+        ECSConfig(true, true)
 	) dynEcs;
 	size_t timeCounter;
 	
@@ -616,23 +625,6 @@ struct TestController(Args...) {
 	}
 }
 
-struct DebugStruct() {
-	this(int bla) {
-
-	}
-	void initialize() {
-	}
-}
-struct DebugStruct1(ECS) {
-	ECS* ecs;
-	this(int bla) {
-
-	}
-	void initialize(ref ECS ecs) {
-		this.ecs = &ecs;
-	}
-}
-
 struct CpuLocal(Resource) {
 	AllocatedResource!Resource resource;
 	alias resource this;
@@ -643,59 +635,12 @@ struct GpuLocal(Resource) {
 	alias resource this;
 	@disable this(ref return scope CpuLocal!Resource rhs);
 }
-struct VirtualStruct {
-	int i;
-}
-struct TestDestructor {
-	~this() {
-		writeln("destructor success");
-	}
-}
 
 version(unittest) {} else {
-	void main1() {
-		StaticViewECS!(
-			TypeSeqStruct!(
-				TypeSeqStruct!(CpuLocal!Image),
-				TypeSeqStruct!(VirtualStruct),
-			),
-			TypeSeqStruct!(
-				TypeSeqStruct!(VirtualStruct, "i"),
-			),
-			TypeSeqStruct!(VirtualStruct), // add
-			TypeSeqStruct!(VirtualStruct), // remove
-			TypeSeqStruct!(), // editupdate
-		) staticViewEcs;
-		staticViewEcs.add().add!(GpuLocal!Image)().add!(VirtualStruct);
-		staticViewEcs.add().add!(CpuLocal!Image)();
-		staticViewEcs.add().add!(TestDestructor)();
-		staticViewEcs.remove(2);
-		LinkedList!size_t* cpuView2 = &staticViewEcs.getView!(CpuLocal!Image)();
-		foreach (e; cpuView2.iterate) {
-			writeln(e);
-		}
-		LinkedList!size_t* virtualView = &staticViewEcs.getView!(VirtualStruct)();
-		foreach (e; virtualView.iterate) {
-			auto test = staticViewEcs.entities[e].get!VirtualStruct;
-			writeln(test.opDispatch!("i")(3));
-		}
-		auto updateList = &staticViewEcs.getUpdateList!(VirtualStruct, "i")();
-		foreach (e; updateList.iterate) {
-			writeln("update registrated");
-		}
-		auto addUpdateList = &staticViewEcs.getAddUpdateList!(VirtualStruct)();
-		foreach (e; addUpdateList.iterate) {
-			writeln("addUpdate");
-		}
-		staticViewEcs.remove(0);
-		foreach (ref e; staticViewEcs.getRemoveUpdateList!VirtualStruct.iterate) {
-			writeln("removeupdate");
-		}
+	void main() {
 		TestController!(
 			Info!(GlfwVulkanWindow, DefaultDataStructure),
 			Info!(TestApp, DefaultDataStructure),
-			Info!(DebugStruct, DefaultDataStructure),
-			//Info!(DebugStruct1, DefaultDataStructure),
 		) controller;
 		controller.initialize();
 		controller.run();
