@@ -110,7 +110,7 @@ struct VirtualComponent(ECS, Component) {
         }
         return this;
     }
-	@property ref auto getComponent() {
+	ref Component getComponent() {
         return virtualEntity.getForced!Component();
 	}
     alias getComponent this;
@@ -202,6 +202,55 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
         mixin("return virtualComponent.getComponent()." ~ member ~ ";");
 	}
     alias getMember this;
+}
+
+struct IteratedComponent(ECS, Component) {
+    VirtualEntity!ECS virtualEntity;
+    Component* component;
+    ref Component getComponent() {
+        return *component;
+    }
+    alias getComponent this;
+}
+
+struct VirtualComponentList(ECS, Component) {
+    ECS* ecs;
+    auto ref getRealList() {
+        return ecs.getComponentsForced!Component();
+    }
+    alias getRealList this;
+    static if (
+        ecs.isComponentStatic!Component &&
+        findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length == 0 &&
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length == 0 &&
+        findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length == 0 &&
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length == 0
+    ) {
+        int opApply(scope int delegate(IteratedComponent!(ECS, Component)) dg) {
+            foreach (id; ecs.getComponentEntityIds!Component()) {
+                int result = dg(IteratedComponent!(ECS, Component)(VirtualEntity!ECS(ecs, id), &ecs.getComponent!Component(id)));
+                if (result)
+                    return result;
+            }
+            return 0;
+        }
+    }
+    static if (
+        ecs.isComponentStatic!Component && (
+        findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0 ||
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponents).length > 0 ||
+        findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0 ||
+        findTypes!(Component, ECS.SpecificUpdatesOnlyComponentsMultiple).length > 0)
+    ) {
+        int opApply(scope int delegate(VirtualComponent!(ECS, Component)) dg) {
+            foreach (id; ecs.getComponentEntityIds!Component()) {
+                int result = dg(VirtualComponent!(ECS, Component)(VirtualEntity!ECS(ecs, id)));
+                if (result)
+                    return result;
+            }
+            return 0;
+        }
+    }
 }
 
 struct ECSConfig {
@@ -300,12 +349,18 @@ struct DynamicECS(
         return findTypes!(Component, StaticComponents.TypeSeq)[0];
     }
     auto ref getComponents(Component)() if (isComponentStatic!Component) {
+        return VirtualComponentList!(ECSType, Component)(&this);
+    }
+    auto ref getComponentsForced(Component)() if (isComponentStatic!Component) {
         return componentLists[findTypes!(Component, StaticComponents.TypeSeq)[0]];
     }
     auto ref getComponents(Component)() if (!(isComponentStatic!Component)) {
         size_t dcsId = addDynamicComponentStruct!Component();
         size_t dclId = dynamicComponentStructs[dcsId].id;
         return dynamicComponentLists[dclId].get!(ToList!Component)();
+    }
+    auto ref getComponentsForced(Component)() if (!(isComponentStatic!Component)) {
+        return getComponents!Component();
     }
     auto ref getComponentEntityIds(Component)() if (isComponentStatic!Component) {
         return componentEntityIds[findTypes!(Component, StaticComponents.TypeSeq)[0]];
@@ -450,7 +505,6 @@ struct DynamicECS(
             assert(entities[id].staticComponents[componentId] != size_t.max, "Entity does not have component");
         }
         size_t componentEntityId = entities[id].staticComponents[componentId];
-        componentEntityIds[componentId].removeById(componentEntityId);
         static if (findTypes!(Component, StaticGeneralUpdates.TypeSeq).length > 0) {
             size_t entry = entities[id].staticGeneralUpdates[findTypes!(Component, StaticGeneralUpdates.TypeSeq)[0]];
             if (entry != size_t.max) {
@@ -478,6 +532,7 @@ struct DynamicECS(
             );
             memcpy(cast(void*)&componentLists[componentId][componentEntityId], cast(void*)&dummy, Component.sizeof);
         }
+        componentEntityIds[componentId].removeById(componentEntityId);
         static if (config.compact) {
             auto moved = componentLists[componentId].removeById(componentEntityId);
             if (moved.oldId != moved.newId) {
@@ -701,12 +756,18 @@ unittest {
     ecs.add().add!int(10);
     writeln("view size: ", ecs.getView!(int, double).length);
     foreach (i; ecs.getComponents!int()) {
-        writeln(i);
+        writeln(cast(int)i);
     }
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
     writeln("has int ", entity.has!int());
+    foreach (id; ecs.getComponentEntityIds!int()) {
+        writeln(id);
+    }
     entity.remove!int();
     writeln("has int ", entity.has!int());
+    foreach (id; ecs.getComponentEntityIds!int()) {
+        writeln(id);
+    }
     writeln("addUpdateList length: ", ecs.getAddUpdateList!int().length);
     writeln("removeUpdateList length: ", ecs.getRemoveUpdateList!int().length);
     foreach (e; ecs.getRemoveUpdateList!int()) {
@@ -716,7 +777,7 @@ unittest {
         writeln("from, to: ", e.oldId, " ", e.newId);
     }
     foreach (i; ecs.getComponents!int()) {
-        writeln(i);
+        writeln(cast(int)i);
     }
     entity.add!TestStruct();
     entity.get!TestStruct.testInt = 1;

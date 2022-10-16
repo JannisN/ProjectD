@@ -2626,9 +2626,6 @@ struct ShaderList(T) {
 			ecs.clearUpdateList!(T, E[1])();
 		}
 	}
-	// removeupdate für T und ShaderListIndex nötig, denn wenn T von entity entfernt wird passt der code,
-	// wenn aber entity entfernt wird würde auch ShaderListIndex verschwinden!
-	// todo
 	void update2(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer) {
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
@@ -2637,7 +2634,7 @@ struct ShaderList(T) {
 		size_t oldLength = length;
 		static if (ecs.hasRemoveUpdateList!T()) {
 			foreach (id; ecs.getRemoveIdsList!T()) {
-				// könnte problem geben wenn id für ein neues objekt verwendet wird
+				// ? könnte problem geben wenn id für ein neues objekt verwendet wird
 				if (ecs.entityHas!(ShaderListIndex!T)(id)) {
 					ecs.removeComponent!(ShaderListIndex!T)(id);
 				}
@@ -2676,7 +2673,9 @@ struct ShaderList(T) {
 				if (shaderListIndex != length - 1) {
 					t[shaderListIndex] = t[length - 1];
 					entities[shaderListIndex] = entities[length - 1];
-					ecs.getComponent!(ShaderListIndex!T)(entities[shaderListIndex]).index = shaderListIndex;
+					if (ecs.entityHas!(ShaderListIndex!T)(entities[shaderListIndex])) {
+						ecs.getComponent!(ShaderListIndex!T)(entities[shaderListIndex]).index = shaderListIndex;
+					}
 					updateRangeCount++;
 				}
 				length--;

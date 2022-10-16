@@ -11,9 +11,7 @@ import font;
 import ecs2;
 
 // todo:
-// shaderlist verbessern
 // getcomponents sollte virtualcomponents zurückgeben(das heisst neue iterator struct)
-// siehe unten //wieso ist das in testapp(1) in einer doppelten TypeSeqStruct? wurde ein feature vergessen?
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -388,7 +386,7 @@ struct TestApp(ECS) {
 	void update() {
 		auto dt = timer.update();
 		passedTime += dt;
-		// ?zweite update funktion für shader list so dass alles kopiert wird, bzw zweite shaderlist die mit view arbeitet
+		// ?zweite update funktion für shader list so dass alles kopiert wird
 
         // problem: getComponents sollte virtualcomponent zurückgeben wegen updates
 		foreach (id; dynEcs.getComponentEntityIds!Circle()) {
@@ -552,7 +550,6 @@ struct TestApp(ECS) {
     alias PartialVec(T) = PartialVector!(T, 100);
 	DynamicECS!(
         PartialVec,//Vector
-        // wieso ist das in testapp(1) in einer doppelten TypeSeqStruct? wurde ein feature vergessen?
 		TypeSeqStruct!(
 			CpuLocal!Buffer,
 			GpuLocal!Buffer,

@@ -779,7 +779,6 @@ struct VectorList(alias BaseVector, T) {
 	void remove(ref T t) {
 		remove(&t);
 	}
-	// diese funktion verbessern für sortieren
 	void compactify() {
 		//size_t actualLength = length;
 		/*while (empty[actualLength - 1] == true) {
@@ -949,7 +948,7 @@ struct CompactVectorList(alias BaseVector, T) {
 	Moved removeById(size_t id) {
 		vector[id].destroy();
 		if (id != length - 1) {
-			memcpy(cast(void*)&vector[length-1], cast(void*)&vector[id], T.sizeof);
+			memcpy(cast(void*)&vector[id], cast(void*)&vector[length-1], T.sizeof);
 		}
 		emplace(&vector[length-1]);
 		length--;
