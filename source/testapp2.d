@@ -383,6 +383,8 @@ struct TestApp(ECS) {
 			pipelineLayoutGraphics
 		);
 	}
+	double circlePos = 0.0;
+	double circleVel = 0.0;
 	void update() {
 		auto dt = timer.update();
 		passedTime += dt;
@@ -391,7 +393,10 @@ struct TestApp(ECS) {
         // problem: getComponents sollte virtualcomponent zurückgeben wegen updates
 		foreach (id; dynEcs.getComponentEntityIds!Circle()) {
 			import std.math.trigonometry;
-            dynEcs.getComponent!Circle(id).x = 5 + sin(10.0 * passedTime);
+			circlePos += dt * circleVel + dt * dt / 2.0 * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
+			circleVel += dt * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
+			writeln(circlePos);
+            dynEcs.getComponent!Circle(id).x = 5 + 0.1 * circlePos;//+ sin(10.0 * passedTime);
 		}
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
 		if (swapchain.result.result != VkResult.VK_SUCCESS) {
