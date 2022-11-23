@@ -1,4 +1,4 @@
-module testapp2;
+module rttest;
 
 import vulkan;
 import glfw_vulkan_window;
@@ -51,6 +51,51 @@ struct TestApp(ECS) {
 	}
 	void receive(WindowResizeEvent event) {
 	}
+	struct AccelStruct {
+		AllocatedResource!Buffer vertexBuffer;
+		AllocatedResource!Buffer indexBuffer;
+	}
+	void initAccelStructure() {
+		float[9] vertices = [
+			0.0, 0.0, -1.0,
+			0.0, 1.0, -1.0,
+			-1.0, 0.0, -1.0
+		];
+		uint[3] indices = [ 0, 1, 2 ];
+		accelStruct.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		accelStruct.indexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.indexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		Memory* memory = &cast(Memory) accelStruct.vertexBuffer.allocatedMemory.allocatorList.memory;
+		float* floatptr = cast(float*) memory.map(accelStruct.vertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof);
+		foreach (j, float f; vertices) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.vertexBuffer.allocatedMemory.allocation.offset, accelStruct.vertexBuffer.allocatedMemory.allocation.length)));
+		memory.unmap();
+
+		memory = &cast(Memory) accelStruct.indexBuffer.allocatedMemory.allocatorList.memory;
+		floatptr = cast(float*) memory.map(accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof);
+		foreach (j, float f; indices) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, accelStruct.indexBuffer.allocatedMemory.allocation.length)));
+		memory.unmap();
+
+		VkDeviceAddress vertexBufferAddress = accelStruct.vertexBuffer.getDeviceAddress();
+		VkDeviceAddress indexBufferAddress = accelStruct.indexBuffer.getDeviceAddress();
+
+		VkAccelerationStructureGeometryTrianglesDataKHR triangles;
+		triangles.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+		triangles.vertexFormat = VkFormat.VK_FORMAT_R32G32B32_SFLOAT;
+		triangles.vertexData.deviceAddress = vertexBufferAddress;
+		triangles.vertexStride = 3 * float.sizeof;
+		triangles.indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
+		triangles.indexData.deviceAddress = indexBufferAddress;
+		triangles.maxVertex = cast(uint) vertices.length - 1;
+		// triangles.transformData, no transform
+	}
 	void initVulkan() {
 		version(Windows) {
 			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
@@ -59,11 +104,11 @@ struct TestApp(ECS) {
 			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_EXT_metal_surface"));
 		}
 		version(linux) {
-			instance = Instance("test", 1, VK_API_VERSION_1_0, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
+			instance = Instance("test", 1, VK_API_VERSION_1_3, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
 		}
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
-		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)));
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
@@ -86,6 +131,8 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 
 		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
+		
+		initAccelStructure();
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -95,12 +142,12 @@ struct TestApp(ECS) {
 		pngFont = Png(pngData);
 		fontTexture = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(pngFont.width, pngFont.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(fontTexture, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		char* charptr = cast(char*) memory.map(1024, pngFont.byteCount * pngFont.height * pngFont.width);
+		char* charptr = cast(char*) memory.map(0, pngFont.byteCount * pngFont.height * pngFont.width);
 		foreach (i; 0 .. pngFont.byteCount * pngFont.height * pngFont.width) {
 			charptr[i] = pngFont.content[i];
 		}
 		
-		memory.flush(array(mappedMemoryRange(*memory, 1024, /*1024 + pngFont.byteCount*/ VK_WHOLE_SIZE)));
+		memory.flush(array(mappedMemoryRange(*memory, 0, /*1024 + pngFont.byteCount*/ VK_WHOLE_SIZE)));
 		memory.unmap();
 
 		cmdBuffer.begin();
@@ -117,7 +164,7 @@ struct TestApp(ECS) {
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
 		);
-		cmdBuffer.copyBufferToImage(uploadBuffer, fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, 1024, pngFont.width, pngFont.height, VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1), VkOffset3D(0, 0, 0), VkExtent3D(pngFont.width, pngFont.height, 1));
+		cmdBuffer.copyBufferToImage(uploadBuffer, fontTexture, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, 0, pngFont.width, pngFont.height, VkImageSubresourceLayers(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1), VkOffset3D(0, 0, 0), VkExtent3D(pngFont.width, pngFont.height, 1));
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
@@ -395,7 +442,7 @@ struct TestApp(ECS) {
 			import std.math.trigonometry;
 			circlePos += dt * circleVel + dt * dt / 2.0 * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
 			circleVel += dt * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
-			writeln(circlePos);
+			//writeln(circlePos);
             dynEcs.getComponent!Circle(id).x = 5 + 0.1 * circlePos;//+ sin(10.0 * passedTime);
 		}
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
@@ -575,6 +622,8 @@ struct TestApp(ECS) {
 	
 	CircleImplStruct circleImplStruct;
 	ShaderList!Circle circleShaderList;
+
+	AccelStruct accelStruct;
 }
 
 struct Circle {
@@ -639,7 +688,7 @@ struct GpuLocal(Resource) {
 }
 
 version(unittest) {} else {
-	void main1() {
+	void main() {
 		TestController!(
 			Info!(GlfwVulkanWindow, DefaultDataStructure),
 			Info!(TestApp, DefaultDataStructure),

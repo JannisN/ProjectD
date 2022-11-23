@@ -398,7 +398,7 @@ struct Queue {
 }
 
 struct Device {
-	this(ref PhysicalDevice physicalDevice, VkPhysicalDeviceFeatures features, const char*[] layers, const char*[] extensions, QueueCreateInfo[] queueInfos) {
+	this(Nexts...)(ref PhysicalDevice physicalDevice, VkPhysicalDeviceFeatures features, const char*[] layers, const char*[] extensions, QueueCreateInfo[] queueInfos, Nexts nexts) {
 		VkDeviceCreateInfo deviceCreateInfo;
 		deviceCreateInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.queueCreateInfoCount = cast(uint) queueInfos.length;
@@ -425,7 +425,7 @@ struct Device {
 		}
 		this.physicalDevice = &physicalDevice;
 	}
-	this(int layerCount, int extensionCount)(ref PhysicalDevice physicalDevice, VkPhysicalDeviceFeatures features, string[layerCount] layers, string[extensionCount] extensions, QueueCreateInfo[] queueInfos) {
+	this(int layerCount, int extensionCount, Nexts...)(ref PhysicalDevice physicalDevice, VkPhysicalDeviceFeatures features, string[layerCount] layers, string[extensionCount] extensions, QueueCreateInfo[] queueInfos, Nexts nexts) {
 		char*[layerCount] l;
 		char*[extensionCount] e;
 		for (int i = 0; i < layerCount; i++) {
@@ -1077,6 +1077,12 @@ struct Buffer {
 	}
 	uint chooseHeap(VkMemoryPropertyFlags required) {
 		return device.physicalDevice.chooseHeapFromFlags(getMemoryRequirements(), required);
+	}
+	VkDeviceAddress getDeviceAddress() {
+		VkBufferDeviceAddressInfo info;
+		info.sType = VkStructureType.VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		info.buffer = buffer;
+		return vkGetBufferDeviceAddress(device.device, &info);
 	}
 	Result result;
 	VkBuffer buffer;
@@ -2331,12 +2337,12 @@ struct AllocatorList {
 	}
 	// return true = wurde allocated
 	// aufteilen in zwei funktionen: zuerst bei allen AllocatorLists prüfen ob am schluss noch platz ist, sonst auf lücken überprüfen, wegen performance
-	// vlt auch die gelöschten entries als geordnete(nach grösse) liste abspeichern um schnell einen platz zu finden
-	// die indices sollten ersetzt werden durch pointer zu den entries für performance
-	bool tryAllocate(VkDeviceSize requiredSize) {
+	// vlt auch die gelöschten entries als geordnete(nach grösse) liste abspeichern um schnell einen platz zu finden,
+	// macht dann keinen sinn mehr: // die indices sollten ersetzt werden durch pointer zu den entries für performance
+	bool tryAllocate(VkDeviceSize requiredSize, VkDeviceSize alignment) {
 		if (entries.last != null) {
-			if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
-				entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
+			if (size - getCorrectOffset(entries.last.t.offset + entries.last.t.length, alignment) >= requiredSize) {
+				entries.add(AllocatorListEntry(getCorrectOffset(entries.last.t.offset + entries.last.t.length, alignment), requiredSize));
 				return true;
 			}
 			if (entries.first.offset >= requiredSize) {
@@ -2347,8 +2353,8 @@ struct AllocatorList {
 			for (auto e = entries.iterate(); !e.empty; e.popFront) {
 				i++;
 				if (e.current != entries.last) {
-					if (e.current.next.t.offset - e.current.t.offset - e.current.t.length >= requiredSize) {
-						entries.insert(i, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
+					if (e.current.next.t.offset - getCorrectOffset(e.current.t.offset + e.current.t.length, alignment) >= requiredSize) {
+						entries.insert(i, AllocatorListEntry(getCorrectOffset(e.current.t.offset + e.current.t.length, alignment), requiredSize));
 						return true;
 					}
 				}
@@ -2363,10 +2369,10 @@ struct AllocatorList {
 			}
 		}
 	}
-	bool tryAllocate(VkDeviceSize requiredSize, ref AllocatedMemory allocatedMemory) {
+	bool tryAllocate(VkDeviceSize requiredSize, VkDeviceSize alignment, ref AllocatedMemory allocatedMemory) {
 		if (entries.last != null) {
-			if (size - entries.last.t.offset - entries.last.t.length >= requiredSize) {
-				entries.add(AllocatorListEntry(entries.last.t.offset + entries.last.t.length, requiredSize));
+			if (size - getCorrectOffset(entries.last.t.offset + entries.last.t.length, alignment) >= requiredSize) {
+				entries.add(AllocatorListEntry(getCorrectOffset(entries.last.t.offset + entries.last.t.length, alignment), requiredSize));
 				allocatedMemory.allocatorList = &this;
 				allocatedMemory.allocation = entries.last;
 				return true;
@@ -2381,9 +2387,9 @@ struct AllocatorList {
 			for (auto e = entries.iterate(); !e.empty; e.popFront) {
 				i++;
 				if (e.current != entries.last) {
-					if (e.current.next.t.offset - e.current.t.offset - e.current.t.length >= requiredSize) {
+					if (e.current.next.t.offset - getCorrectOffset(e.current.t.offset + e.current.t.length, alignment) >= requiredSize) {
 						//entries.insert(i, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
-						entries.insertAfter(e.current, AllocatorListEntry(e.current.t.offset + e.current.t.length, requiredSize));
+						entries.insertAfter(e.current, AllocatorListEntry(getCorrectOffset(e.current.t.offset + e.current.t.length, alignment), requiredSize));
 						allocatedMemory.allocatorList = &this;
 						//allocatedMemory.allocation = entries.get(i);
 						allocatedMemory.allocation = e.current.next;
@@ -2405,6 +2411,13 @@ struct AllocatorList {
 	}
 	void deallocate(uint index) {
 		entries.remove(index);
+	}
+	VkDeviceSize getCorrectOffset(VkDeviceSize offset, VkDeviceSize alignment) {
+		if (offset % alignment == 0) {
+			return offset;
+		} else {
+			return offset + alignment - (offset % alignment);
+		}
 	}
 }
 
@@ -2442,38 +2455,31 @@ struct MemoryAllocator {
 	AllocationStrategy allocationStrategy;
 	LinkedList!AllocatorList allocations;
 	VkDeviceSize defaultAllocationSize = 100_000_000;
-	AllocatedMemory allocate(uint heap, VkDeviceSize requiredSize) {
+	AllocatedMemory allocate(uint heap, VkDeviceSize requiredSize, VkDeviceSize alignment) {
 		AllocatedMemory allocatedMemory;
 		foreach (ref e; allocations.iterate()) {
 			if (e.heap == heap) {
-				if (e.tryAllocate(requiredSize, allocatedMemory)) {
+				if (e.tryAllocate(requiredSize, alignment, allocatedMemory)) {
 					return allocatedMemory;
 				}
 			}
 		}
 		if (requiredSize <= defaultAllocationSize) {
 			allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap), defaultAllocationSize, heap));
-			allocations.last.tryAllocate(requiredSize, allocatedMemory);
+			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		} else {
 			allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap), requiredSize, heap));
-			allocations.last.tryAllocate(requiredSize, allocatedMemory);
+			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		}
 		return allocatedMemory;
 	}
 	void allocate(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags) {
-		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), getCorrectOffsetSize(buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment));
+		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment);
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
 	}
 	void allocate(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags) {
-		image.allocatedMemory = allocate(image.chooseHeap(flags), getCorrectOffsetSize(image.getMemoryRequirements().size, image.getMemoryRequirements().alignment));
+		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size, image.getMemoryRequirements().alignment);
 		image.bind(image.allocatedMemory.allocatorList.memory, image.allocatedMemory.allocation.t.offset);
-	}
-	VkDeviceSize getCorrectOffsetSize(VkDeviceSize required, VkDeviceSize multipleOf) {
-		if (required % multipleOf == 0) {
-			return required;
-		} else {
-			return (required / multipleOf + 1) * multipleOf;
-		}
 	}
 }
 
@@ -3192,9 +3198,9 @@ void main0() {
 	}
 	auto memalloc = MemoryAllocator();
 	memalloc.device = &device;
-	memalloc.allocate(0, 100);
-	memalloc.allocate(0, 200);
-	memalloc.allocate(1, 200);
+	memalloc.allocate(0, 100, 0);
+	memalloc.allocate(0, 200, 0);
+	memalloc.allocate(1, 200, 0);
 	/*import events;
 	import glfw_vulkan_window;
 	struct TestReceiver {
