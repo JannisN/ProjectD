@@ -408,6 +408,12 @@ struct Device {
 		deviceCreateInfo.ppEnabledLayerNames = layers.ptr;
 		deviceCreateInfo.enabledExtensionCount = cast(uint) extensions.length;
 		deviceCreateInfo.ppEnabledExtensionNames = extensions.ptr;
+		static if (Nexts.length > 0) {
+			static foreach (i; 0 .. Nexts.length - 1) {
+				nexts[i].pNext = &nexts[i + 1];
+			}
+			deviceCreateInfo.pNext = &nexts[0];
+		}
 		result = vkCreateDevice(physicalDevice.physicalDevice, &deviceCreateInfo, null, &device);
 		uint count = 0;
 		foreach (i, queue; queueInfos) {
@@ -434,7 +440,7 @@ struct Device {
 		for (int i = 0; i < extensionCount; i++) {
 			e[i] = cast(char*) extensions[i].ptr;
 		}
-		this(physicalDevice, features, l, e, queueInfos);
+		this(physicalDevice, features, l, e, queueInfos, nexts);
 	}
 	@disable this(ref return scope Device rhs);
 	~this() {
@@ -458,8 +464,8 @@ struct Device {
 	Image createImage(VkImageCreateFlags flags, VkImageType imageType, VkFormat format, VkExtent3D extent, uint mipLevels, uint arrayLayers, VkSampleCountFlagBits samples, VkImageTiling tiling, VkImageUsageFlags usage, VkImageLayout initialLayout) {
 		return Image(this, flags, imageType, format, extent, mipLevels, arrayLayers, samples, tiling, usage, initialLayout);
 	}
-	Memory allocateMemory(VkDeviceSize allocationSize, uint memoryTypeIndex) {
-		return Memory(this, allocationSize, memoryTypeIndex);
+	Memory allocateMemory(Nexts...)(VkDeviceSize allocationSize, uint memoryTypeIndex, Nexts nexts) {
+		return Memory(this, allocationSize, memoryTypeIndex, nexts);
 	}
 	void flush(VkMappedMemoryRange[] ranges) {
 		result = vkFlushMappedMemoryRanges(device, cast(uint) ranges.length, cast(VkMappedMemoryRange*) ranges.ptr);
@@ -1269,12 +1275,17 @@ VkMappedMemoryRange mappedMemoryRange(VkDeviceSize offset, VkDeviceSize size) {
 }
 
 struct Memory {
-	this(ref Device device, VkDeviceSize allocationSize, uint memoryTypeIndex) {
+	this(Nexts...)(ref Device device, VkDeviceSize allocationSize, uint memoryTypeIndex, Nexts nexts) {
 		VkMemoryAllocateInfo info;
 		info.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		info.pNext = null;
 		info.allocationSize = allocationSize;
 		info.memoryTypeIndex = memoryTypeIndex;
+		static if (Nexts.length > 0) {
+			static foreach (i; 0 .. Nexts.length - 1) {
+				nexts[i].pNext = &nexts[i + 1];
+			}
+			info.pNext = &nexts[0];
+		}
 		result = vkAllocateMemory(device.device, &info, null, &memory);
 		this.device = &device;
 	}
@@ -2325,11 +2336,23 @@ struct AllocatorListEntry {
 	VkDeviceSize length;
 }
 
+struct AllocatorExtension {
+	string name;
+	Vector!byte data;
+	int opCmp(ref const AllocatorExtension ae) const {
+        if (name.length == 0 || ae.name.length == 0) {
+            return -1;
+        }
+        return strcmp(name.ptr, ae.name.ptr);
+    }
+}
+
 struct AllocatorList {
 	Memory memory;
 	VkDeviceSize size;
 	uint heap;
 	LinkedList!AllocatorListEntry entries;
+	OrderedList!(, AllocatorExtension) extensions;
 	this(lazy Memory memory, VkDeviceSize size, uint heap) {
 		this.memory = memory;
 		this.size = size;
@@ -2455,30 +2478,31 @@ struct MemoryAllocator {
 	AllocationStrategy allocationStrategy;
 	LinkedList!AllocatorList allocations;
 	VkDeviceSize defaultAllocationSize = 100_000_000;
-	AllocatedMemory allocate(uint heap, VkDeviceSize requiredSize, VkDeviceSize alignment) {
+	AllocatedMemory allocate(Nexts...)(uint heap, VkDeviceSize requiredSize, VkDeviceSize alignment, Nexts nexts) {
 		AllocatedMemory allocatedMemory;
 		foreach (ref e; allocations.iterate()) {
 			if (e.heap == heap) {
+				// hier muss getestet werden ob auch die nexts gleich sind
 				if (e.tryAllocate(requiredSize, alignment, allocatedMemory)) {
 					return allocatedMemory;
 				}
 			}
 		}
 		if (requiredSize <= defaultAllocationSize) {
-			allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap), defaultAllocationSize, heap));
+			allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap, nexts), defaultAllocationSize, heap));
 			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		} else {
-			allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap), requiredSize, heap));
+			allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap, nexts), requiredSize, heap));
 			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		}
 		return allocatedMemory;
 	}
-	void allocate(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags) {
-		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment);
+	void allocate(Nexts...)(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags, Nexts nexts) {
+		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment, nexts);
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
 	}
-	void allocate(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags) {
-		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size, image.getMemoryRequirements().alignment);
+	void allocate(Nexts...)(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags, Nexts nexts) {
+		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size, image.getMemoryRequirements().alignment, nexts);
 		image.bind(image.allocatedMemory.allocatorList.memory, image.allocatedMemory.allocation.t.offset);
 	}
 }
