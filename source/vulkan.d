@@ -2,7 +2,8 @@ module vulkan;
 
 import utils;
 import vulkan_core;
-import std.stdio;
+import functions;
+//import std.stdio;
 
 // erledigt --- todo: copy constructor für alle structs entfernen
 // evt alle vk pointer durch die struct pointer ersetzen
@@ -2337,13 +2338,15 @@ struct AllocatorListEntry {
 }
 
 struct AllocatorExtension {
-	string name;
+	//string name;
+	VkStructureType structureType;
 	Vector!byte data;
 	int opCmp(ref const AllocatorExtension ae) const {
-        if (name.length == 0 || ae.name.length == 0) {
+		return structureType < ae.structureType;
+        /*if (name.length == 0 || ae.name.length == 0) {
             return -1;
         }
-        return strcmp(name.ptr, ae.name.ptr);
+        return strcmp(name.ptr, ae.name.ptr);*/
     }
 }
 
@@ -2352,11 +2355,16 @@ struct AllocatorList {
 	VkDeviceSize size;
 	uint heap;
 	LinkedList!AllocatorListEntry entries;
-	OrderedList!(, AllocatorExtension) extensions;
-	this(lazy Memory memory, VkDeviceSize size, uint heap) {
+    alias ToList(T) = VectorList!(Vector, T);
+	OrderedList!(ToList, AllocatorExtension) extensions;
+	this(Nexts...)(lazy Memory memory, VkDeviceSize size, uint heap, Nexts nexts) {
 		this.memory = memory;
 		this.size = size;
 		this.heap = heap;
+		static foreach (i; 0 .. Nexts.length) {
+			extensions.addNoSort(AllocatorExtension(nexts[i].sType, Vector!byte((cast(byte*)&nexts[i])[0 .. Nexts[i].sizeof])));
+		}
+		extensions.sort();
 	}
 	// return true = wurde allocated
 	// aufteilen in zwei funktionen: zuerst bei allen AllocatorLists prüfen ob am schluss noch platz ist, sonst auf lücken überprüfen, wegen performance
@@ -2480,19 +2488,29 @@ struct MemoryAllocator {
 	VkDeviceSize defaultAllocationSize = 100_000_000;
 	AllocatedMemory allocate(Nexts...)(uint heap, VkDeviceSize requiredSize, VkDeviceSize alignment, Nexts nexts) {
 		AllocatedMemory allocatedMemory;
-		foreach (ref e; allocations.iterate()) {
+		AllocationsForeach: foreach (ref e; allocations.iterate()) {
 			if (e.heap == heap) {
-				// hier muss getestet werden ob auch die nexts gleich sind
-				if (e.tryAllocate(requiredSize, alignment, allocatedMemory)) {
-					return allocatedMemory;
+				if (Nexts.length == e.extensions.length) {
+					static foreach (i; 0 .. Nexts.length) {
+						size_t index = e.extensions.findIndex(AllocatorExtension(nexts[i].sType));
+						if (index == size_t.max) {
+							continue AllocationsForeach;
+						}
+						if (memcmp(cast(void*)e.extensions[index].data.ptr, cast(void*)&nexts[i], e.extensions[index].data.length) != 0) {
+							continue AllocationsForeach;
+						}
+					}
+					if (e.tryAllocate(requiredSize, alignment, allocatedMemory)) {
+						return allocatedMemory;
+					}
 				}
 			}
 		}
 		if (requiredSize <= defaultAllocationSize) {
-			allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap, nexts), defaultAllocationSize, heap));
+			allocations.add(AllocatorList(device.allocateMemory(defaultAllocationSize, heap, nexts), defaultAllocationSize, heap, nexts));
 			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		} else {
-			allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap, nexts), requiredSize, heap));
+			allocations.add(AllocatorList(device.allocateMemory(requiredSize, heap, nexts), requiredSize, heap, nexts));
 			allocations.last.tryAllocate(requiredSize, alignment, allocatedMemory);
 		}
 		return allocatedMemory;
@@ -2792,6 +2810,7 @@ string pngfile = import("free_pixel_regular_16test.PNG");
 string fontfile = import("free_pixel_regular_16test.xml");
 
 void main0() {
+	import std.stdio;
 	sometest!vertsource();
 	auto layers = getInstanceLayers();
 	foreach (l; layers) {

@@ -14,7 +14,7 @@ version (Desktop) {
 	public import std.conv : emplace;
 	public import std.conv : to;
 	public import core.stdc.stdlib : malloc, free, realloc;
-	public import core.stdc.string : memcpy, strcmp;
+	public import core.stdc.string : memcpy, strcmp, memcmp;
 	public import std.traits : Unqual;
 	public import std.traits : ReturnType, Parameters;
 	public import std.stdio : writeln;
