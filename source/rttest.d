@@ -54,8 +54,15 @@ struct TestApp(ECS) {
 	struct AccelStruct {
 		AllocatedResource!Buffer vertexBuffer;
 		AllocatedResource!Buffer indexBuffer;
+		AllocatedResource!Buffer blasBuffer;
+		VkAccelerationStructureKHR blas;
+		AllocatedResource!Buffer scratchBuffer;
 	}
 	void initAccelStructure() {
+		PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetAccelerationStructureBuildSizesKHR = cast(PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+		PFN_vkCreateAccelerationStructureKHR pfnCreateAccelerationStructureKHR = cast(PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+		PFN_vkCmdBuildAccelerationStructuresKHR pfnCmdBuildAccelerationStructuresKHR = cast(PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+
 		float[9] vertices = [
 			0.0, 0.0, -1.0,
 			0.0, 1.0, -1.0,
@@ -99,6 +106,65 @@ struct TestApp(ECS) {
 		triangles.indexData.deviceAddress = indexBufferAddress;
 		triangles.maxVertex = cast(uint) vertices.length - 1;
 		// triangles.transformData, no transform
+
+		VkAccelerationStructureGeometryKHR geometry;
+		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		geometry.geometry.triangles = triangles;
+		geometry.flags = VkGeometryFlagBitsKHR.VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
+		rangeInfo.firstVertex = 0;
+		rangeInfo.primitiveCount = cast(uint) (indices.length / 3);
+		rangeInfo.primitiveOffset = 0;
+		rangeInfo.transformOffset = 0;
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
+		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		buildInfo.geometryCount = 1;
+		buildInfo.pGeometries = &geometry;
+		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
+		sizeInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+		pfnGetAccelerationStructureBuildSizesKHR(
+			device.device, 
+			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&buildInfo,
+			&rangeInfo.primitiveCount,
+			&sizeInfo
+		);
+		accelStruct.blasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.blasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+
+		VkAccelerationStructureCreateInfoKHR createInfo;
+		createInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+		createInfo.type = buildInfo.type;
+		createInfo.size = sizeInfo.accelerationStructureSize;
+		createInfo.buffer = accelStruct.blasBuffer.buffer;
+		createInfo.offset = 0;
+		pfnCreateAccelerationStructureKHR(device.device, &createInfo, null, &accelStruct.blas);
+
+		buildInfo.dstAccelerationStructure = accelStruct.blas;
+		//buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
+		accelStruct.scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		buildInfo.scratchData.deviceAddress = accelStruct.scratchBuffer.getDeviceAddress();
+		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr = &rangeInfo;
+		cmdBuffer.begin();
+		pfnCmdBuildAccelerationStructuresKHR(
+			cmdBuffer.commandBuffer,
+			1u,
+			&buildInfo,//array
+			&rangeInfoPtr//array
+		);
+		cmdBuffer.end();
+		queue.submit(cmdBuffer, fence);
+		fence.wait();
+		cmdBuffer.reset();
+		fence.reset();
 	}
 	void initVulkan() {
 		version(Windows) {
@@ -115,7 +181,16 @@ struct TestApp(ECS) {
 		VkPhysicalDeviceVulkan12Features features12;
 		features12.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 		features12.bufferDeviceAddress = VK_TRUE;
-		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12);
+		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures;
+		rayQueryFeatures.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+		rayQueryFeatures.rayQuery = VK_TRUE;
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures;
+		rayTracingPipelineFeatures.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures;
+		accelerationStructureFeatures.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12, rayQueryFeatures, rayTracingPipelineFeatures, accelerationStructureFeatures);
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
