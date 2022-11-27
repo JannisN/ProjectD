@@ -62,6 +62,8 @@ struct TestApp(ECS) {
 		PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetAccelerationStructureBuildSizesKHR = cast(PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
 		PFN_vkCreateAccelerationStructureKHR pfnCreateAccelerationStructureKHR = cast(PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
 		PFN_vkCmdBuildAccelerationStructuresKHR pfnCmdBuildAccelerationStructuresKHR = cast(PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+		PFN_vkBuildAccelerationStructuresKHR pfnBuildAccelerationStructuresKHR = cast(PFN_vkBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+		PFN_vkDestroyAccelerationStructureKHR pfnDestroyAccelerationStructureKHR = cast(PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
 
 		float[9] vertices = [
 			0.0, 0.0, -1.0,
@@ -73,9 +75,9 @@ struct TestApp(ECS) {
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-		accelStruct.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		accelStruct.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
-		accelStruct.indexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		accelStruct.indexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.indexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
 
 		Memory* memory = &cast(Memory) accelStruct.vertexBuffer.allocatedMemory.allocatorList.memory;
@@ -83,7 +85,7 @@ struct TestApp(ECS) {
 		foreach (j, float f; vertices) {
 			floatptr[j] = f;
 		}
-		memory.flush(array(mappedMemoryRange(*memory, accelStruct.vertexBuffer.allocatedMemory.allocation.offset, accelStruct.vertexBuffer.allocatedMemory.allocation.length)));
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.vertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
 		memory.unmap();
 
 		memory = &cast(Memory) accelStruct.indexBuffer.allocatedMemory.allocatorList.memory;
@@ -91,7 +93,7 @@ struct TestApp(ECS) {
 		foreach (j, float f; indices) {
 			floatptr[j] = f;
 		}
-		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, accelStruct.indexBuffer.allocatedMemory.allocation.length)));
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
 		memory.unmap();
 
 		VkDeviceAddress vertexBufferAddress = accelStruct.vertexBuffer.getDeviceAddress();
@@ -100,11 +102,13 @@ struct TestApp(ECS) {
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles;
 		triangles.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 		triangles.vertexFormat = VkFormat.VK_FORMAT_R32G32B32_SFLOAT;
-		triangles.vertexData.deviceAddress = vertexBufferAddress;
+		//triangles.vertexData.deviceAddress = vertexBufferAddress; //wichtig: muss für gpu buffer auf device umgestellt werden!
+		triangles.vertexData.hostAddress = cast(void*)vertices.ptr;
 		triangles.vertexStride = 3 * float.sizeof;
 		triangles.indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
-		triangles.indexData.deviceAddress = indexBufferAddress;
-		triangles.maxVertex = cast(uint) vertices.length - 1;
+		//triangles.indexData.deviceAddress = indexBufferAddress; // hier ebenso
+		triangles.indexData.hostAddress = cast(void*)indices.ptr;
+		triangles.maxVertex = cast(uint) vertices.length - 1;//oder 2?
 		// triangles.transformData, no transform
 
 		VkAccelerationStructureGeometryKHR geometry;
@@ -126,6 +130,7 @@ struct TestApp(ECS) {
 		buildInfo.pGeometries = &geometry;
 		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		buildInfo.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
 
 		VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
 		sizeInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
@@ -137,7 +142,7 @@ struct TestApp(ECS) {
 			&sizeInfo
 		);
 		accelStruct.blasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
-		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.blasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.blasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
 
 		VkAccelerationStructureCreateInfoKHR createInfo;
 		createInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
@@ -145,26 +150,31 @@ struct TestApp(ECS) {
 		createInfo.size = sizeInfo.accelerationStructureSize;
 		createInfo.buffer = accelStruct.blasBuffer.buffer;
 		createInfo.offset = 0;
-		pfnCreateAccelerationStructureKHR(device.device, &createInfo, null, &accelStruct.blas);
+		writeln("result: ", pfnCreateAccelerationStructureKHR(device.device, &createInfo, null, &accelStruct.blas));
 
 		buildInfo.dstAccelerationStructure = accelStruct.blas;
-		//buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
 		accelStruct.scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
-		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		memoryAllocator.allocate(cast(AllocatedResource!Buffer)accelStruct.scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		Vector!byte scratchVector = Vector!byte(sizeInfo.buildScratchSize);
 		buildInfo.scratchData.deviceAddress = accelStruct.scratchBuffer.getDeviceAddress();
+		//buildInfo.scratchData.hostAddress = scratchVector.ptr;
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr = &rangeInfo;
+		// noch nicht verfügbar im treiber
+		//pfnBuildAccelerationStructuresKHR(device.device, null, 1, &buildInfo, &rangeInfoPtr);
 		cmdBuffer.begin();
 		pfnCmdBuildAccelerationStructuresKHR(
 			cmdBuffer.commandBuffer,
-			1u,
+			1,
 			&buildInfo,//array
 			&rangeInfoPtr//array
 		);
 		cmdBuffer.end();
-		queue.submit(cmdBuffer, fence);
-		fence.wait();
+		writeln("result: ", queue.submit(cmdBuffer, fence));
+		writeln("result: ", fence.wait());
 		cmdBuffer.reset();
 		fence.reset();
+
+		pfnDestroyAccelerationStructureKHR(device.device, accelStruct.blas, null);
 	}
 	void initVulkan() {
 		version(Windows) {
@@ -190,6 +200,8 @@ struct TestApp(ECS) {
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures;
 		accelerationStructureFeatures.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 		accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		// noch nicht verfügbar im treiber
+		//accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
 		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12, rayQueryFeatures, rayTracingPipelineFeatures, accelerationStructureFeatures);
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
