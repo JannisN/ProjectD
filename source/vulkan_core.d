@@ -83,8 +83,8 @@ extern (D) auto VK_API_VERSION_PATCH(T)(auto ref T version0)
 }
 
 alias VkBool32 = uint;
-alias VkDeviceAddress = c_ulong;
-alias VkDeviceSize = c_ulong;
+alias VkDeviceAddress = ulong;
+alias VkDeviceSize = ulong;
 alias VkFlags = uint;
 alias VkSampleMask = uint;
 struct VkBuffer_T;
@@ -6283,9 +6283,9 @@ alias PFN_vkResetQueryPool = void function (VkDevice device, VkQueryPool queryPo
 alias PFN_vkGetSemaphoreCounterValue = VkResult function (VkDevice device, VkSemaphore semaphore, ulong* pValue);
 alias PFN_vkWaitSemaphores = VkResult function (VkDevice device, const(VkSemaphoreWaitInfo)* pWaitInfo, ulong timeout);
 alias PFN_vkSignalSemaphore = VkResult function (VkDevice device, const(VkSemaphoreSignalInfo)* pSignalInfo);
-alias PFN_vkGetBufferDeviceAddress = c_ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
-alias PFN_vkGetBufferOpaqueCaptureAddress = c_ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
-alias PFN_vkGetDeviceMemoryOpaqueCaptureAddress = c_ulong function (VkDevice device, const(VkDeviceMemoryOpaqueCaptureAddressInfo)* pInfo);
+alias PFN_vkGetBufferDeviceAddress = ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
+alias PFN_vkGetBufferOpaqueCaptureAddress = ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
+alias PFN_vkGetDeviceMemoryOpaqueCaptureAddress = ulong function (VkDevice device, const(VkDeviceMemoryOpaqueCaptureAddressInfo)* pInfo);
 
 void vkCmdDrawIndirectCount (
     VkCommandBuffer commandBuffer,
@@ -6361,7 +6361,7 @@ enum VK_VERSION_1_3 = 1;
 // Vulkan 1.3 version number
 enum VK_API_VERSION_1_3 = VK_MAKE_API_VERSION(0, 1, 3, 0); // Patch version should always be set to 0
 
-alias VkFlags64 = c_ulong;
+alias VkFlags64 = ulong;
 struct VkPrivateDataSlot_T;
 alias VkPrivateDataSlot = VkPrivateDataSlot_T*;
 
@@ -6403,10 +6403,10 @@ enum VkPrivateDataSlotCreateFlagBits
 }
 
 alias VkPrivateDataSlotCreateFlags = uint;
-alias VkPipelineStageFlags2 = c_ulong;
+alias VkPipelineStageFlags2 = ulong;
 
 // Flag bits for VkPipelineStageFlagBits2
-alias VkPipelineStageFlagBits2 = c_ulong;
+alias VkPipelineStageFlagBits2 = ulong;
 extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_NONE;
 extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_NONE_KHR;
 extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
@@ -6475,10 +6475,10 @@ extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_MESH_SHADER_
 extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_SUBPASS_SHADING_BIT_HUAWEI;
 extern __gshared const VkPipelineStageFlagBits2 VK_PIPELINE_STAGE_2_INVOCATION_MASK_BIT_HUAWEI;
 
-alias VkAccessFlags2 = c_ulong;
+alias VkAccessFlags2 = ulong;
 
 // Flag bits for VkAccessFlagBits2
-alias VkAccessFlagBits2 = c_ulong;
+alias VkAccessFlagBits2 = ulong;
 extern __gshared const VkAccessFlagBits2 VK_ACCESS_2_NONE;
 extern __gshared const VkAccessFlagBits2 VK_ACCESS_2_NONE_KHR;
 extern __gshared const VkAccessFlagBits2 VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
@@ -6559,10 +6559,10 @@ enum VkRenderingFlagBits
 }
 
 alias VkRenderingFlags = uint;
-alias VkFormatFeatureFlags2 = c_ulong;
+alias VkFormatFeatureFlags2 = ulong;
 
 // Flag bits for VkFormatFeatureFlagBits2
-alias VkFormatFeatureFlagBits2 = c_ulong;
+alias VkFormatFeatureFlagBits2 = ulong;
 extern __gshared const VkFormatFeatureFlagBits2 VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT;
 extern __gshared const VkFormatFeatureFlagBits2 VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT_KHR;
 extern __gshared const VkFormatFeatureFlagBits2 VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT;
@@ -9190,9 +9190,9 @@ alias VkMemoryOpaqueCaptureAddressAllocateInfoKHR = VkMemoryOpaqueCaptureAddress
 
 alias VkDeviceMemoryOpaqueCaptureAddressInfoKHR = VkDeviceMemoryOpaqueCaptureAddressInfo;
 
-alias PFN_vkGetBufferDeviceAddressKHR = c_ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
-alias PFN_vkGetBufferOpaqueCaptureAddressKHR = c_ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
-alias PFN_vkGetDeviceMemoryOpaqueCaptureAddressKHR = c_ulong function (VkDevice device, const(VkDeviceMemoryOpaqueCaptureAddressInfo)* pInfo);
+alias PFN_vkGetBufferDeviceAddressKHR = ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
+alias PFN_vkGetBufferOpaqueCaptureAddressKHR = ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
+alias PFN_vkGetDeviceMemoryOpaqueCaptureAddressKHR = ulong function (VkDevice device, const(VkDeviceMemoryOpaqueCaptureAddressInfo)* pInfo);
 
 VkDeviceAddress vkGetBufferDeviceAddressKHR (
     VkDevice device,
@@ -9380,13 +9380,13 @@ struct VkPhysicalDevicePresentIdFeaturesKHR
 enum VK_KHR_synchronization2 = 1;
 enum VK_KHR_SYNCHRONIZATION_2_SPEC_VERSION = 1;
 enum VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME = "VK_KHR_synchronization2";
-alias VkPipelineStageFlags2KHR = c_ulong;
+alias VkPipelineStageFlags2KHR = ulong;
 
-alias VkPipelineStageFlagBits2KHR = c_ulong;
+alias VkPipelineStageFlagBits2KHR = ulong;
 
-alias VkAccessFlags2KHR = c_ulong;
+alias VkAccessFlags2KHR = ulong;
 
-alias VkAccessFlagBits2KHR = c_ulong;
+alias VkAccessFlagBits2KHR = ulong;
 
 alias VkSubmitFlagBitsKHR = VkSubmitFlagBits;
 
@@ -9565,9 +9565,9 @@ void vkCmdResolveImage2KHR (
 enum VK_KHR_format_feature_flags2 = 1;
 enum VK_KHR_FORMAT_FEATURE_FLAGS_2_SPEC_VERSION = 1;
 enum VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME = "VK_KHR_format_feature_flags2";
-alias VkFormatFeatureFlags2KHR = c_ulong;
+alias VkFormatFeatureFlags2KHR = ulong;
 
-alias VkFormatFeatureFlagBits2KHR = c_ulong;
+alias VkFormatFeatureFlagBits2KHR = ulong;
 
 alias VkFormatProperties3KHR = VkFormatProperties3;
 
@@ -12475,7 +12475,7 @@ struct VkBufferDeviceAddressCreateInfoEXT
     VkDeviceAddress deviceAddress;
 }
 
-alias PFN_vkGetBufferDeviceAddressEXT = c_ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
+alias PFN_vkGetBufferDeviceAddressEXT = ulong function (VkDevice device, const(VkBufferDeviceAddressInfo)* pInfo);
 
 VkDeviceAddress vkGetBufferDeviceAddressEXT (
     VkDevice device,
@@ -14293,7 +14293,7 @@ alias PFN_vkWriteAccelerationStructuresPropertiesKHR = VkResult function (VkDevi
 alias PFN_vkCmdCopyAccelerationStructureKHR = void function (VkCommandBuffer commandBuffer, const(VkCopyAccelerationStructureInfoKHR)* pInfo);
 alias PFN_vkCmdCopyAccelerationStructureToMemoryKHR = void function (VkCommandBuffer commandBuffer, const(VkCopyAccelerationStructureToMemoryInfoKHR)* pInfo);
 alias PFN_vkCmdCopyMemoryToAccelerationStructureKHR = void function (VkCommandBuffer commandBuffer, const(VkCopyMemoryToAccelerationStructureInfoKHR)* pInfo);
-alias PFN_vkGetAccelerationStructureDeviceAddressKHR = c_ulong function (VkDevice device, const(VkAccelerationStructureDeviceAddressInfoKHR)* pInfo);
+alias PFN_vkGetAccelerationStructureDeviceAddressKHR = ulong function (VkDevice device, const(VkAccelerationStructureDeviceAddressInfoKHR)* pInfo);
 alias PFN_vkCmdWriteAccelerationStructuresPropertiesKHR = void function (VkCommandBuffer commandBuffer, uint accelerationStructureCount, const(VkAccelerationStructureKHR)* pAccelerationStructures, VkQueryType queryType, VkQueryPool queryPool, uint firstQuery);
 alias PFN_vkGetDeviceAccelerationStructureCompatibilityKHR = void function (VkDevice device, const(VkAccelerationStructureVersionInfoKHR)* pVersionInfo, VkAccelerationStructureCompatibilityKHR* pCompatibility);
 alias PFN_vkGetAccelerationStructureBuildSizesKHR = void function (VkDevice device, VkAccelerationStructureBuildTypeKHR buildType, const(VkAccelerationStructureBuildGeometryInfoKHR)* pBuildInfo, const(uint)* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo);
@@ -14484,7 +14484,7 @@ alias PFN_vkCmdTraceRaysKHR = void function (VkCommandBuffer commandBuffer, cons
 alias PFN_vkCreateRayTracingPipelinesKHR = VkResult function (VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint createInfoCount, const(VkRayTracingPipelineCreateInfoKHR)* pCreateInfos, const(VkAllocationCallbacks)* pAllocator, VkPipeline* pPipelines);
 alias PFN_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR = VkResult function (VkDevice device, VkPipeline pipeline, uint firstGroup, uint groupCount, size_t dataSize, void* pData);
 alias PFN_vkCmdTraceRaysIndirectKHR = void function (VkCommandBuffer commandBuffer, const(VkStridedDeviceAddressRegionKHR)* pRaygenShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pMissShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pHitShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pCallableShaderBindingTable, VkDeviceAddress indirectDeviceAddress);
-alias PFN_vkGetRayTracingShaderGroupStackSizeKHR = c_ulong function (VkDevice device, VkPipeline pipeline, uint group, VkShaderGroupShaderKHR groupShader);
+alias PFN_vkGetRayTracingShaderGroupStackSizeKHR = ulong function (VkDevice device, VkPipeline pipeline, uint group, VkShaderGroupShaderKHR groupShader);
 alias PFN_vkCmdSetRayTracingPipelineStackSizeKHR = void function (VkCommandBuffer commandBuffer, uint pipelineStackSize);
 
 void vkCmdTraceRaysKHR (
