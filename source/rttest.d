@@ -65,6 +65,10 @@ struct TestApp(ECS) {
 		PFN_vkBuildAccelerationStructuresKHR pfnBuildAccelerationStructuresKHR = cast(PFN_vkBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
 		PFN_vkDestroyAccelerationStructureKHR pfnDestroyAccelerationStructureKHR = cast(PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
 
+		if (pfnCmdBuildAccelerationStructuresKHR is null) {
+			writeln("ERROR");
+		}
+
 		float[9] vertices = [
 			0.0, 0.0, -1.0,
 			0.0, 1.0, -1.0,
@@ -161,6 +165,12 @@ struct TestApp(ECS) {
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr = &rangeInfo;
 		// noch nicht verfügbar im treiber
 		//pfnBuildAccelerationStructuresKHR(device.device, null, 1, &buildInfo, &rangeInfoPtr);
+
+		writeln("debug: ", accelStruct.blasBuffer.t.result.result);
+		writeln("debug: ", accelStruct.vertexBuffer.t.result.result);
+		writeln("debug: ", accelStruct.indexBuffer.t.result.result);
+		writeln("debug: ", accelStruct.scratchBuffer.t.result.result);
+
 		cmdBuffer.begin();
 		pfnCmdBuildAccelerationStructuresKHR(
 			cmdBuffer.commandBuffer,
