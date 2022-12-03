@@ -1078,6 +1078,7 @@ struct Buffer {
 	}
 	void bind(ref Memory memory, VkDeviceSize offset) {
 		result = vkBindBufferMemory(device.device, buffer, memory.memory, offset);
+		//writeln("result: ", result.result);
 	}
 	uint chooseHeap(VkMemoryPropertyFlags required, VkMemoryPropertyFlags preferred) {
 		return device.physicalDevice.chooseHeapFromFlags(getMemoryRequirements(), required, preferred);
@@ -2518,6 +2519,7 @@ struct MemoryAllocator {
 	void allocate(Nexts...)(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags, Nexts nexts) {
 		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment, nexts);
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
+		//writeln("size: ", buffer.getMemoryRequirements().size);
 	}
 	void allocate(Nexts...)(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags, Nexts nexts) {
 		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size, image.getMemoryRequirements().alignment, nexts);

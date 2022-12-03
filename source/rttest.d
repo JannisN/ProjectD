@@ -93,11 +93,11 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 		memory = &cast(Memory) accelStruct.indexBuffer.allocatedMemory.allocatorList.memory;
-		floatptr = cast(float*) memory.map(accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof);
-		foreach (j, float f; indices) {
-			floatptr[j] = f;
+		uint* intptr = cast(uint*) memory.map(accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof);
+		foreach (j, uint f; indices) {
+			intptr[j] = f;
 		}
-		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof)));
 		memory.unmap();
 
 		VkDeviceAddress vertexBufferAddress = accelStruct.vertexBuffer.getDeviceAddress();
@@ -166,29 +166,20 @@ struct TestApp(ECS) {
 		// noch nicht verfügbar im treiber
 		//pfnBuildAccelerationStructuresKHR(device.device, null, 1, &buildInfo, &rangeInfoPtr);
 
-		writeln("debug: ", accelStruct.blasBuffer.t.result.result);
-		writeln("debug: ", accelStruct.vertexBuffer.t.result.result);
-		writeln("debug: ", accelStruct.indexBuffer.t.result.result);
-		writeln("debug: ", accelStruct.scratchBuffer.t.result.result);
-
-		// neuen command buffer erstellen
-		CommandBuffer cmdBuffer2 = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-		Fence fence2 = device.createFence(false);
-
-		cmdBuffer2.begin();
+		cmdBuffer.begin();
 		pfnCmdBuildAccelerationStructuresKHR(
-			cmdBuffer2.commandBuffer,
+			cmdBuffer.commandBuffer,
 			1,
 			&buildInfo,//array
 			&rangeInfoPtr//array
 		);
-		cmdBuffer2.end();
-		writeln("result: ", queue.submit(cmdBuffer2, fence2));
-		writeln("result: ", fence2.wait());
-		cmdBuffer2.reset();
-		fence2.reset();
+		cmdBuffer.end();
+		writeln("result: ", queue.submit(cmdBuffer, fence));
+		writeln("result: ", fence.wait());
+		cmdBuffer.reset();
+		fence.reset();
 
-		pfnDestroyAccelerationStructureKHR(device.device, accelStruct.blas, null);
+		//pfnDestroyAccelerationStructureKHR(device.device, accelStruct.blas, null);
 	}
 	void initVulkan() {
 		version(Windows) {
