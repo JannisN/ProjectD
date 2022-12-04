@@ -1,0 +1,48 @@
+#version 460
+#extension GL_EXT_ray_query : enable
+
+//layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
+
+layout (push_constant) uniform mypc_t {
+	float t;
+} mypc;
+layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
+layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
+layout (set = 0, binding = 2) uniform accelerationStructureEXT topLevelAS;
+
+struct Circle {
+	float x, y;
+	float radius;
+	float r, g, b;
+};
+layout (set = 1, binding = 0) buffer myCircle_t {
+	int circleCount;
+	Circle circles[];
+} myCircle;
+
+void main() {
+	vec4 colour = vec4(sin(
+		sqrt((int(gl_GlobalInvocationID.x) * 0.01) * (int(gl_GlobalInvocationID.x) * 0.01) + (int(gl_GlobalInvocationID.y) * 0.01) * (int(gl_GlobalInvocationID.y) * 0.01))
+		- mypc.t * 5), imageLoad(texelBuffer2, ivec2(2, 3)).x, 1.0, 1.0);
+	float x = int(gl_GlobalInvocationID.x) * 0.01;
+	float y = int(gl_GlobalInvocationID.y) * 0.01;
+	for (int i = 0; i < myCircle.circleCount; i++) {
+		if ((myCircle.circles[i].x - x) * (myCircle.circles[i].x - x) + (myCircle.circles[i].y - y) * (myCircle.circles[i].y - y) < myCircle.circles[i].radius) {
+			colour.x = myCircle.circles[i].r;
+			colour.y = myCircle.circles[i].g;
+			colour.z = myCircle.circles[i].b;
+		}
+	}
+	vec3 pos = vec3(x - 2.0, y - 2.0, 0.0);
+	vec3 dir = vec3(0.0, 0.0, 1.0);
+	const float tmin = 0.01, tmax = 100;
+	rayQueryEXT query;
+	rayQueryInitializeEXT(query, topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, pos, tmin, dir, tmax);
+	rayQueryProceedEXT(query);
+	if (rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+		colour = vec4(1.0, 0.0, 0.0, 1.0);
+	}
+	//colour = vec4(x, y, 0.0, 1.0);
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+}
