@@ -597,6 +597,43 @@ struct Device {
 		}
 		return graphicsPipelines;
 	}
+	AccelerationStructure createAccelerationStructure(VkAccelerationStructureTypeKHR type, VkDeviceSize size, VkDeviceSize offset, VkBuffer buffer, VkAccelerationStructureCreateFlagsKHR createFlags) {
+		return AccelerationStructure(this, type, size, offset, buffer, createFlags);
+	}
+	VkAccelerationStructureBuildSizesInfoKHR getAccelerationStructureBuildSizesKHR(VkAccelerationStructureBuildTypeKHR buildType, const(VkAccelerationStructureBuildGeometryInfoKHR)* pBuildInfo, const(uint)* pMaxPrimitiveCounts) {
+		PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetAccelerationStructureBuildSizesKHR = cast(PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
+		sizeInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+		pfnGetAccelerationStructureBuildSizesKHR(
+			device, 
+			buildType,
+			pBuildInfo,
+			pMaxPrimitiveCounts,
+			&sizeInfo
+		);
+		return sizeInfo;
+	}
+	VkResult createAccelerationStructureKHR(const(VkAccelerationStructureCreateInfoKHR)* pCreateInfo, VkAccelerationStructureKHR* pAccelerationStructure) {
+		PFN_vkCreateAccelerationStructureKHR pfnCreateAccelerationStructureKHR = cast(PFN_vkCreateAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+		return pfnCreateAccelerationStructureKHR(device, pCreateInfo, null, pAccelerationStructure);
+	}
+	void cmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint infoCount, const(VkAccelerationStructureBuildGeometryInfoKHR)* pInfos, const(VkAccelerationStructureBuildRangeInfoKHR*)* ppBuildRangeInfos) {
+		PFN_vkCmdBuildAccelerationStructuresKHR pfnCmdBuildAccelerationStructuresKHR = cast(PFN_vkCmdBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+		pfnCmdBuildAccelerationStructuresKHR(
+			commandBuffer,
+			infoCount,
+			pInfos,
+			ppBuildRangeInfos
+		);
+	}
+	VkResult buildAccelerationStructuresKHR(VkDeferredOperationKHR deferredOperation, uint infoCount, const(VkAccelerationStructureBuildGeometryInfoKHR)* pInfos, const(VkAccelerationStructureBuildRangeInfoKHR*)* ppBuildRangeInfos) {
+		PFN_vkBuildAccelerationStructuresKHR pfnBuildAccelerationStructuresKHR = cast(PFN_vkBuildAccelerationStructuresKHR)(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+		return pfnBuildAccelerationStructuresKHR(device, deferredOperation, infoCount, pInfos, ppBuildRangeInfos);
+	}
+	void destroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure) {
+		PFN_vkDestroyAccelerationStructureKHR pfnDestroyAccelerationStructureKHR = cast(PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+		pfnDestroyAccelerationStructureKHR(device, accelerationStructure, null);
+	}
 	Result result;
 	VkDevice device;
 	alias device this;
@@ -1029,6 +1066,9 @@ struct CommandBuffer {
 	}
 	void clearAttachments(VkClearAttachment[] attachments, VkClearRect[] rects) {
 		vkCmdClearAttachments(commandBuffer, cast(uint) attachments.length, attachments.ptr, cast(uint) rects.length, rects.ptr);
+	}
+	void buildAccelerationStructures(VkAccelerationStructureBuildGeometryInfoKHR[] infos, VkAccelerationStructureBuildRangeInfoKHR*[] buildRangeInfos) {
+		commandPool.device.cmdBuildAccelerationStructuresKHR(commandBuffer, cast(uint) infos.length, infos.ptr, buildRangeInfos.ptr);
 	}
 	Result result;
 	VkCommandBuffer commandBuffer;
@@ -1686,6 +1726,18 @@ VkCopyDescriptorSet copyDescriptorSet(VkDescriptorSet srcSet, uint srcIndex, VkD
 }
 
 struct WriteDescriptorSet {
+	this(Nexts...)(uint index, VkDescriptorType type, uint count, ref Nexts nexts) {
+		writeDescriptorSet.sType = VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		static if (Nexts.length > 0) {
+			static foreach (i; 0 .. Nexts.length - 1) {
+				nexts[i].pNext = &nexts[i + 1];
+			}
+			writeDescriptorSet.pNext = &nexts[0];
+		}
+		writeDescriptorSet.dstBinding = index;
+		writeDescriptorSet.descriptorCount = count;
+		writeDescriptorSet.descriptorType = type;
+	}
 	this(VkDescriptorSet set, uint index, uint arrayStart, uint count, VkDescriptorType type, VkSampler sampler, VkImageView view, VkImageLayout layout) {
 		imageInfo.sampler = sampler;
 		imageInfo.imageView = view;
@@ -1777,6 +1829,22 @@ struct WriteDescriptorSet {
 	VkDescriptorBufferInfo bufferInfo;
 	VkWriteDescriptorSet writeDescriptorSet;
 	alias writeDescriptorSet this;
+}
+
+VkWriteDescriptorSetAccelerationStructureKHR writeAccelerationStructure(VkAccelerationStructureKHR[] accelStructs) {
+	VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo;
+	descriptorAccelStructInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+	descriptorAccelStructInfo.accelerationStructureCount = cast(uint) accelStructs.length;
+	descriptorAccelStructInfo.pAccelerationStructures = &accelStructs[0];
+	return descriptorAccelStructInfo;
+}
+
+VkWriteDescriptorSetAccelerationStructureKHR writeAccelerationStructure(ref VkAccelerationStructureKHR accelStruct) {
+	VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo;
+	descriptorAccelStructInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+	descriptorAccelStructInfo.accelerationStructureCount = 1;
+	descriptorAccelStructInfo.pAccelerationStructures = &accelStruct;
+	return descriptorAccelStructInfo;
 }
 
 struct DescriptorSet {
@@ -2792,6 +2860,29 @@ struct ShaderList(T) {
 			}
 		}
 	}
+}
+
+struct AccelerationStructure {
+	this(ref Device device, VkAccelerationStructureTypeKHR type, VkDeviceSize size, VkDeviceSize offset, VkBuffer buffer, VkAccelerationStructureCreateFlagsKHR createFlags) {
+		this.device = &device;
+		VkAccelerationStructureCreateInfoKHR createInfo;
+		createInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+		createInfo.type = type;
+		createInfo.size = size;
+		createInfo.offset = offset;
+		createInfo.buffer = buffer;
+		createInfo.createFlags = createFlags;
+		result = device.createAccelerationStructureKHR(&createInfo, &accelerationStructure);
+	}
+	@disable this(ref return scope AccelerationStructure rhs);
+	~this() {
+		if (accelerationStructure != null)
+			device.destroyAccelerationStructureKHR(accelerationStructure);
+	}
+	Result result;
+	Device* device;
+	VkAccelerationStructureKHR accelerationStructure;
+	alias accelerationStructure this;
 }
 
 // ----------------------------------------------------------

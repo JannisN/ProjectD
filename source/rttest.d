@@ -709,21 +709,11 @@ struct TestApp(ECS) {
 			))
 		);
 		//writeln(passedTime);
-		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo;
-		descriptorAccelStructInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-		descriptorAccelStructInfo.accelerationStructureCount = 1;
-		descriptorAccelStructInfo.pAccelerationStructures = &accelStruct.tlas;
-		VkWriteDescriptorSet accelStructWrite;
-		accelStructWrite.sType = VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		accelStructWrite.dstSet = descriptorSet.descriptorSet;
-		accelStructWrite.dstBinding = 2;
-		accelStructWrite.descriptorCount = 1;
-		accelStructWrite.descriptorType = VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-		accelStructWrite.pNext = &descriptorAccelStructInfo;
+		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
 		descriptorSet.write(array!VkWriteDescriptorSet(
 			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 			WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-			accelStructWrite
+			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
 		));
 		circleImplStruct.descriptorSet.write(array!VkWriteDescriptorSet(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, circleShaderList.gpuBuffer)));
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
