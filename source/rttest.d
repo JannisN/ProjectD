@@ -227,6 +227,104 @@ struct TestApp(ECS) {
 		cmdBuffer.reset();
 		fence.reset();
 	}
+	struct RtPipeline {
+		Shader raygenShader;
+		Shader missShader;
+		Shader closesthitShader;
+		VkPipeline rtPipeline;
+		DescriptorSetLayout descriptorSetLayout;
+		DescriptorPool descriptorPool;
+		PipelineLayout pipelineLayout;
+	}
+	void initRtPipeline() {
+		enum string raygenCode = import("raygen.spv");
+		enum string missCode = import("miss.spv");
+		enum string closesthitCode = import("closesthit.spv");
+		rtPipeline.raygenShader = device.createShader(raygenCode);
+		rtPipeline.missShader = device.createShader(missCode);
+		rtPipeline.closesthitShader = device.createShader(closesthitCode);
+
+		VkPipelineShaderStageCreateInfo[3] pssci;
+
+		pssci[0].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[0].module_ = rtPipeline.raygenShader.shader;
+		pssci[0].pName = "main";
+		pssci[0].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+		pssci[1].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[1].module_ = rtPipeline.missShader.shader;
+		pssci[1].pName = "main";
+		pssci[1].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_MISS_BIT_KHR;
+
+		pssci[2].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[2].module_ = rtPipeline.closesthitShader.shader;
+		pssci[2].pName = "main";
+		pssci[2].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+		VkRayTracingShaderGroupCreateInfoKHR[3] rtsgci;
+
+		rtsgci[0].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[0].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		rtsgci[0].generalShader = 0;
+		rtsgci[0].closestHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[0].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[0].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtsgci[1].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[1].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		rtsgci[1].generalShader = 1;
+		rtsgci[1].closestHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[1].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[1].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtsgci[2].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[2].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		rtsgci[2].generalShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[2].closestHitShader = 2;
+		rtsgci[2].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[2].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtPipeline.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			1,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		)));
+		rtPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			)
+		));
+		rtPipeline.pipelineLayout = device.createPipelineLayout(
+			array(rtPipeline.descriptorSetLayout),
+			[]
+		);
+
+		PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+
+		VkRayTracingPipelineCreateInfoKHR rtpci;
+		rtpci.sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+		rtpci.stageCount = 3;
+		rtpci.pStages = pssci.ptr;
+		rtpci.groupCount = 3;
+		rtpci.pGroups = rtsgci.ptr;
+		rtpci.maxPipelineRayRecursionDepth = 1;
+		rtpci.layout = rtPipeline.pipelineLayout;
+
+		writeln("test: ", pfnCreateRayTracingPipelinesKHR(device.device, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE, 1, &rtpci, null, &rtPipeline.rtPipeline));
+	}
 	void initVulkan() {
 		version(Windows) {
 			instance = Instance("test", 1, VK_API_VERSION_1_3, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
@@ -283,6 +381,7 @@ struct TestApp(ECS) {
 		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
 		
 		initAccelStructure();
+		initRtPipeline();
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -788,6 +887,7 @@ struct TestApp(ECS) {
 	ShaderList!Circle circleShaderList;
 
 	AccelStruct accelStruct;
+	RtPipeline rtPipeline;
 }
 
 struct Circle {
