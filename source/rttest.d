@@ -234,7 +234,14 @@ struct TestApp(ECS) {
 		VkPipeline rtPipeline;
 		DescriptorSetLayout descriptorSetLayout;
 		DescriptorPool descriptorPool;
+		DescriptorSet descriptorSet;
 		PipelineLayout pipelineLayout;
+		AllocatedResource!Buffer sbRayGen;
+		AllocatedResource!Buffer sbMiss;
+		AllocatedResource!Buffer sbHit;
+		uint groupHandleSize;
+		uint recordSize;
+		uint groupSizeAligned;
 	}
 	void initRtPipeline() {
 		enum string raygenCode = import("raygen.spv");
@@ -311,6 +318,7 @@ struct TestApp(ECS) {
 			array(rtPipeline.descriptorSetLayout),
 			[]
 		);
+		rtPipeline.descriptorSet = rtPipeline.descriptorPool.allocateSet(rtPipeline.descriptorSetLayout);
 
 		PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 
@@ -324,6 +332,58 @@ struct TestApp(ECS) {
 		rtpci.layout = rtPipeline.pipelineLayout;
 
 		writeln("test: ", pfnCreateRayTracingPipelinesKHR(device.device, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE, 1, &rtpci, null, &rtPipeline.rtPipeline));
+
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
+		rtProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &rtProperties;
+		device.physicalDevice.getProperties(&properties);
+
+		uint groupCount = 3;
+		rtPipeline.groupHandleSize = rtProperties.shaderGroupHandleSize;
+		rtPipeline.groupSizeAligned = (rtPipeline.groupHandleSize % rtProperties.shaderGroupBaseAlignment == 0) ? rtPipeline.groupHandleSize : ((rtPipeline.groupHandleSize / rtProperties.shaderGroupBaseAlignment + 1) * rtProperties.shaderGroupBaseAlignment);
+		uint sbtSize = groupCount * rtPipeline.groupSizeAligned;
+		rtPipeline.recordSize = rtPipeline.groupSizeAligned;
+		Vector!byte shaderHandleStorage = Vector!byte(sbtSize);
+
+		PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR = cast(PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		writeln("test: ", pfnGetRayTracingShaderGroupHandlesKHR(device.device, rtPipeline.rtPipeline, 0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr));
+
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+		rtPipeline.sbRayGen = AllocatedResource!Buffer(device.createBuffer(0, rtPipeline.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipeline.sbRayGen, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+		rtPipeline.sbMiss = AllocatedResource!Buffer(device.createBuffer(0, rtPipeline.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipeline.sbMiss, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+		rtPipeline.sbHit = AllocatedResource!Buffer(device.createBuffer(0, rtPipeline.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipeline.sbHit, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+
+		Memory* memory = &cast(Memory) rtPipeline.sbRayGen.allocatedMemory.allocatorList.memory;
+		byte* byteptr = cast(byte*) memory.map(rtPipeline.sbRayGen.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned);
+		foreach (j; 0 .. rtPipeline.groupHandleSize) {
+			byteptr[j] = shaderHandleStorage[0 * rtPipeline.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbRayGen.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned)));
+		memory.unmap();
+
+		memory = &cast(Memory) rtPipeline.sbMiss.allocatedMemory.allocatorList.memory;
+		byteptr = cast(byte*) memory.map(rtPipeline.sbMiss.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned);
+		foreach (j; 0 .. rtPipeline.groupHandleSize) {
+			byteptr[j] = shaderHandleStorage[1 * rtPipeline.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbMiss.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned)));
+		memory.unmap();
+
+		memory = &cast(Memory) rtPipeline.sbHit.allocatedMemory.allocatorList.memory;
+		byteptr = cast(byte*) memory.map(rtPipeline.sbHit.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned);
+		foreach (j; 0 .. rtPipeline.groupHandleSize) {
+			byteptr[j] = shaderHandleStorage[2 * rtPipeline.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbHit.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned)));
+		memory.unmap();
 	}
 	void initVulkan() {
 		version(Windows) {
@@ -751,7 +811,7 @@ struct TestApp(ECS) {
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			0, [], [],
 			array(imageMemoryBarrier(
 				0,
@@ -762,7 +822,37 @@ struct TestApp(ECS) {
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
 		);
-		//writeln(passedTime);
+
+		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
+		rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
+			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
+			WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+		));
+		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
+
+		PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+
+		VkStridedDeviceAddressRegionKHR rayGenRegion;
+		rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress();
+		rayGenRegion.size = rtPipeline.groupHandleSize;
+		rayGenRegion.stride = rtPipeline.groupHandleSize;
+
+		VkStridedDeviceAddressRegionKHR missRegion;
+		missRegion.deviceAddress = rtPipeline.sbMiss.getDeviceAddress();
+		missRegion.size = rtPipeline.groupHandleSize;
+		missRegion.stride = rtPipeline.groupHandleSize;
+
+		VkStridedDeviceAddressRegionKHR hitRegion;
+		hitRegion.deviceAddress = rtPipeline.sbHit.getDeviceAddress();
+		hitRegion.size = rtPipeline.groupHandleSize * 1;
+		hitRegion.stride = rtPipeline.groupHandleSize;
+
+		VkStridedDeviceAddressRegionKHR callableRegion;
+
+		pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+
+		/*
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
 		descriptorSet.write(array!VkWriteDescriptorSet(
 			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
@@ -776,8 +866,10 @@ struct TestApp(ECS) {
 		int borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
 		int borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
 		cmdBuffer.dispatch(capabilities.currentExtent.width / localWorkGroupSize[0] + borderX, capabilities.currentExtent.height / localWorkGroupSize[1] + borderY, 1);
+		*/
+
 		cmdBuffer.pipelineBarrier(
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, [], [],
 			array(imageMemoryBarrier(

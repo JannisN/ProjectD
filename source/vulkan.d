@@ -188,6 +188,9 @@ struct PhysicalDevice {
 		result = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.ptr);
 		return formats;
 	}
+	void getProperties(VkPhysicalDeviceProperties2* properties) {
+		vkGetPhysicalDeviceProperties2(physicalDevice, properties);
+	}
 	Result result;
 	VkPhysicalDevice physicalDevice;
 	alias physicalDevice this;
