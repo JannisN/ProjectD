@@ -603,6 +603,10 @@ struct Device {
 	AccelerationStructure createAccelerationStructure(VkAccelerationStructureTypeKHR type, VkDeviceSize size, VkDeviceSize offset, VkBuffer buffer, VkAccelerationStructureCreateFlagsKHR createFlags) {
 		return AccelerationStructure(this, type, size, offset, buffer, createFlags);
 	}
+	RayTracingPipeline createRayTracingPipeline(VkPipelineShaderStageCreateInfo[] stages, VkRayTracingShaderGroupCreateInfoKHR[] groups, uint maxPipelineRayRecursionDepth, VkPipelineLayout layout, VkDeferredOperationKHR defOp, VkPipelineCache pipelineCache) {
+		return RayTracingPipeline(this, stages, groups, maxPipelineRayRecursionDepth, layout, defOp, pipelineCache);
+	}
+
 	VkAccelerationStructureBuildSizesInfoKHR getAccelerationStructureBuildSizesKHR(VkAccelerationStructureBuildTypeKHR buildType, const(VkAccelerationStructureBuildGeometryInfoKHR)* pBuildInfo, const(uint)* pMaxPrimitiveCounts) {
 		PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetAccelerationStructureBuildSizesKHR = cast(PFN_vkGetAccelerationStructureBuildSizesKHR)(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
 		VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
@@ -636,6 +640,19 @@ struct Device {
 	void destroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure) {
 		PFN_vkDestroyAccelerationStructureKHR pfnDestroyAccelerationStructureKHR = cast(PFN_vkDestroyAccelerationStructureKHR)(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
 		pfnDestroyAccelerationStructureKHR(device, accelerationStructure, null);
+	}
+
+	VkResult createRayTracingPipelinesKHR(VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, VkRayTracingPipelineCreateInfoKHR[] createInfos, VkPipeline* pipelines) {
+		PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+		return pfnCreateRayTracingPipelinesKHR(device, deferredOperation, pipelineCache, cast(uint)createInfos.length, createInfos.ptr, null, pipelines);
+	}
+	VkResult getRayTracingShaderGroupHandlesKHR(VkPipeline pipeline, uint firstGroup, uint groupCount, size_t dataSize, void* data) {
+		PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR = cast(PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		return pfnGetRayTracingShaderGroupHandlesKHR(device, pipeline, firstGroup, groupCount, dataSize, data);
+	}
+	void cmdTraceRaysKHR(VkCommandBuffer commandBuffer, const(VkStridedDeviceAddressRegionKHR)* pRaygenShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pMissShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pHitShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pCallableShaderBindingTable, uint width, uint height, uint depth) {
+		PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+		pfnCmdTraceRaysKHR(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth);
 	}
 	Result result;
 	VkDevice device;
@@ -1072,6 +1089,9 @@ struct CommandBuffer {
 	}
 	void buildAccelerationStructures(VkAccelerationStructureBuildGeometryInfoKHR[] infos, VkAccelerationStructureBuildRangeInfoKHR*[] buildRangeInfos) {
 		commandPool.device.cmdBuildAccelerationStructuresKHR(commandBuffer, cast(uint) infos.length, infos.ptr, buildRangeInfos.ptr);
+	}
+	void traceRays(const(VkStridedDeviceAddressRegionKHR)* pRaygenShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pMissShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pHitShaderBindingTable, const(VkStridedDeviceAddressRegionKHR)* pCallableShaderBindingTable, uint width, uint height, uint depth) {
+		commandPool.device.cmdTraceRaysKHR(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth);
 	}
 	Result result;
 	VkCommandBuffer commandBuffer;
@@ -2886,6 +2906,33 @@ struct AccelerationStructure {
 	Device* device;
 	VkAccelerationStructureKHR accelerationStructure;
 	alias accelerationStructure this;
+}
+
+struct RayTracingPipeline {
+	this(ref Device device, VkPipelineShaderStageCreateInfo[] stages, VkRayTracingShaderGroupCreateInfoKHR[] groups, uint maxPipelineRayRecursionDepth, VkPipelineLayout layout, VkDeferredOperationKHR defOp, VkPipelineCache pipelineCache) {
+		this.device = &device;
+		VkRayTracingPipelineCreateInfoKHR rtpci;
+		rtpci.sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+		rtpci.stageCount = cast(uint) stages.length;
+		rtpci.pStages = stages.ptr;
+		rtpci.groupCount = cast(uint) groups.length;
+		rtpci.pGroups = groups.ptr;
+		rtpci.maxPipelineRayRecursionDepth = maxPipelineRayRecursionDepth;
+		rtpci.layout = layout;
+		result = device.createRayTracingPipelinesKHR(defOp, pipelineCache, array(rtpci), &pipeline);
+	}
+	@disable this(ref return scope RayTracingPipeline rhs);
+	~this() {
+		if (pipeline != null)
+			vkDestroyPipeline(device.device, pipeline, null);
+	}
+	VkResult getShaderGroupHandles(uint firstGroup, uint groupCount, size_t dataSize, void* data) {
+		return result = device.getRayTracingShaderGroupHandlesKHR(pipeline, firstGroup, groupCount, dataSize, data);
+	}
+	Result result;
+	Device* device;
+	VkPipeline pipeline;
+	alias pipeline this;
 }
 
 // ----------------------------------------------------------

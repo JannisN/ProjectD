@@ -231,7 +231,8 @@ struct TestApp(ECS) {
 		Shader raygenShader;
 		Shader missShader;
 		Shader closesthitShader;
-		VkPipeline rtPipeline;
+		//VkPipeline rtPipeline;
+		RayTracingPipeline rtPipeline;
 		DescriptorSetLayout descriptorSetLayout;
 		DescriptorPool descriptorPool;
 		DescriptorSet descriptorSet;
@@ -320,7 +321,7 @@ struct TestApp(ECS) {
 		);
 		rtPipeline.descriptorSet = rtPipeline.descriptorPool.allocateSet(rtPipeline.descriptorSetLayout);
 
-		PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+		/*PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 
 		VkRayTracingPipelineCreateInfoKHR rtpci;
 		rtpci.sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
@@ -331,7 +332,8 @@ struct TestApp(ECS) {
 		rtpci.maxPipelineRayRecursionDepth = 1;
 		rtpci.layout = rtPipeline.pipelineLayout;
 
-		writeln("test: ", pfnCreateRayTracingPipelinesKHR(device.device, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE, 1, &rtpci, null, &rtPipeline.rtPipeline));
+		writeln("test: ", pfnCreateRayTracingPipelinesKHR(device.device, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE, 1, &rtpci, null, &rtPipeline.rtPipeline));*/
+		rtPipeline.rtPipeline = device.createRayTracingPipeline(pssci, rtsgci, 1, rtPipeline.pipelineLayout, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE);
 
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
 		rtProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -347,8 +349,9 @@ struct TestApp(ECS) {
 		rtPipeline.recordSize = rtPipeline.groupSizeAligned;
 		Vector!byte shaderHandleStorage = Vector!byte(sbtSize);
 
-		PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR = cast(PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
-		writeln("test: ", pfnGetRayTracingShaderGroupHandlesKHR(device.device, rtPipeline.rtPipeline, 0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr));
+		/*PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR = cast(PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		writeln("test: ", pfnGetRayTracingShaderGroupHandlesKHR(device.device, rtPipeline.rtPipeline, 0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr));*/
+		rtPipeline.rtPipeline.getShaderGroupHandles(0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr);
 
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
@@ -831,7 +834,7 @@ struct TestApp(ECS) {
 		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
 
-		PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+		//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
 		VkStridedDeviceAddressRegionKHR rayGenRegion;
 		rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress();
@@ -850,7 +853,8 @@ struct TestApp(ECS) {
 
 		VkStridedDeviceAddressRegionKHR callableRegion;
 
-		pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		//pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 
 		/*
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
