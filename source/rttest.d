@@ -9,6 +9,7 @@ import ecs;
 import png;
 import font;
 import ecs2;
+import wavefront;
 
 // todo:
 // getcomponents sollte virtualcomponents zurückgeben(das heisst neue iterator struct)
@@ -65,12 +66,17 @@ struct TestApp(ECS) {
 		AllocatedResource!Buffer scratchBuffer2;
 	}
 	void initAccelStructure() {
-		float[9] vertices = [
+		enum string wavefrontCode = import("model.obj");
+		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
+
+		/*float[9] vertices = [
 			0.0, 0.0, 10.0,
 			1.0, 1.0, 10.0,
 			0.0, 1.0, 10.0,
 		];
-		uint[3] indices = [ 0, 1, 2 ];
+		uint[3] indices = [ 0, 1, 2 ];*/
+		float[] vertices = wavefrontModel.vertices;
+		uint[] indices = wavefrontModel.indicesVertices;
 
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
@@ -108,7 +114,7 @@ struct TestApp(ECS) {
 		triangles.indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
 		triangles.indexData.deviceAddress = indexBufferAddress; // hier ebenso
 		//triangles.indexData.hostAddress = cast(void*)indices.ptr;
-		triangles.maxVertex = 3; //cast(uint) vertices.length - 1;//oder 2?
+		triangles.maxVertex = cast(uint) vertices.length / 3; //3; //cast(uint) vertices.length - 1;//oder 2?
 		// triangles.transformData, no transform
 
 		VkAccelerationStructureGeometryKHR geometry;
@@ -119,7 +125,7 @@ struct TestApp(ECS) {
 
 		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
 		rangeInfo.firstVertex = 0;
-		rangeInfo.primitiveCount = 1;//cast(uint) (indices.length / 3);
+		rangeInfo.primitiveCount = cast(uint) (indices.length / 3);
 		rangeInfo.primitiveOffset = 0;
 		rangeInfo.transformOffset = 0;
 

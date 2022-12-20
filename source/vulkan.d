@@ -3177,7 +3177,7 @@ void main0() {
 	//queue.present([], array!VkSwapchainKHR(swapchain), array(imageIndex));
 	queue.present(swapchain, imageIndex);
 	auto testarray123 = array(swapchain);
-	pragma(msg, typeof(testarray123));
+	//pragma(msg, typeof(testarray123));
 	fence.wait();
 
 	auto renderPass = device.createRenderPass(
