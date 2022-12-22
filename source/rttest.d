@@ -52,9 +52,18 @@ struct TestApp(ECS) {
 	}
 	void receive(WindowResizeEvent event) {
 	}
+	struct AddressBuffers {
+		ulong vertices;
+		ulong indices;
+		ulong normals;
+		ulong normalIndices;
+	}
 	struct AccelStruct {
 		AllocatedResource!Buffer vertexBuffer;
 		AllocatedResource!Buffer indexBuffer;
+		AllocatedResource!Buffer normalBuffer;
+		AllocatedResource!Buffer normalIndexBuffer;
+		AllocatedResource!Buffer addressBuffer;
 		AllocatedResource!Buffer blasBuffer;
 		//VkAccelerationStructureKHR blas;
 		AccelerationStructure blas;
@@ -95,15 +104,56 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 		memory = &cast(Memory) accelStruct.indexBuffer.allocatedMemory.allocatorList.memory;
-		uint* intptr = cast(uint*) memory.map(accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof);
+		uint* intptr = cast(uint*) memory.map(accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof);
 		foreach (j, uint f; indices) {
 			intptr[j] = f;
 		}
-		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof)));
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.indexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof)));
+		memory.unmap();
+
+		float[] normals = wavefrontModel.normals;
+		uint[] normalIndices = wavefrontModel.indicesNormals;
+
+		accelStruct.normalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normals.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
+		memoryAllocator.allocate(accelStruct.normalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		accelStruct.normalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
+		memoryAllocator.allocate(accelStruct.normalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+
+		memory = &cast(Memory) accelStruct.normalBuffer.allocatedMemory.allocatorList.memory;
+		floatptr = cast(float*) memory.map(accelStruct.normalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof);
+		foreach (j, float f; normals) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.normalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof)));
+		memory.unmap();
+
+		memory = &cast(Memory) accelStruct.normalIndexBuffer.allocatedMemory.allocatorList.memory;
+		intptr = cast(uint*) memory.map(accelStruct.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof);
+		foreach (j, uint f; normalIndices) {
+			intptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
 		memory.unmap();
 
 		VkDeviceAddress vertexBufferAddress = accelStruct.vertexBuffer.getDeviceAddress();
 		VkDeviceAddress indexBufferAddress = accelStruct.indexBuffer.getDeviceAddress();
+		VkDeviceAddress normalBufferAddress = accelStruct.normalBuffer.getDeviceAddress();
+		VkDeviceAddress normalIndexBufferAddress = accelStruct.normalIndexBuffer.getDeviceAddress();
+
+		AddressBuffers[1] addressBuffers;
+		addressBuffers[0].vertices = vertexBufferAddress;
+		addressBuffers[0].indices = indexBufferAddress;
+		addressBuffers[0].normals = normalBufferAddress;
+		addressBuffers[0].normalIndices = normalIndexBufferAddress;
+		accelStruct.addressBuffer = AllocatedResource!Buffer(device.createBuffer(0, addressBuffers.length * AddressBuffers.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
+		memoryAllocator.allocate(accelStruct.addressBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		memory = &cast(Memory) accelStruct.addressBuffer.allocatedMemory.allocatorList.memory;
+		byte* byteptr2 = cast(byte*) memory.map(accelStruct.addressBuffer.allocatedMemory.allocation.offset, addressBuffers.length * AddressBuffers.sizeof);
+		foreach (i; 0 .. addressBuffers.length * AddressBuffers.sizeof) {
+			byteptr2[i] = (cast(byte*)addressBuffers.ptr)[i];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.addressBuffer.allocatedMemory.allocation.offset, addressBuffers.length * AddressBuffers.sizeof)));
+		memory.unmap();
 
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles;
 		triangles.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
