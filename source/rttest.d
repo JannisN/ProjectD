@@ -75,7 +75,7 @@ struct TestApp(ECS) {
 		AllocatedResource!Buffer scratchBuffer2;
 	}
 	void initAccelStructure() {
-		enum string wavefrontCode = import("model.obj");
+		enum string wavefrontCode = import("model2.obj");
 		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
 
 		/*float[9] vertices = [
@@ -114,9 +114,9 @@ struct TestApp(ECS) {
 		float[] normals = wavefrontModel.normals;
 		uint[] normalIndices = wavefrontModel.indicesNormals;
 
-		accelStruct.normalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normals.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
+		accelStruct.normalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normals.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(accelStruct.normalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
-		accelStruct.normalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
+		accelStruct.normalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(accelStruct.normalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
 
 		memory = &cast(Memory) accelStruct.normalBuffer.allocatedMemory.allocatorList.memory;
@@ -145,8 +145,8 @@ struct TestApp(ECS) {
 		addressBuffers[0].indices = indexBufferAddress;
 		addressBuffers[0].normals = normalBufferAddress;
 		addressBuffers[0].normalIndices = normalIndexBufferAddress;
-		accelStruct.addressBuffer = AllocatedResource!Buffer(device.createBuffer(0, addressBuffers.length * AddressBuffers.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
-		memoryAllocator.allocate(accelStruct.addressBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
+		accelStruct.addressBuffer = AllocatedResource!Buffer(device.createBuffer(0, addressBuffers.length * AddressBuffers.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		memoryAllocator.allocate(accelStruct.addressBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		memory = &cast(Memory) accelStruct.addressBuffer.allocatedMemory.allocatorList.memory;
 		byte* byteptr2 = cast(byte*) memory.map(accelStruct.addressBuffer.allocatedMemory.allocation.offset, addressBuffers.length * AddressBuffers.sizeof);
 		foreach (i; 0 .. addressBuffers.length * AddressBuffers.sizeof) {
@@ -360,6 +360,12 @@ struct TestApp(ECS) {
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 			null
+		), VkDescriptorSetLayoutBinding(
+			2,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			null
 		)));
 		rtPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(
 			VkDescriptorPoolSize(
@@ -368,6 +374,10 @@ struct TestApp(ECS) {
 			),
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 				1
 			)
 		));
@@ -886,6 +896,7 @@ struct TestApp(ECS) {
 		rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
 			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
 			WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, accelStruct.addressBuffer),
 		));
 		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
