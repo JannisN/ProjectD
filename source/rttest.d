@@ -163,8 +163,8 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 		Aabb[1] aabb;
-		aabb[0].min = array(-20.0f, -20.0f, -8.0f);
-		aabb[0].max = array(20.0f, 20.0f, 8.0f);
+		aabb[0].min = array(-0.0f, -0.0f, -8.0f);
+		aabb[0].max = array(2.0f, 1.0f, 1.0f);
 		accelStruct.aabbBuffer = AllocatedResource!Buffer(device.createBuffer(0, aabb.length * Aabb.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(accelStruct.aabbBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
 		memory = &cast(Memory) accelStruct.aabbBuffer.allocatedMemory.allocatorList.memory;
@@ -264,7 +264,7 @@ struct TestApp(ECS) {
 
 		cmdBuffer.begin();
 		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], (&rangeInfoPtr)[0..1]);
-		//cmdBuffer.buildAccelerationStructures((&aabbBuildInfo)[0..1], (&aabbRangeInfoPtr)[0..1]);
+		cmdBuffer.buildAccelerationStructures((&aabbBuildInfo)[0..1], (&aabbRangeInfoPtr)[0..1]);
 		cmdBuffer.end();
 		writeln("result: ", queue.submit(cmdBuffer, fence));
 		writeln("result: ", fence.wait());
