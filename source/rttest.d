@@ -80,6 +80,11 @@ struct TestApp(ECS) {
 		AllocatedResource!Buffer tlasBuffer;
 		AccelerationStructure tlas;
 		AllocatedResource!Buffer scratchBuffer2;
+
+		VkAccelerationStructureGeometryKHR geometry2;
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo2;
+		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr2;
 	}
 	void initAccelStructure() {
 		enum string wavefrontCode = import("model2.wobj");
@@ -163,8 +168,8 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 		Aabb[1] aabb;
-		aabb[0].min = array(-0.0f, -0.0f, -8.0f);
-		aabb[0].max = array(2.0f, 1.0f, 1.0f);
+		aabb[0].min = array(-0.0f, -0.0f, -1.0f);
+		aabb[0].max = array(2.0f, 2.0f, 1.0f);
 		accelStruct.aabbBuffer = AllocatedResource!Buffer(device.createBuffer(0, aabb.length * Aabb.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR));
 		memoryAllocator.allocate(accelStruct.aabbBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, flagsInfo);
 		memory = &cast(Memory) accelStruct.aabbBuffer.allocatedMemory.allocatorList.memory;
@@ -329,10 +334,10 @@ struct TestApp(ECS) {
 		instancesData.arrayOfPointers = VK_FALSE;
 		instancesData.data.deviceAddress = accelStruct.instanceBuffer.getDeviceAddress();
 
-		VkAccelerationStructureGeometryKHR geometry2;
-		geometry2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		geometry2.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		geometry2.geometry.instances = instancesData;
+		//VkAccelerationStructureGeometryKHR geometry2;
+		accelStruct.geometry2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		accelStruct.geometry2.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		accelStruct.geometry2.geometry.instances = instancesData;
 
 		/*VkAccelerationStructureGeometryInstancesDataKHR aabbInstancesData;
 		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -343,38 +348,38 @@ struct TestApp(ECS) {
 		geometry2[1].geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
 		geometry2[1].geometry.instances = aabbInstancesData;*/
 
-		VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
-		buildInfo2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		buildInfo2.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-		buildInfo2.geometryCount = 1;
-		buildInfo2.pGeometries = &geometry2;
-		buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-		buildInfo2.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		//VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
+		accelStruct.buildInfo2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		accelStruct.buildInfo2.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelStruct.buildInfo2.geometryCount = 1;
+		accelStruct.buildInfo2.pGeometries = &accelStruct.geometry2;
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelStruct.buildInfo2.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		accelStruct.buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
 
-		VkAccelerationStructureBuildRangeInfoKHR rangeInfo2;
-		rangeInfo2.firstVertex = 0;
-		rangeInfo2.primitiveCount = 2;
-		rangeInfo2.primitiveOffset = 0;
-		rangeInfo2.transformOffset = 0;
+		//VkAccelerationStructureBuildRangeInfoKHR rangeInfo2;
+		accelStruct.rangeInfo2.firstVertex = 0;
+		accelStruct.rangeInfo2.primitiveCount = 2;
+		accelStruct.rangeInfo2.primitiveOffset = 0;
+		accelStruct.rangeInfo2.transformOffset = 0;
 
 		VkAccelerationStructureBuildSizesInfoKHR sizeInfo2 = device.getAccelerationStructureBuildSizesKHR(
 			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-			&buildInfo2,
-			&rangeInfo2.primitiveCount
+			&accelStruct.buildInfo2,
+			&accelStruct.rangeInfo2.primitiveCount
 		);
 		accelStruct.tlasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
 		memoryAllocator.allocate(accelStruct.tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		accelStruct.tlas = device.createAccelerationStructure(buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
+		accelStruct.tlas = device.createAccelerationStructure(accelStruct.buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
 
-		buildInfo2.dstAccelerationStructure = accelStruct.tlas;
+		accelStruct.buildInfo2.dstAccelerationStructure = accelStruct.tlas;
 		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
 		memoryAllocator.allocate(accelStruct.scratchBuffer2, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
-		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr2 = &rangeInfo2;
+		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
+		accelStruct.rangeInfoPtr2 = &accelStruct.rangeInfo2;
 
 		cmdBuffer.begin();
-		cmdBuffer.buildAccelerationStructures((&buildInfo2)[0..1], (&rangeInfoPtr2)[0..1]);
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.end();
 		writeln("result: ", queue.submit(cmdBuffer, fence));
 		writeln("result: ", fence.wait());
@@ -1049,6 +1054,20 @@ struct TestApp(ECS) {
 		//pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 
+		import std.math.trigonometry;
+		VkTransformMatrixKHR transformMatrix2;
+		transformMatrix2.matrix = [
+			[1.0f, 0.0f, 0.0f, sin(passedTime)],
+			[0.0f, 1.0f, 0.0f, sin(passedTime)],
+			[0.0f, 0.0f, 1.0f, sin(passedTime)],
+		];
+		Memory* memory = &cast(Memory) accelStruct.instanceBuffer.allocatedMemory.allocatorList.memory;
+		VkAccelerationStructureInstanceKHR* instanceptr = cast(VkAccelerationStructureInstanceKHR*) memory.map(accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof);
+		instanceptr[1].transform = transformMatrix2;
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof)));
+		memory.unmap();
+
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		/*
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
 		descriptorSet.write(array!VkWriteDescriptorSet(
