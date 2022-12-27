@@ -82,7 +82,7 @@ struct TestApp(ECS) {
 		AllocatedResource!Buffer scratchBuffer2;
 	}
 	void initAccelStructure() {
-		enum string wavefrontCode = import("model2.obj");
+		enum string wavefrontCode = import("model2.wobj");
 		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
 
 		/*float[9] vertices = [
