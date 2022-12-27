@@ -67,7 +67,7 @@ struct WavefrontModel {
                 pos += numberLength + 1;
 
                 numberLength = 0;
-                while (wavefrontModel[pos + numberLength] != '\n') {
+                while (wavefrontModel[pos + numberLength] != '\n' && wavefrontModel[pos + numberLength] != '\r') {
                     numberLength++;
                 }
                 vertices[vertexId] = to!float(wavefrontModel[pos .. pos + numberLength]);
@@ -96,7 +96,7 @@ struct WavefrontModel {
                 pos += numberLength + 1;
 
                 numberLength = 0;
-                while (wavefrontModel[pos + numberLength] != '\n') {
+                while (wavefrontModel[pos + numberLength] != '\n' && wavefrontModel[pos + numberLength] != '\r') {
                     numberLength++;
                 }
                 normals[normalId] = to!float(wavefrontModel[pos .. pos + numberLength]);
@@ -116,7 +116,7 @@ struct WavefrontModel {
                 pos += numberLength + 1;
 
                 numberLength = 0;
-                while (wavefrontModel[pos + numberLength] != '\n') {
+                while (wavefrontModel[pos + numberLength] != '\n' && wavefrontModel[pos + numberLength] != '\r') {
                     numberLength++;
                 }
                 uvs[uvId] = to!float(wavefrontModel[pos .. pos + numberLength]);
@@ -197,7 +197,7 @@ struct WavefrontModel {
                 pos += numberLength + 1;
 
                 numberLength = 0;
-                while (wavefrontModel[pos + numberLength] != '\n') {
+                while (wavefrontModel[pos + numberLength] != '\n' && wavefrontModel[pos + numberLength] != '\r') {
                     numberLength++;
                 }
                 indicesNormals[indexId] = to!uint(wavefrontModel[pos .. pos + numberLength]) - 1;
