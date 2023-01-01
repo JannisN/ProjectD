@@ -7,7 +7,14 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
 
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+struct RayPayload {
+    vec3 colour;
+    vec3 pos;
+    vec3 normal;
+    int hitType;
+};
+
+layout(location = 0) rayPayloadInEXT RayPayload hitValue;
 
 void main() {
     vec4 origin4 = vec4(1, 1, -0, 1);
@@ -17,5 +24,10 @@ void main() {
     //hitValue = vec3(0.0, 1.0, 1.0);
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, normalize(worldPos - origin));
-    hitValue = vec3(dotProduct, dotProduct, dotProduct);
+    RayPayload hitValue2;
+    hitValue2.colour = vec3(dotProduct, dotProduct, dotProduct);
+    hitValue2.pos = worldPos;
+    hitValue2.normal = normalize(worldPos - origin);
+    hitValue2.hitType = 2;
+    hitValue = hitValue2;
 }

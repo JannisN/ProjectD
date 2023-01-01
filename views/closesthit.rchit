@@ -7,7 +7,15 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference2 : require
 
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+struct RayPayload {
+    vec3 colour;
+    vec3 pos;
+    vec3 normal;
+    int hitType;
+};
+
+layout(location = 0) rayPayloadInEXT RayPayload hitValue;
+
 hitAttributeEXT vec3 attribs;
 
 struct AddressBuffers {
@@ -44,7 +52,12 @@ void main() {
 
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, N);
-    hitValue = vec3(dotProduct, dotProduct, dotProduct);
+    RayPayload hitValue2;
+    hitValue2.colour = barycentricCoords * dotProduct;//vec3(dotProduct, dotProduct, dotProduct);
+    hitValue2.pos = worldPos;
+    hitValue2.normal = N;
+    hitValue2.hitType = 1;
+    hitValue = hitValue2;
     //hitValue = barycentricCoords;
     //hitValue = exp(worldPos);
 }
