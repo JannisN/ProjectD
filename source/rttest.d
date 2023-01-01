@@ -350,7 +350,7 @@ struct TestApp(ECS) {
 
 		//VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
 		accelStruct.buildInfo2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		accelStruct.buildInfo2.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelStruct.buildInfo2.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 		accelStruct.buildInfo2.geometryCount = 1;
 		accelStruct.buildInfo2.pGeometries = &accelStruct.geometry2;
 		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
@@ -385,6 +385,10 @@ struct TestApp(ECS) {
 		writeln("result: ", fence.wait());
 		cmdBuffer.reset();
 		fence.reset();
+
+		// für update
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+		accelStruct.buildInfo2.srcAccelerationStructure = accelStruct.tlas;
 	}
 	struct RtPipeline {
 		Shader raygenShader;
@@ -963,6 +967,7 @@ struct TestApp(ECS) {
 		}
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
 		if (swapchain.result.result != VkResult.VK_SUCCESS) {
+			fence.wait();
 			fence.reset();
 			rebuildSwapchain();
 			return;
@@ -1006,11 +1011,30 @@ struct TestApp(ECS) {
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
 		
+		import std.math.trigonometry;
+		VkTransformMatrixKHR transformMatrix2;
+		transformMatrix2.matrix = [
+			[1.0f, 0.0f, 0.0f, sin(passedTime)],
+			[0.0f, 1.0f, 0.0f, sin(passedTime)],
+			[0.0f, 0.0f, 1.0f, sin(passedTime)],
+		];
+		Memory* memory = &cast(Memory) accelStruct.instanceBuffer.allocatedMemory.allocatorList.memory;
+		VkAccelerationStructureInstanceKHR* instanceptr = cast(VkAccelerationStructureInstanceKHR*) memory.map(accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof);
+		instanceptr[1].transform = transformMatrix2;
+		memory.flush(array(mappedMemoryRange(*memory, accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof)));
+		memory.unmap();
+		
 		cmdBuffer.begin();
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			0, [], [],
+			0, [],
+			array(bufferMemoryBarrier(
+				0,
+				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+				accelStruct.tlasBuffer
+			)),
 			array(imageMemoryBarrier(
 				0,
 				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
@@ -1054,20 +1078,7 @@ struct TestApp(ECS) {
 		//pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 
-		import std.math.trigonometry;
-		VkTransformMatrixKHR transformMatrix2;
-		transformMatrix2.matrix = [
-			[1.0f, 0.0f, 0.0f, sin(passedTime)],
-			[0.0f, 1.0f, 0.0f, sin(passedTime)],
-			[0.0f, 0.0f, 1.0f, sin(passedTime)],
-		];
-		Memory* memory = &cast(Memory) accelStruct.instanceBuffer.allocatedMemory.allocatorList.memory;
-		VkAccelerationStructureInstanceKHR* instanceptr = cast(VkAccelerationStructureInstanceKHR*) memory.map(accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof);
-		instanceptr[1].transform = transformMatrix2;
-		memory.flush(array(mappedMemoryRange(*memory, accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof)));
-		memory.unmap();
 
-		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		/*
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
 		descriptorSet.write(array!VkWriteDescriptorSet(
@@ -1123,7 +1134,10 @@ struct TestApp(ECS) {
 		cmdBuffer.end();
 		
 		queue.submit(cmdBuffer, fence);
-		fence.wait();
+		VkResult testResult = fence.wait();
+		/*while (testResult != VkResult.VK_SUCCESS) {
+			testResult = fence.wait();
+		}*/
 		fence.reset();
 		auto submitResult = queue.present(swapchain, imageIndex);
 		if (submitResult != VkResult.VK_SUCCESS) {

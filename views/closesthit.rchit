@@ -12,6 +12,7 @@ struct RayPayload {
     vec3 pos;
     vec3 normal;
     int hitType;
+    vec3 radiance;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload hitValue;
@@ -53,10 +54,11 @@ void main() {
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, N);
     RayPayload hitValue2;
-    hitValue2.colour = barycentricCoords * dotProduct;//vec3(dotProduct, dotProduct, dotProduct);
+    hitValue2.colour = vec3(1.0, 0.5, 0.5);//barycentricCoords;// * dotProduct;//vec3(dotProduct, dotProduct, dotProduct);
     hitValue2.pos = worldPos;
     hitValue2.normal = N;
     hitValue2.hitType = 1;
+    hitValue2.radiance = vec3(0);
     hitValue = hitValue2;
     //hitValue = barycentricCoords;
     //hitValue = exp(worldPos);
