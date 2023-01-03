@@ -22,6 +22,11 @@ vec3 sphereDistribution(float p1, float p2) {
     return vec3(1 - 2 * p1, cos(p2*2*3.14159265) * sqrt(1 - pow(1 - 2 * p1, 2)), sin(p2*2*3.14159265) * sqrt(1 - pow(1 - 2 * p1, 2)));
 }
 
+float rng2(int seed) {
+    int a = seed * 15485863;
+    return (a * a * a % 2038074743) / 2038074743.0;
+}
+
 void main() {
     vec3 pos = vec3(gl_LaunchIDEXT.x / 200.0 - 5.0, 5.0 - (gl_LaunchIDEXT.y / 200.0 - 0.2), -10.0);
 	float randomId = (gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) / (float(imageSize(image).x * imageSize(image).y)) * 153.24953;
@@ -51,7 +56,8 @@ void main() {
             miss = false;
             for (int i = 0; (i < pathLength) && !miss; i++) {
                 vec3 hitPos = hitValue.pos;
-                vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, i + j * 2 * pathLength), noise3D(randomId, seed, pathLength + i + j * 2 * pathLength));
+                vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + pathLength + i + j * 2 * pathLength)));
+                //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, i + j * 2 * pathLength), noise3D(randomId, seed, pathLength + i + j * 2 * pathLength));
                 vec3 newDir = normalize(randomNormal + hitValue.normal);
                 attenuation = attenuation * hitValue.colour;
                 traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, hitPos, tmin, newDir, tmax, 0);
@@ -65,6 +71,7 @@ void main() {
         radiance *= repeats;
     }
     imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(radiance / float(repeats), 0.0));
+    //imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x)))), 0.0));
 
     /*if (hitValue.hitType == 2) {
         vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, 0), noise3D(randomId, seed, 1));
