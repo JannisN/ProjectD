@@ -1,0 +1,50 @@
+#version 460
+
+layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
+
+layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
+layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
+layout (set = 0, binding = 2, rgba8) uniform image2D normalImage;
+layout (set = 0, binding = 3, rgba8) uniform image2D depthImage;
+
+void main() {
+	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	/*const float side = 1;//exp(-1/1);
+	const float corner = 1;//exp(-2/1);
+	vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	//colour.x = 1 - colour.x;
+	colour += side * (vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x + 1), int(gl_GlobalInvocationID.y))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y + 1))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x - 1), int(gl_GlobalInvocationID.y))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y - 1)))));
+	colour += corner * (vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x + 1), int(gl_GlobalInvocationID.y + 1))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x - 1), int(gl_GlobalInvocationID.y + 1))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x + 1), int(gl_GlobalInvocationID.y - 1))))
+	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x - 1), int(gl_GlobalInvocationID.y - 1)))));
+	colour /= (1.0 + 4.0 * (side + corner));*/
+
+	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
+	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
+
+	vec4 colour = vec4(0);
+	int radius = 5;
+	int count = 0;
+	int length = 2 * radius + 1;
+	for (int i = -radius; i <= radius; i++) {
+		for (int j = -radius; j <= radius; j++) {
+			vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
+			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
+			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+			if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+				colour += vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
+				count++;
+			}
+		}
+	}
+	colour /= count;
+	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+}
