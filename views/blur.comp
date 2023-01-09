@@ -23,7 +23,7 @@ void main() {
 	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x - 1), int(gl_GlobalInvocationID.y - 1)))));
 	colour /= (1.0 + 4.0 * (side + corner));*/
 
-	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	/*vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
 	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
@@ -46,5 +46,10 @@ void main() {
 	}
 	colour /= count;
 	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);*/
+	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));
+	ivec2 coordsOffset = ivec2(imageSize(texelBuffer).x, imageSize(texelBuffer).y / 3);
+	ivec2 coords = coordsOffset + ivec2(int(gl_GlobalInvocationID.x) / 9, int(gl_GlobalInvocationID.y) / 9);
+	vec4 colour = vec4(imageLoad(texelBuffer2, coords));
 	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 }

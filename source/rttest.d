@@ -835,6 +835,35 @@ struct TestApp(ECS) {
 		)));*/
 		descriptorSet = descriptorPool.allocateSet(descriptorSetLayout);
 		descriptorSet2 = descriptorPool.allocateSet(descriptorSetLayout);
+
+		enum string blur2Source = import("blur2.spv");
+		blurPipeline.computeShader = Shader(device, blur2Source);
+		blurPipeline.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			1,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			2,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		)));
+		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4)));
+		blurPipeline.computePipeline = device.createComputePipeline(blurPipeline.computeShader, "main", blurPipeline.pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
+		blurPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			3
+		)));
+		blurPipeline.descriptorSet = blurPipeline.descriptorPool.allocateSet(blurPipeline.descriptorSetLayout);
 	}
 	void rebuildSwapchain() {
 		vkDeviceWaitIdle(device.device);
@@ -999,7 +1028,11 @@ struct TestApp(ECS) {
 			pipelineLayoutGraphics
 		);
 
-		blurredImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		uint extendedWidth = capabilities.currentExtent.width + capabilities.currentExtent.width / 3;
+		if (capabilities.currentExtent.width % 3 != 0) {
+			extendedWidth++;
+		}
+		blurredImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		memoryAllocator.allocate(blurredImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		blurredImageView = ImageView(
 			device,
@@ -1020,7 +1053,7 @@ struct TestApp(ECS) {
 				1
 			)
 		);
-		normalImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		normalImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		memoryAllocator.allocate(normalImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		normalImageView = ImageView(
 			device,
@@ -1041,7 +1074,7 @@ struct TestApp(ECS) {
 				1
 			)
 		);
-		depthImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+		depthImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		memoryAllocator.allocate(depthImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		depthImageView = ImageView(
 			device,
@@ -1215,14 +1248,130 @@ struct TestApp(ECS) {
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0, [], [],
-			array(imageMemoryBarrier(
-				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-				VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
-				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-				blurredImage,
-				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-			))
+			array(
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					blurredImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					normalImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					depthImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+			)
+		);
+
+		blurPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
+			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+			WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+		));
+		cmdBuffer.bindPipeline(blurPipeline.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
+		uint[4] pushConstants;
+		pushConstants[0] = 0;
+		pushConstants[1] = 0;
+		pushConstants[2] = capabilities.currentExtent.width;
+		pushConstants[3] = 0;
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, blurPipeline.pipelineLayout, 0, array(blurPipeline.descriptorSet), []);
+		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4, pushConstants.ptr);
+		uint compressedX = capabilities.currentExtent.width / 3;// + ((capabilities.currentExtent.width % 3 == 0) ? 0 : 1);
+		uint compressedY = capabilities.currentExtent.height / 3;// + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
+		//uint compressedX = capabilities.currentExtent.width / 3 + ((capabilities.currentExtent.width % 3 == 0) ? 0 : 1);
+		//uint compressedY = capabilities.currentExtent.height / 3 + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
+		int borderX = compressedX % localWorkGroupSize[0] > 0 ? 1 : 0;
+		int borderY = compressedY % localWorkGroupSize[1] > 0 ? 1 : 0;
+		cmdBuffer.dispatch(compressedX / localWorkGroupSize[0] + borderX, compressedY / localWorkGroupSize[1] + borderY, 1);
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0, [], [],
+			array(
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					blurredImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					normalImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					depthImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+			)
+		);
+		uint[4] pushConstants2;
+		pushConstants2[0] = capabilities.currentExtent.width;
+		pushConstants2[1] = 0;
+		pushConstants2[2] = capabilities.currentExtent.width;
+		pushConstants2[3] = capabilities.currentExtent.height / 3;// + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
+		//pushConstants2[3] = capabilities.currentExtent.height / 3 + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
+		compressedX = compressedX / 3;// + ((compressedX % 3 == 0) ? 0 : 1);
+		compressedY = compressedY / 3;// + ((compressedY % 3 == 0) ? 0 : 1);
+		//compressedX = compressedX / 3 + ((compressedX % 3 == 0) ? 0 : 1);
+		//compressedY = compressedY / 3 + ((compressedY % 3 == 0) ? 0 : 1);
+		borderX = compressedX % localWorkGroupSize[0] > 0 ? 1 : 0;
+		borderY = compressedY % localWorkGroupSize[1] > 0 ? 1 : 0;
+		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4, pushConstants2.ptr);
+		cmdBuffer.dispatch(compressedX / localWorkGroupSize[0] + borderX, compressedY / localWorkGroupSize[1] + borderY, 1);
+
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0, [], [],
+			array(
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					blurredImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					normalImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					depthImage,
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+			)
 		);
 		descriptorSet.write(array!VkWriteDescriptorSet(
 			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
@@ -1236,8 +1385,8 @@ struct TestApp(ECS) {
 		));*/
 		cmdBuffer.bindPipeline(computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
-		int borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
-		int borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
+		borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
+		borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
 		cmdBuffer.dispatch(capabilities.currentExtent.width / localWorkGroupSize[0] + borderX, capabilities.currentExtent.height / localWorkGroupSize[1] + borderY, 1);
 
 		/*foreach (i; 0 .. 30) {
@@ -1424,6 +1573,16 @@ struct TestApp(ECS) {
 	ImageView normalImageView;
 	AllocatedResource!Image depthImage;
 	ImageView depthImageView;
+
+	struct ComputePackage {
+		Shader computeShader;
+		DescriptorSetLayout descriptorSetLayout;
+		PipelineLayout pipelineLayout;
+		ComputePipeline computePipeline;
+		DescriptorPool descriptorPool;
+		DescriptorSet descriptorSet;
+	}
+	ComputePackage blurPipeline;
 }
 
 struct Circle {
