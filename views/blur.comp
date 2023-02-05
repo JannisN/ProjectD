@@ -1,3 +1,5 @@
+// glslangValidator -V blur.comp -o blur.spv
+
 #version 460
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
@@ -6,6 +8,94 @@ layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
 layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
 layout (set = 0, binding = 2, rgba8) uniform image2D normalImage;
 layout (set = 0, binding = 3, rgba8) uniform image2D depthImage;
+
+const uint blurSize = 3;
+
+float sphereDistr(float x, float y) {
+	x = x * 2.0;
+	y = y * 2.0;
+	float yBackup = y;
+	if (y < 0.0) {
+		y = 0.0;
+	}
+	float invX = sqrt(1.0 - x * x);
+	float invY = sqrt(1.0 - y * y);
+	float res = (1.0 / 3.14159 * (0.5 * (y * invY + asin(invY)) - y * invY - 0.5 * (x * invX + asin(x)) + y * x));
+	if (yBackup < 0.0) {
+		y = -yBackup;
+		res *= 2.0;
+		//res += (1.0 / 3.14159 * (0.5 * (y * invY + asin(invY)) - y * invY - 0.5 * (x * invX + asin(x)) + y * x));
+		//y = 1.0 - y;
+		invY = sqrt(1.0 - y * y);
+		res -= (1.0 / 3.14159 * (0.5 * (y * invY + asin(invY)) - y * invY - 0.5 * (x * invX + asin(x)) + y * x));
+	}
+	return res;
+}
+
+vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
+	vec4 val = vec4(0);
+	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
+	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
+
+	vec4 normalIm2 = vec4(imageLoad(normalImage, coordsOffset + ivec2(n1X, n1Y)));
+	vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
+	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+
+	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+		val.a = 1.0;
+	} else {
+		int sampleCount = 0;
+		for (int i = 0; i < blurSize; i++) {
+			for (int j = 0; j < blurSize; j++) {
+				ivec2 newCoords = ivec2(n1X * blurSize + imageSize(texelBuffer).x + i, n1Y * blurSize + j);
+				normalIm2 = vec4(imageLoad(normalImage, newCoords));
+				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+				depthIm2 = vec4(imageLoad(depthImage, newCoords));
+				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+					sampleCount++;
+					val += vec4(imageLoad(texelBuffer2, newCoords));
+				} else {
+					//----------------------------------
+					vec4 val2 = vec4(0.0);
+					int sampleCount2 = 0;
+					for (int i2 = 0; i2 < blurSize; i2++) {
+						for (int j2 = 0; j2 < blurSize; j2++) {
+							ivec2 newCoords2 = ivec2((newCoords.x - imageSize(texelBuffer).x) * blurSize + i2, newCoords.y * blurSize + j2);
+							normalIm2 = vec4(imageLoad(normalImage, newCoords2));
+							normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+							depthIm2 = vec4(imageLoad(depthImage, newCoords2));
+							depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+							if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+								sampleCount2++;
+								val2 += vec4(imageLoad(texelBuffer2, newCoords2));
+							} 
+						}
+					}
+					if (sampleCount2 != 0) {
+						val += val2 / float(sampleCount2);
+						sampleCount++;
+					}
+					//----------------------------------
+				}
+			}
+		}
+		if (sampleCount != 0) {
+			val /= float(sampleCount);
+			val.a = 1.0;
+		}
+		else {
+			//val.a = 0.0;
+			val = vec4(0.0, 0.0, 1.0, 0.0);
+		}
+		//val = vec4(float(sampleCount) / 9.0);
+	}
+	return val;
+}
 
 void main() {
 	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
@@ -46,10 +136,125 @@ void main() {
 	}
 	colour /= count;
 	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);*/
-	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));*/
 	ivec2 coordsOffset = ivec2(imageSize(texelBuffer).x, imageSize(texelBuffer).y / 3);
 	ivec2 coords = coordsOffset + ivec2(int(gl_GlobalInvocationID.x) / 9, int(gl_GlobalInvocationID.y) / 9);
-	vec4 colour = vec4(imageLoad(texelBuffer2, coords));
+
+	int offsetX = int(gl_GlobalInvocationID.x) % 9 < 5 ? -1 : 0;
+	int n1X = int(gl_GlobalInvocationID.x) / 9 + offsetX;
+	float distr1X;
+	if (offsetX == -1) {
+		distr1X = float(4 - int(gl_GlobalInvocationID.x) % 9) / 9.0;
+	} else {
+		distr1X = float(9 - (int(gl_GlobalInvocationID.x) % 9 - 5)) / 9.0;
+	}
+
+	int offsetY = int(gl_GlobalInvocationID.y) % 9 < 5 ? -1 : 0;
+	int n1Y = int(gl_GlobalInvocationID.y) / 9 + offsetY;
+	float distr1Y;
+	if (offsetY == -1) {
+		distr1Y = float(4 - int(gl_GlobalInvocationID.y) % 9) / 9.0;
+	} else {
+		distr1Y = float(9 - (int(gl_GlobalInvocationID.y) % 9 - 5)) / 9.0;
+	}
+
+	vec4 val00 = vec4(0);
+	vec4 val01 = vec4(0);
+	vec4 val11 = vec4(0);
+	vec4 val10 = vec4(0);
+	/*vec4 val00 = ((distr1X) * (distr1Y)) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+	vec4 val01 = ((distr1X) * ((1.0 - distr1Y))) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y + 1)));
+	vec4 val11 = (((1.0 - distr1X)) * ((1.0 - distr1Y))) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
+	vec4 val10 = (((1.0 - distr1X)) * (distr1Y)) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));*/
+
+
+	/*{
+		vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+		vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
+		vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+		float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
+
+		vec4 normalIm2 = vec4(imageLoad(normalImage, coordsOffset + ivec2(n1X, n1Y)));
+		vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+		vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
+		float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+
+		if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+			val00 = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+		} else {
+			int sampleCount = 0;
+			for (int i = 0; i < blurSize; i++) {
+				for (int j = 0; j < blurSize; j++) {
+					ivec2 newCoords = ivec2(n1X * blurSize + imageSize(texelBuffer).x + i, n1Y * blurSize + j);
+					vec4 normalIm2 = vec4(imageLoad(normalImage, newCoords));
+					vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+					vec4 depthIm2 = vec4(imageLoad(depthImage, newCoords));
+					float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+					if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+						sampleCount++;
+						val00 += vec4(imageLoad(texelBuffer2, newCoords));
+					}
+				}
+			}
+			val00 /= sampleCount;
+		}
+	}*/
+	val00 = getAverage(n1X, n1Y, coordsOffset);
+	val01 = getAverage(n1X, n1Y + 1, coordsOffset);
+	val11 = getAverage(n1X + 1, n1Y + 1, coordsOffset);
+	val10 = getAverage(n1X + 1, n1Y, coordsOffset);
+
+	float total = 0.0;
+
+	if (val00.a > 0.0) {
+		val00 *= ((distr1X) * (distr1Y));
+		total += ((distr1X) * (distr1Y));
+	} else {
+		val00 = vec4(0.0);
+	}
+	if (val01.a > 0.0) {
+		val01 *= ((distr1X) * ((1.0 - distr1Y)));
+		total += ((distr1X) * ((1.0 - distr1Y)));
+	} else {
+		val01 = vec4(0.0);
+	}
+	if (val11.a > 0.0) {
+		val11 *= (((1.0 - distr1X)) * ((1.0 - distr1Y)));
+		total += (((1.0 - distr1X)) * ((1.0 - distr1Y)));
+	} else {
+		val11 = vec4(0.0);
+	}
+	if (val10.a > 0.0) {
+		val10 *= (((1.0 - distr1X)) * (distr1Y));
+		total += (((1.0 - distr1X)) * (distr1Y));
+	} else {
+		val10 = vec4(0.0);
+	}
+
+
+	vec4 colour = (val00 + val01 + val11 + val10) / total;
+
+	//colour = vec4(imageLoad(texelBuffer2, coords));
+
+	/*float total = (distr1X * distr1X) + (distr1Y * distr1Y);
+	total += (distr1X * distr1X) + ((1.0 - distr1Y) * (1.0 - distr1Y));
+	total += ((1.0 - distr1X) * (1.0 - distr1X)) + ((1.0 - distr1Y) * (1.0 - distr1Y));
+	total += ((1.0 - distr1X) * (1.0 - distr1X)) + (distr1Y * distr1Y);
+
+	vec4 val00 = ((distr1X * distr1X) + (distr1Y * distr1Y)) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+	vec4 val01 = ((distr1X * distr1X) + ((1.0 - distr1Y) * (1.0 - distr1Y))) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y + 1)));
+	vec4 val11 = (((1.0 - distr1X) * (1.0 - distr1X)) + ((1.0 - distr1Y) * (1.0 - distr1Y))) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
+	vec4 val10 = (((1.0 - distr1X) * (1.0 - distr1X)) + (distr1Y * distr1Y)) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));
+
+	vec4 colour = (val00 + val01 + val11 + val10) / total;*/
+	
+
+	/*vec4 val00 = sphereDistr(1.0 - distr1X - 0.5, 1.0 - distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+	vec4 val01 = sphereDistr(1.0 - distr1X - 0.5, distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y + 1)));
+	vec4 val11 = sphereDistr(distr1X - 0.5, distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
+	vec4 val10 = sphereDistr(distr1X - 0.5, 1.0 - distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));
+	vec4 colour = val10 + val00 + val11 + val01;*/
+
 	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 }

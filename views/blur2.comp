@@ -18,18 +18,29 @@ void main() {
     const uint destX = gl_GlobalInvocationID.x + mypc.toX;
     const uint destY = gl_GlobalInvocationID.y + mypc.toY;
 
-    vec4 blurredColour = vec4(0);
-    for (int i = 0; i < blurSize; i++) {
-        for (int j = 0; j < blurSize; j++) {
-            blurredColour += vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
-        }
-    }
-    blurredColour /= blurSize * blurSize;
-	imageStore(blurredImage, ivec2(destX, destY), blurredColour);
-
     vec4 normal = vec4(imageLoad(normalImage, ivec2(sourceX + blurSize / 2, sourceY + blurSize / 2)));
 	imageStore(normalImage, ivec2(destX, destY), normal);
 
     vec4 depth = vec4(imageLoad(depthImage, ivec2(sourceX + blurSize / 2, sourceY + blurSize / 2)));
 	imageStore(depthImage, ivec2(destX, destY), depth);
+
+	vec3 normalCenter = (normal.xyz - vec3(0.5)) * 2.0;
+	float depthCenter = 100 * (depth.x + depth.y / 255.0 + depth.z / 255.0 / 255.0);
+
+    int sampleCount = 0;
+    vec4 blurredColour = vec4(0);
+    for (int i = 0; i < blurSize; i++) {
+        for (int j = 0; j < blurSize; j++) {
+			vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(sourceX + i, sourceY + j)));
+			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i, sourceY + j)));
+			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+			if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.90) {
+                sampleCount++;
+                blurredColour += vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
+			}
+        }
+    }
+    blurredColour /= sampleCount;
+	imageStore(blurredImage, ivec2(destX, destY), blurredColour);
 }
