@@ -1,3 +1,4 @@
+// glslangValidator --target-env vulkan1.3 raygen.rgen -o raygen.spv
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
@@ -31,7 +32,8 @@ float rng2(int seed) {
 
 void main() {
     vec3 pos = vec3(gl_LaunchIDEXT.x / 200.0 - 5.0, 5.0 - (gl_LaunchIDEXT.y / 200.0 - 0.2), -10.0);
-	float randomId = (gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) / (float(imageSize(image).x * imageSize(image).y)) * 153.24953;
+	//float randomId = (gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) / (float(imageSize(image).x * imageSize(image).y)) * 153.24953;
+	float randomId = float((gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * 9) % 82) / (float(81.0)) * 153.24953;
 	float seed = 31.02349;// + (float) j * 13.52648f + fmod(time, 0.523f) * 3.47f;
 
     vec3 dir = normalize(vec3(0, -0.3, 1));
@@ -64,7 +66,8 @@ void main() {
             miss = false;
             for (int i = 0; (i < pathLength) && !miss; i++) {
                 vec3 hitPos = hitValue.pos;
-                vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + pathLength + i + j * 2 * pathLength)));
+                //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + pathLength + i + j * 2 * pathLength)));
+                vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * 9) % 82 + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * 9) % 82 + pathLength + i + j * 2 * pathLength)));
                 //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, i + j * 2 * pathLength), noise3D(randomId, seed, pathLength + i + j * 2 * pathLength));
                 vec3 newDir = normalize(randomNormal + hitValue.normal);
                 attenuation = attenuation * hitValue.colour;
