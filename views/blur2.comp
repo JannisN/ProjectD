@@ -35,7 +35,7 @@ void main() {
 			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i, sourceY + j)));
 			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-			if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.90) {
+			if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.80) {
                 sampleCount++;
                 blurredColour += vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
 			}
