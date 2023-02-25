@@ -28,6 +28,7 @@ void main() {
 	float depthCenter = 100 * (depth.x + depth.y / 255.0 + depth.z / 255.0 / 255.0);
 
     int sampleCount = 0;
+    float totalSampleCount = 0;
     vec4 blurredColour = vec4(0);
     for (int i = 0; i < blurSize; i++) {
         for (int j = 0; j < blurSize; j++) {
@@ -37,10 +38,17 @@ void main() {
 			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 			if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.80) {
                 sampleCount++;
-                blurredColour += vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
+                vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
+                blurredColour += sampleColour;
+                if (sampleColour.a > 0.0) {
+                    totalSampleCount += sampleColour.a * 255.0;
+                } else {
+                    totalSampleCount++;
+                }
 			}
         }
     }
     blurredColour /= sampleCount;
+    blurredColour.a = totalSampleCount / 255.0;
 	imageStore(blurredImage, ivec2(destX, destY), blurredColour);
 }

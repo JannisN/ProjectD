@@ -51,9 +51,9 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 
 	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
-		val.a = 1.0;
+		//val.a = 1.0;
 	} else {
-		int sampleCount = 0;
+		float sampleCount = 0;
 		for (int i = 0; i < blurSize; i++) {
 			for (int j = 0; j < blurSize; j++) {
 				ivec2 newCoords = ivec2(n1X * blurSize + imageSize(texelBuffer).x + i, n1Y * blurSize + j);
@@ -62,8 +62,10 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80) {
-					sampleCount++;
-					val += vec4(imageLoad(texelBuffer2, newCoords));
+					//sampleCount++;
+					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
+					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
+					sampleCount += sampleColour.a;
 				} else {
 					//----------------------------------
 					vec4 val2 = vec4(0.0);
@@ -82,16 +84,16 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 						}
 					}
 					if (sampleCount2 != 0) {
-						val += val2 / float(sampleCount2);
-						sampleCount++;
+						val += vec4(val2.xyz / 255.0, float(sampleCount2) / 255.0);
+						sampleCount += float(sampleCount2) / 255.0;
 					}
 					//----------------------------------
 				}
 			}
 		}
-		if (sampleCount != 0) {
-			val /= float(sampleCount);
-			val.a = 1.0;
+		if (sampleCount > 0.0) {
+			val.xyz /= sampleCount;
+			//val.a = 1.0;
 		}
 		else {
 			//val.a = 0.0;
@@ -221,6 +223,18 @@ void main() {
 
 	float total = 0.0;
 
+	/*val00.xyz *= ((distr1X) * (distr1Y)) * val00.a;
+	total += ((distr1X) * (distr1Y)) * val00.a;
+
+	val01.xyz *= ((distr1X) * ((1.0 - distr1Y))) * val01.a;
+	total += ((distr1X) * ((1.0 - distr1Y))) * val01.a;
+
+	val11.xyz *= (((1.0 - distr1X)) * ((1.0 - distr1Y))) * val11.a;
+	total += (((1.0 - distr1X)) * ((1.0 - distr1Y))) * val11.a;
+
+	val10.xyz *= (((1.0 - distr1X)) * (distr1Y)) * val10.a;
+	total += (((1.0 - distr1X)) * (distr1Y)) * val10.a;*/
+	
 	if (val00.a > 0.0) {
 		val00 *= ((distr1X) * (distr1Y));
 		total += ((distr1X) * (distr1Y));
@@ -245,9 +259,10 @@ void main() {
 	} else {
 		val10 = vec4(0.0);
 	}
-
+	
 
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
+	//vec4 colour = vec4(val00.a + val01.a + val11.a + val10.a);
 
 	//colour = vec4(imageLoad(texelBuffer2, coords));
 
