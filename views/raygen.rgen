@@ -2,6 +2,10 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
+// todo:
+// normalen umkehren, falls man die hinterseite einer fläche trifft
+// tiefenwerte evt. nichtlinear machen, um auf sehr kurze distanzen nicht zu verpixeln und auf grossen mehr samples zu haben
+
 layout (push_constant) uniform mypc_t {
 	vec3 pos;
     float rotX, rotY;
