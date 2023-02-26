@@ -862,7 +862,7 @@ struct TestApp(ECS) {
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
 		)));
-		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4)));
+		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 6)));
 		blurPipeline.computePipeline = device.createComputePipeline(blurPipeline.computeShader, "main", blurPipeline.pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
 		blurPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1213,6 +1213,12 @@ struct TestApp(ECS) {
 		memory.unmap();
 		
 		cmdBuffer.begin();
+		/*cmdBuffer.clearColorImage(
+			blurredImage,
+			VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+			VkClearColorValue([1.0, 1.0, 1.0, 0.0]),
+			array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
+		);*/
 		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -1331,13 +1337,15 @@ struct TestApp(ECS) {
 			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 		));
 		cmdBuffer.bindPipeline(blurPipeline.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
-		uint[4] pushConstants;
+		uint[6] pushConstants;
 		pushConstants[0] = 0;
 		pushConstants[1] = 0;
 		pushConstants[2] = capabilities.currentExtent.width;
 		pushConstants[3] = 0;
+		pushConstants[4] = capabilities.currentExtent.width / 3;
+		pushConstants[5] = capabilities.currentExtent.height / 3;
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, blurPipeline.pipelineLayout, 0, array(blurPipeline.descriptorSet), []);
-		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4, pushConstants.ptr);
+		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 6, pushConstants.ptr);
 		uint compressedX = capabilities.currentExtent.width / 3;// + ((capabilities.currentExtent.width % 3 == 0) ? 0 : 1);
 		uint compressedY = capabilities.currentExtent.height / 3;// + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
 		//uint compressedX = capabilities.currentExtent.width / 3 + ((capabilities.currentExtent.width % 3 == 0) ? 0 : 1);
@@ -1376,19 +1384,21 @@ struct TestApp(ECS) {
 				),
 			)
 		);
-		uint[4] pushConstants2;
+		uint[6] pushConstants2;
 		pushConstants2[0] = capabilities.currentExtent.width;
 		pushConstants2[1] = 0;
 		pushConstants2[2] = capabilities.currentExtent.width;
 		pushConstants2[3] = capabilities.currentExtent.height / 3;// + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
 		//pushConstants2[3] = capabilities.currentExtent.height / 3 + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
+		pushConstants2[4] = capabilities.currentExtent.width / 9;
+		pushConstants2[5] = capabilities.currentExtent.height / 9;
 		compressedX = compressedX / 3;// + ((compressedX % 3 == 0) ? 0 : 1);
 		compressedY = compressedY / 3;// + ((compressedY % 3 == 0) ? 0 : 1);
 		//compressedX = compressedX / 3 + ((compressedX % 3 == 0) ? 0 : 1);
 		//compressedY = compressedY / 3 + ((compressedY % 3 == 0) ? 0 : 1);
 		borderX = compressedX % localWorkGroupSize[0] > 0 ? 1 : 0;
 		borderY = compressedY % localWorkGroupSize[1] > 0 ? 1 : 0;
-		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 4, pushConstants2.ptr);
+		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 6, pushConstants2.ptr);
 		cmdBuffer.dispatch(compressedX / localWorkGroupSize[0] + borderX, compressedY / localWorkGroupSize[1] + borderY, 1);
 
 		cmdBuffer.pipelineBarrier(

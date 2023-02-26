@@ -38,6 +38,9 @@ float sphereDistr(float x, float y) {
 }
 
 vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
+    int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
+    int windowHeight = imageSize(texelBuffer2).y;
+
 	vec4 val = vec4(0);
 	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
@@ -49,7 +52,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
 	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 
-	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80) {
+	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
 		//val.a = 1.0;
 	} else {
@@ -61,7 +64,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80) {
+				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
 					//sampleCount++;
 					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
 					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
@@ -77,10 +80,10 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 							normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 							depthIm2 = vec4(imageLoad(depthImage, newCoords2));
 							depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-							if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80) {
+							if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && newCoords2.x < windowWidth && newCoords2.y < windowHeight) {
 								sampleCount2++;
 								val2 += vec4(imageLoad(texelBuffer2, newCoords2));
-							} 
+							}
 						}
 					}
 					if (sampleCount2 != 0) {
