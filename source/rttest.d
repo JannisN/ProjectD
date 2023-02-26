@@ -34,6 +34,11 @@ struct TestApp(ECS) {
 			4, 4, 0.3,
 			1, 0, 0
 		));
+		pos[0] = -2.0;
+		pos[1] = 2.0;
+		pos[2] = -10.0;
+		rot[0] = 0.0;
+		rot[1] = 0.0;
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
@@ -533,7 +538,7 @@ struct TestApp(ECS) {
 		));
 		rtPipeline.pipelineLayout = device.createPipelineLayout(
 			array(rtPipeline.descriptorSetLayout),
-			[]
+			array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, uint.sizeof * 5))
 		);
 		rtPipeline.descriptorSet = rtPipeline.descriptorPool.allocateSet(rtPipeline.descriptorSetLayout);
 
@@ -1103,6 +1108,43 @@ struct TestApp(ECS) {
 		passedTime += dt;
 		// ?zweite update funktion für shader list so dass alles kopiert wird
 
+		import std.math.trigonometry;
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'W')) {
+			pos[2] += 2.0 * dt * cos(rot[1]);
+			pos[0] += -2.0 * dt * sin(rot[1]);
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'S')) {
+			pos[2] += -2.0 * dt * cos(rot[1]);
+			pos[0] += 2.0 * dt * sin(rot[1]);
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'A')) {
+			pos[2] += -2.0 * dt * sin(rot[1]);
+			pos[0] += -2.0 * dt * cos(rot[1]);
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'D')) {
+			pos[2] += 2.0 * dt * sin(rot[1]);
+			pos[0] += 2.0 * dt * cos(rot[1]);
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)' ')) {
+			pos[1] += 2.0 * dt;
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(341)) {
+			pos[1] += -2.0 * dt;
+		}
+		
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(262)) {
+			rot[1] += -2.0 * dt;
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(263)) {
+			rot[1] += 2.0 * dt;
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(264)) {
+			rot[0] += 2.0 * dt;
+		}
+		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(265)) {
+			rot[0] += -2.0 * dt;
+		}
+
         // problem: getComponents sollte virtualcomponent zurückgeben wegen updates
 		foreach (id; dynEcs.getComponentEntityIds!Circle()) {
 			import std.math.trigonometry;
@@ -1201,6 +1243,13 @@ struct TestApp(ECS) {
 		));
 		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
+		float[5] rtPushConstants;
+		rtPushConstants[0] = pos[0];
+		rtPushConstants[1] = pos[1];
+		rtPushConstants[2] = pos[2];
+		rtPushConstants[3] = rot[1];
+		rtPushConstants[4] = rot[0];
+		cmdBuffer.pushConstants(rtPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 5, rtPushConstants.ptr);
 
 		//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
@@ -1583,6 +1632,9 @@ struct TestApp(ECS) {
 		DescriptorSet descriptorSet;
 	}
 	ComputePackage blurPipeline;
+
+	float[3] pos;
+	float[2] rot;
 }
 
 struct Circle {

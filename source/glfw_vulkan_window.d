@@ -139,4 +139,7 @@ struct GlfwVulkanWindow(Sender) {
 	void onWindowClose() {
 		sender.send(WindowCloseEvent());
 	}
+	bool getKey(int key) {
+		return glfwGetKey(window, key) == GLFW_PRESS;
+	}
 }
