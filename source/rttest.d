@@ -39,10 +39,12 @@ struct TestApp(ECS) {
 		pos[2] = -10.0;
 		rot[0] = 0.0;
 		rot[1] = 0.0;
+		rtTime = 4;
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
 		if (event.action == MouseButtonAction.press) {
+			// fixen: geht kaputt nach ner zeit spammen
 			char[20] fval;
 			import core.stdc.stdio;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
@@ -53,6 +55,7 @@ struct TestApp(ECS) {
 			foreach (id; dynEcs.getComponentEntityIds!(Circle)()) {
 				dynEcs.remove(id);
 			}
+			rtTime++;
 		}
 	}
 	void receive(WindowResizeEvent event) {
@@ -813,7 +816,7 @@ struct TestApp(ECS) {
 		));
 		circleImplStruct.descriptorSet = circleImplStruct.descriptorPool.allocateSet(circleImplStruct.descriptorSetLayout);*/
 
-		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout/*, circleImplStruct.descriptorSetLayout*/), []);//array(/*VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)*/));
+		pipelineLayout = device.createPipelineLayout(array(descriptorSetLayout/*, circleImplStruct.descriptorSetLayout*/), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 1)));//array(/*VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, float.sizeof)*/));
 		import core.stdc.math : sqrt;
 		int size2D = cast(int) sqrt(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
 		localWorkGroupSize[0] = size2D;
@@ -862,7 +865,7 @@ struct TestApp(ECS) {
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
 		)));
-		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 6)));
+		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 7)));
 		blurPipeline.computePipeline = device.createComputePipeline(blurPipeline.computeShader, "main", blurPipeline.pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
 		blurPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1340,13 +1343,14 @@ struct TestApp(ECS) {
 			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 		));
 		cmdBuffer.bindPipeline(blurPipeline.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
-		uint[6] pushConstants;
+		uint[7] pushConstants;
 		pushConstants[0] = 0;
 		pushConstants[1] = 0;
 		pushConstants[2] = capabilities.currentExtent.width;
 		pushConstants[3] = 0;
 		pushConstants[4] = capabilities.currentExtent.width / 3;
 		pushConstants[5] = capabilities.currentExtent.height / 3;
+		pushConstants[6] = rtTime;
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, blurPipeline.pipelineLayout, 0, array(blurPipeline.descriptorSet), []);
 		cmdBuffer.pushConstants(blurPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 6, pushConstants.ptr);
 		uint compressedX = capabilities.currentExtent.width / 3;// + ((capabilities.currentExtent.width % 3 == 0) ? 0 : 1);
@@ -1387,7 +1391,7 @@ struct TestApp(ECS) {
 				),
 			)
 		);
-		uint[6] pushConstants2;
+		uint[7] pushConstants2;
 		pushConstants2[0] = capabilities.currentExtent.width;
 		pushConstants2[1] = 0;
 		pushConstants2[2] = capabilities.currentExtent.width;
@@ -1395,6 +1399,7 @@ struct TestApp(ECS) {
 		//pushConstants2[3] = capabilities.currentExtent.height / 3 + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
 		pushConstants2[4] = capabilities.currentExtent.width / 9;
 		pushConstants2[5] = capabilities.currentExtent.height / 9;
+		pushConstants2[6] = rtTime / 3;
 		compressedX = compressedX / 3;// + ((compressedX % 3 == 0) ? 0 : 1);
 		compressedY = compressedY / 3;// + ((compressedY % 3 == 0) ? 0 : 1);
 		//compressedX = compressedX / 3 + ((compressedX % 3 == 0) ? 0 : 1);
@@ -1449,6 +1454,9 @@ struct TestApp(ECS) {
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, array(descriptorSet), []);
 		borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
 		borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
+		uint[1] pushConstants3;
+		pushConstants3[0] = rtTime;
+		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 1, pushConstants3.ptr);
 		cmdBuffer.dispatch(capabilities.currentExtent.width / localWorkGroupSize[0] + borderX, capabilities.currentExtent.height / localWorkGroupSize[1] + borderY, 1);
 
 		/*foreach (i; 0 .. 30) {

@@ -2,16 +2,22 @@
 
 // todo:
 // bei den samples auf deren normals/tiefen achten anstatt sie einfach zu verwerfen -> für schönere ränder
+// oder besser die normals der samples speichern
 // man könnte bei dem normalentests prüfen ob objekt flat oder smooth geshadet ist, um ecken zu erhalten
 
 #version 460
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
 
-layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
+//layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
+layout (set = 0, binding = 0, rgba8) uniform image2D texelBuffer;
 layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
 layout (set = 0, binding = 2, rgba8) uniform image2D normalImage;
 layout (set = 0, binding = 3, rgba8) uniform image2D depthImage;
+
+layout (push_constant) uniform mypc_t {
+    int time;
+} mypc;
 
 const uint blurSize = 3;
 
@@ -51,7 +57,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
 	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 
-	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
+	if (false && abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
 		//val.a = 1.0;
 	} else {
@@ -63,7 +69,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
+				if (false && abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
 					//sampleCount++;
 					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
 					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
@@ -130,7 +136,13 @@ void main0() {
 	}
 	colour /= count;
 	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	if (mypc.time == 0) {
+		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0);
+	} else {
+		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
+		+ imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	}
+	//imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));
 }
 
@@ -150,27 +162,29 @@ void main() {
 	+ vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x - 1), int(gl_GlobalInvocationID.y - 1)))));
 	colour /= (1.0 + 4.0 * (side + corner));*/
 
+	//int timeOffset = 0;
+	int timeOffset = mypc.time - 4;
 	
 	ivec2 coordsOffset = ivec2(imageSize(texelBuffer).x, imageSize(texelBuffer).y / 3);
-	ivec2 coords = coordsOffset + ivec2(int(gl_GlobalInvocationID.x) / 9, int(gl_GlobalInvocationID.y) / 9);
+	ivec2 coords = coordsOffset + ivec2(int(gl_GlobalInvocationID.x + timeOffset) / 9, int(gl_GlobalInvocationID.y + timeOffset) / 9);
 
-	int offsetX = int(gl_GlobalInvocationID.x) % 9 < 4 ? -1 : 0;
-	int n1X = int(gl_GlobalInvocationID.x) / 9 + offsetX;
+	int offsetX = int(gl_GlobalInvocationID.x + timeOffset) % 9 < 4 ? -1 : 0;
+	int n1X = int(gl_GlobalInvocationID.x + timeOffset) / 9 + offsetX;
 	float distr1X;
 	if (offsetX == -1) {
-		distr1X = float(4 - int(gl_GlobalInvocationID.x) % 9) / 9.0;
+		distr1X = float(4 - int(gl_GlobalInvocationID.x + timeOffset) % 9) / 9.0;
 	} else {
-		distr1X = float(9 - (int(gl_GlobalInvocationID.x) % 9 - 4)) / 9.0;
+		distr1X = float(9 - (int(gl_GlobalInvocationID.x + timeOffset) % 9 - 4)) / 9.0;
 	}
 	//distr1X = 1.0 - distr1X;
 
-	int offsetY = int(gl_GlobalInvocationID.y) % 9 < 4 ? -1 : 0;
-	int n1Y = int(gl_GlobalInvocationID.y) / 9 + offsetY;
+	int offsetY = int(gl_GlobalInvocationID.y + timeOffset) % 9 < 4 ? -1 : 0;
+	int n1Y = int(gl_GlobalInvocationID.y + timeOffset) / 9 + offsetY;
 	float distr1Y;
 	if (offsetY == -1) {
-		distr1Y = float(4 - int(gl_GlobalInvocationID.y) % 9) / 9.0;
+		distr1Y = float(4 - int(gl_GlobalInvocationID.y + timeOffset) % 9) / 9.0;
 	} else {
-		distr1Y = float(9 - (int(gl_GlobalInvocationID.y) % 9 - 4)) / 9.0;
+		distr1Y = float(9 - (int(gl_GlobalInvocationID.y + timeOffset) % 9 - 4)) / 9.0;
 	}
 	//distr1Y = 1.0 - distr1Y;
 
@@ -264,6 +278,7 @@ void main() {
 	
 
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
+	//colour = vec4(distr1X);
 	//vec4 colour = vec4(val00.a + val01.a + val11.a + val10.a);
 
 	//colour = vec4(imageLoad(texelBuffer2, coords));
@@ -286,6 +301,11 @@ void main() {
 	vec4 val11 = sphereDistr(distr1X - 0.5, distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
 	vec4 val10 = sphereDistr(distr1X - 0.5, 1.0 - distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));
 	vec4 colour = val10 + val00 + val11 + val01;*/
-
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	if (mypc.time == 0) {
+		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0);
+	} else {
+		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
+		+ imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	}
+	//imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 }

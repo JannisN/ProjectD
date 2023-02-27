@@ -6,6 +6,7 @@ layout (push_constant) uniform mypc_t {
     int fromX, fromY;
     int toX, toY;
     int borderX, borderY;
+    int time;
 } mypc;
 
 layout (set = 0, binding = 0, rgba8) uniform image2D blurredImage;
@@ -23,10 +24,13 @@ void main() {
     if (gl_GlobalInvocationID.y >= mypc.borderY)
         return;
 
-    vec4 normal = vec4(imageLoad(normalImage, ivec2(sourceX + blurSize / 2, sourceY + blurSize / 2)));
+    //int timeOffset = 0;
+    int timeOffset = mypc.time % 3 - int(blurSize) / 2;
+
+    vec4 normal = vec4(imageLoad(normalImage, ivec2(sourceX + blurSize / 2 + timeOffset, sourceY + blurSize / 2 + timeOffset)));
 	imageStore(normalImage, ivec2(destX, destY), normal);
 
-    vec4 depth = vec4(imageLoad(depthImage, ivec2(sourceX + blurSize / 2, sourceY + blurSize / 2)));
+    vec4 depth = vec4(imageLoad(depthImage, ivec2(sourceX + blurSize / 2 + timeOffset, sourceY + blurSize / 2 + timeOffset)));
 	imageStore(depthImage, ivec2(destX, destY), depth);
 
 	vec3 normalCenter = (normal.xyz - vec3(0.5)) * 2.0;
@@ -37,20 +41,25 @@ void main() {
     vec4 blurredColour = vec4(0);
     for (int i = 0; i < blurSize; i++) {
         for (int j = 0; j < blurSize; j++) {
-			vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(sourceX + i, sourceY + j)));
-			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
-			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i, sourceY + j)));
-			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-			if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.80) {
-                sampleCount++;
-                vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i, sourceY + j)));
-                blurredColour += sampleColour;
-                if (sampleColour.a > 0.0) {
-                    totalSampleCount += sampleColour.a * 255.0;
-                } else {
-                    totalSampleCount++;
+            /*if (
+                sourceX + i + timeOffset >= mypc.fromX && sourceY + j + timeOffset >= mypc.fromY
+                && sourceX + i + timeOffset < mypc.borderX && sourceY + j + timeOffset < mypc.borderY
+            )*/ {
+                vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+                vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+                if (abs(depth2 - depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.80) {
+                    sampleCount++;
+                    vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                    blurredColour += sampleColour;
+                    if (sampleColour.a > 0.0) {
+                        totalSampleCount += sampleColour.a * 255.0;
+                    } else {
+                        totalSampleCount++;
+                    }
                 }
-			}
+            }
         }
     }
     blurredColour /= sampleCount;
