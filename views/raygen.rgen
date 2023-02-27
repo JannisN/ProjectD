@@ -4,6 +4,7 @@
 
 // todo:
 // normalen umkehren, falls man die hinterseite einer fläche trifft
+// evt. bessere zufallswerte, erster blur sollte gleichmässiger sein
 // tiefenwerte evt. nichtlinear machen, um auf sehr kurze distanzen nicht zu verpixeln und auf grossen mehr samples zu haben
 
 layout (push_constant) uniform mypc_t {

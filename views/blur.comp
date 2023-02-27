@@ -1,6 +1,7 @@
 // glslangValidator -V blur.comp -o blur.spv
 
 // todo:
+// bei den samples auf deren normals/tiefen achten anstatt sie einfach zu verwerfen -> für schönere ränder
 // man könnte bei dem normalentests prüfen ob objekt flat oder smooth geshadet ist, um ecken zu erhalten
 
 #version 460
