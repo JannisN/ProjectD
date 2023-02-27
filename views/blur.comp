@@ -1,6 +1,7 @@
 // glslangValidator -V blur.comp -o blur.spv
 
 // todo:
+// ein ray pro pixel, und für den auch die normale speichern
 // tiefendifferenz der tiefe nach anpassen
 // beim rand mehr samples von den anderen seiten holen (vlt auch allgemein mehr),
 // man könnte auch an den rändern anders bluren
@@ -62,7 +63,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
 	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 
-	if (false && abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
+	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
 		//val.a = 1.0;
 	} else {
@@ -74,7 +75,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				if (false && abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
+				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
 					//sampleCount++;
 					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
 					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
@@ -117,7 +118,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	return val;
 }
 
-void main0() {
+void main1() {
 	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
 	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
@@ -244,7 +245,7 @@ void main() {
 
 	float total = 0.0;
 
-	/*val00.xyz *= ((distr1X) * (distr1Y)) * val00.a;
+	val00.xyz *= ((distr1X) * (distr1Y)) * val00.a;
 	total += ((distr1X) * (distr1Y)) * val00.a;
 
 	val01.xyz *= ((distr1X) * ((1.0 - distr1Y))) * val01.a;
@@ -254,9 +255,9 @@ void main() {
 	total += (((1.0 - distr1X)) * ((1.0 - distr1Y))) * val11.a;
 
 	val10.xyz *= (((1.0 - distr1X)) * (distr1Y)) * val10.a;
-	total += (((1.0 - distr1X)) * (distr1Y)) * val10.a;*/
+	total += (((1.0 - distr1X)) * (distr1Y)) * val10.a;
 	
-	if (val00.a > 0.0) {
+	/*if (val00.a > 0.0) {
 		val00 *= ((distr1X) * (distr1Y));
 		total += ((distr1X) * (distr1Y));
 	} else {
@@ -279,7 +280,7 @@ void main() {
 		total += (((1.0 - distr1X)) * (distr1Y));
 	} else {
 		val10 = vec4(0.0);
-	}
+	}*/
 	
 
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
