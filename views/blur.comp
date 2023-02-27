@@ -1,6 +1,11 @@
 // glslangValidator -V blur.comp -o blur.spv
 
 // todo:
+// tiefendifferenz der tiefe nach anpassen
+// beim rand mehr samples von den anderen seiten holen (vlt auch allgemein mehr),
+// man könnte auch an den rändern anders bluren
+// mehr zufällige pixelverteilung für AA
+// bessere 9x9 blurverteilung statt einfach nur diagonal rutschen
 // bei den samples auf deren normals/tiefen achten anstatt sie einfach zu verwerfen -> für schönere ränder
 // oder besser die normals der samples speichern
 // man könnte bei dem normalentests prüfen ob objekt flat oder smooth geshadet ist, um ecken zu erhalten
@@ -136,13 +141,13 @@ void main0() {
 	}
 	colour /= count;
 	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
-	if (mypc.time == 0) {
+	/*if (mypc.time == 0) {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0);
 	} else {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
 		+ imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
-	}
-	//imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	}*/
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));
 }
 
