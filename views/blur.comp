@@ -1,6 +1,14 @@
 // glslangValidator -V blur.comp -o blur.spv
 
+// neue idee zum ausprobieren:
+// volle auflösung im ersten ray(und evt. zweiten ray bei direktem licht für scharfe schatten), dann mit callable shadern in halber auflösung
+//	weitermachen und alle trays	vom ort der probe tracen. spatial filter für die proben auf grossen gleichen flächen benutzen und
+//	temporiertes blur seperat von voll aufgelöstem AA um schatten zu verwerfen die nicht da sein sollten ohne
+// 	beeinträchtigung von AA. schatten verwerfen könnte man indem man zusätzlich die geschwindigkeit vom zweiten ray auch noch speichert
+//	das ganze würde dann auch gut mit perfekten reflexionen funktionieren
+
 // todo:
+// besseren tiefentest: mit normalen zusammen prüfen ob die fläche die gleiche ist
 // ein ray pro pixel, und für den auch die normale speichern
 // tiefendifferenz der tiefe nach anpassen
 // beim rand mehr samples von den anderen seiten holen (vlt auch allgemein mehr),
@@ -63,7 +71,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
 	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 
-	if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
+	if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
 		//val.a = 1.0;
 	} else {
@@ -75,7 +83,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
+				if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
 					//sampleCount++;
 					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
 					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
@@ -91,7 +99,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 							normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 							depthIm2 = vec4(imageLoad(depthImage, newCoords2));
 							depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-							if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.80 && newCoords2.x < windowWidth && newCoords2.y < windowHeight) {
+							if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && newCoords2.x < windowWidth && newCoords2.y < windowHeight) {
 								sampleCount2++;
 								val2 += vec4(imageLoad(texelBuffer2, newCoords2));
 							}
@@ -134,7 +142,7 @@ void main1() {
 			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
 			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-			if (abs(depth2 - depth) < 0.2 && dot(normal, normal2) > 0.90) {
+			if (abs(depth2 - depth) < 0.1 && dot(normal, normal2) > 0.90) {
 				colour += vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
 				count++;
 			}
@@ -307,11 +315,13 @@ void main() {
 	vec4 val11 = sphereDistr(distr1X - 0.5, distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
 	vec4 val10 = sphereDistr(distr1X - 0.5, 1.0 - distr1Y - 0.5) * vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));
 	vec4 colour = val10 + val00 + val11 + val01;*/
-	if (mypc.time == 0) {
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
+		+ 8.0 / 9.0 * imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	/*if (mypc.time == 0) {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0);
 	} else {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
 		+ imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
-	}
+	}*/
 	//imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
 }
