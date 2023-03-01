@@ -9,6 +9,7 @@
 
 // todo:
 // besseren tiefentest: mit normalen zusammen prüfen ob die fläche die gleiche ist
+// herausfinden was es mit dem weissen quadrat auf dem boden auf sich hat(problem ist im raytracing)
 // ein ray pro pixel, und für den auch die normale speichern
 // tiefendifferenz der tiefe nach anpassen
 // beim rand mehr samples von den anderen seiten holen (vlt auch allgemein mehr),
@@ -126,7 +127,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	return val;
 }
 
-void main1() {
+void main() {
 	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
 	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
@@ -156,11 +157,13 @@ void main1() {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
 		+ imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	}*/
-	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	//imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour);
+	imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0
+		+ 8.0 / 9.0 * imageLoad(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + 600, int(gl_GlobalInvocationID.y))));
 }
 
-void main() {
+void main1() {
 	//vec4 colour = vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	/*const float side = 1;//exp(-1/1);
 	const float corner = 1;//exp(-2/1);
