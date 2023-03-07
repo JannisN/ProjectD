@@ -70,6 +70,8 @@ void main() {
         0, cos(mypc.rotY), sin(mypc.rotY),
         0, -sin(mypc.rotY), cos(mypc.rotY)
     );
+    //float rotXOff = asin(normalize(pos2 - pos).x);
+    //float rotYOff = asin(normalize(pos2 - pos).y);
     mat3 rotXinv = mat3(
         cos(-mypc.rotX), 0, sin(-mypc.rotX),
         0, 1, 0,
@@ -81,6 +83,11 @@ void main() {
         0, -sin(-mypc.rotY), cos(-mypc.rotY)
     );
     vec3 dir = rotX * rotY * normalize(pos2 - pos);
+    mat3 rotInv = mat3(
+        dir.z, dir.y, dir.x,
+        dir.x, dir.z, dir.y,
+        dir.y, dir.x, dir.z
+    );
     //dir = normalize(pos2 - pos);
     //vec3 dir = normalize(vec3(0, -0.3, 1));
     float tmin = 0.00001;
@@ -96,6 +103,7 @@ void main() {
     vec3 firstPos = hitValue.pos;
     vec3 firstNormal = hitValue.normal;
     vec3 firstColour = hitValue.colour;
+    //vec3 saveNormal = rotInv * hitValue.normal;
     vec3 saveNormal = rotYinv * rotXinv * hitValue.normal;
     imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(saveNormal / 2.0 + vec3(0.5), 0));
     float depth = dot(dir, firstPos - pos) / 100.0;

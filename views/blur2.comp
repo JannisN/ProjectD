@@ -13,6 +13,10 @@ layout (set = 0, binding = 0, rgba8) uniform image2D blurredImage;
 layout (set = 0, binding = 1, rgba8) uniform image2D normalImage;
 layout (set = 0, binding = 2, rgba8) uniform image2D depthImage;
 
+float getExpectedDepth(float dh, float depth, vec3 normal, vec2 offset) {
+    return dh * depth * (offset.x * normal.x + offset.y * normal.y) / normal.z + depth;
+}
+
 void main() {
     const uint blurSize = 3;
     const uint sourceX = gl_GlobalInvocationID.x * blurSize + mypc.fromX;
@@ -23,6 +27,8 @@ void main() {
         return;
     if (gl_GlobalInvocationID.y >= mypc.borderY)
         return;
+
+    const float dh = 1.0 / float(mypc.borderY - mypc.fromY) / float(blurSize);
 
     //int timeOffset = 0;
     int timeOffset = mypc.time % 3 - int(blurSize) / 2;
@@ -49,7 +55,7 @@ void main() {
                 vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
                 vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
                 float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-                if (abs(depth2 - depthCenter) * (0.2 + 1 - cos(normalCenter.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depthCenter) < 0.2 && dot(normalCenter, normal2) > 0.80) {
+                if (abs(depth2 - getExpectedDepth(dh, depthCenter, normalCenter, vec2(i - blurSize / 2, j - blurSize / 2))) < 0.2 && dot(normalCenter, normal2) > 0.80) {
                     sampleCount++;
                     vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
                     blurredColour += sampleColour;

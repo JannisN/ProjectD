@@ -34,6 +34,45 @@ layout (push_constant) uniform mypc_t {
     int time;
 } mypc;
 
+float getExpectedDepth(float dh, float depth, vec3 normal, vec2 offset) {
+    return -dh * depth * (offset.x * normal.x + offset.y * normal.y) / normal.z + depth;
+}
+
+/*float getExpectedDepth(float depth, vec3 normal, vec3 n1, vec3 n2, vec3 refNormal) {
+	vec3 n1Ortho = normalize(refNormal - n1 * dot(refNormal, n1));
+	vec2 n1_ = vec2(1.0, 0.0);
+	vec2 n2_ = vec2(dot(n1, n2), dot(n1Ortho, n2));
+	vec2 normalProj = normalize(vec2(dot(n1, normal), dot(n1Ortho, normal)));
+	vec2 n_ = vec2(normalProj.y, -normalProj.x);
+	//vec2 n_ = normalize(n2_ - n1_ - normalProj * dot(normalProj, n2_ - n1_));
+	return depth * (n_.y) / (n2_.x * n_.y - n2_.y * n_.x);
+	//return depth * (n1_.x * n_.y - n1.y * n_.x) / (n2_.x * n_.y - n2_.y * n_.x);
+}*/
+
+float getExpectedDepth(float depth, vec3 normal, vec3 n1, vec3 n2) {
+	vec3 n1Ortho = normalize(n2 - n1 * dot(n2, n1));
+	vec2 n2_ = vec2(dot(n1, n2), dot(n1Ortho, n2));
+	vec2 normalProj = (vec2(dot(n1, normal), dot(n1Ortho, normal)));
+	vec2 n_ = vec2(normalProj.y, -normalProj.x);
+	return depth / (n2_.x - n2_.y * n_.x / n_.y);
+}
+
+vec2 getExpectedDepthTest(float depth, vec3 normal, vec3 n1, vec3 n2) {
+	vec3 n1Ortho = normalize(n2 - n1 * dot(n2, n1));
+	vec2 n1_ = vec2(1.0, 0.0);
+	vec2 n2_ = vec2(dot(n1, n2), dot(n1Ortho, n2));
+	vec2 normalProj = (vec2(dot(n1, normal), dot(n1Ortho, normal)));
+	//vec2 normalProj = normalize(vec2(dot(n1, normal), dot(n1Ortho, normal)));
+	vec2 n_ = vec2(normalProj.y, -normalProj.x);
+	//vec2 n_ = n2_ - n1_ - normalProj * dot(normalProj, n2_ - n1_);
+	//if (abs(n_.y) < 0.01)
+		//return vec2(depth / (n2_.x - n2_.y));
+	//return vec2(dot(n1, normal), -dot(n1, normal));
+	//return vec2(n_.y, -n_.y);
+	return vec2(depth / (n2_.x - n2_.y * n_.x / n_.y));
+	//return (vec2(n_.y, -n_.y));
+}
+
 const uint blurSize = 3;
 
 float sphereDistr(float x, float y) {
@@ -58,8 +97,10 @@ float sphereDistr(float x, float y) {
 }
 
 vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
-    int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
-    int windowHeight = imageSize(texelBuffer2).y;
+    const int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
+    const int windowHeight = imageSize(texelBuffer2).y;
+    
+	const float dh = 1.0 / float(windowHeight);
 
 	vec4 val = vec4(0);
 	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
@@ -72,7 +113,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 	vec4 depthIm2 = vec4(imageLoad(depthImage, coordsOffset + ivec2(n1X, n1Y)));
 	float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
 
-	if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
+	if (abs(depth2 - getExpectedDepth(dh, depth, normal, vec2(n1X * 9 - gl_GlobalInvocationID.x, n1Y * 9 - gl_GlobalInvocationID.y))) < 0.2 && dot(normal, normal2) > 0.80 && n1X < windowWidth / 9 && n1Y < windowHeight / 9) {
 		val = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
 		//val.a = 1.0;
 	} else {
@@ -84,7 +125,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 				normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				depthIm2 = vec4(imageLoad(depthImage, newCoords));
 				depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
+				if (abs(depth2 - getExpectedDepth(dh, depth, normal, vec2(n1X * 9 - gl_GlobalInvocationID.x + (i - blurSize / 2) * 3.0, n1Y * 9 - gl_GlobalInvocationID.y + (j - blurSize / 2) * 3.0))) < 0.2 && dot(normal, normal2) > 0.80 && n1X * blurSize + i < windowWidth / 3 && n1Y * blurSize + j < windowHeight / 3) {
 					//sampleCount++;
 					vec4 sampleColour = vec4(imageLoad(texelBuffer2, newCoords));
 					val += vec4(sampleColour.xyz * sampleColour.a, sampleColour.a);
@@ -100,7 +141,7 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 							normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 							depthIm2 = vec4(imageLoad(depthImage, newCoords2));
 							depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-							if (abs(depth2 - depth) * (0.2 + 1 - cos(normal.z * 3.14159 / 2.0)) / (0.9 + 0.1 * depth) < 0.2 && dot(normal, normal2) > 0.80 && newCoords2.x < windowWidth && newCoords2.y < windowHeight) {
+							if (abs(depth2 - getExpectedDepth(dh, depth, normal, vec2(n1X * 9 - gl_GlobalInvocationID.x + (i - blurSize / 2) * 3.0 + (i2 - blurSize / 2), n1Y * 9 - gl_GlobalInvocationID.y + (j - blurSize / 2) * 3.0 + (j2 - blurSize / 2)))) < 0.2 && dot(normal, normal2) > 0.80 && newCoords2.x < windowWidth && newCoords2.y < windowHeight) {
 								sampleCount2++;
 								val2 += vec4(imageLoad(texelBuffer2, newCoords2));
 							}
@@ -128,6 +169,10 @@ vec4 getAverage(float n1X, float n1Y, ivec2 coordsOffset) {
 }
 
 void main() {
+    const int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
+    const int windowHeight = imageSize(texelBuffer2).y;
+	const float dh = 1.0 / float(windowHeight);
+
 	vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
 	vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
@@ -136,20 +181,35 @@ void main() {
 	vec4 colour = vec4(0);
 	int radius = 4;
 	int count = 0;
-	int length = 2 * radius + 1;
+	//int length = 2 * radius + 1;
 	for (int i = -radius; i <= radius; i++) {
 		for (int j = -radius; j <= radius; j++) {
 			vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
 			vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 			vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
 			float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-			if (abs(depth2 - depth) < 0.1 && dot(normal, normal2) > 0.90) {
+
+			vec3 lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + i - windowWidth / 2.0) / float(windowHeight), -(gl_GlobalInvocationID.y + j - windowHeight / 2.0) / float(windowHeight), 1.0));
+			vec3 lookingAtCenter = normalize(vec3((gl_GlobalInvocationID.x - windowWidth / 2.0) / float(windowHeight), -(gl_GlobalInvocationID.y - windowHeight / 2.0) / float(windowHeight), 1.0));
+
+			if ((i == 0 && j == 0) || abs(depth2 - getExpectedDepth(depth, normal, lookingAtCenter, lookingAt2)) < 0.2 && dot(normal, normal2) > 0.90) {
 				colour += vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
 				count++;
 			}
 		}
 	}
 	colour /= count;
+	vec4 depthIm0 = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x + 5), int(gl_GlobalInvocationID.y))));
+	float depth0 = 100 * (depthIm0.x + depthIm0.y / 255.0 + depthIm0.z / 255.0 / 255.0);
+	vec3 lookingAt0 = normalize(vec3((gl_GlobalInvocationID.x + 5.0 - windowWidth / 2.0) / float(windowHeight), -(gl_GlobalInvocationID.y - windowHeight / 2.0) / float(windowHeight), 1.0));
+	vec3 lookingAt = normalize(vec3((gl_GlobalInvocationID.x - windowWidth / 2.0) / float(windowHeight), -(gl_GlobalInvocationID.y - windowHeight / 2.0) / float(windowHeight), 1.0));
+	vec3 refNormal = normalize(vec3(10.0 / float(windowHeight), 0.0, 0.0));
+	//colour = vec4(abs(getExpectedDepthTest(depth, normal, lookingAt, lookingAt0).x - depth0));
+	//colour = vec4(getExpectedDepthTest(depth, normal, lookingAt, lookingAt0).x / 20.0);
+	//colour = vec4(getExpectedDepthTest(depth, normal, lookingAt, lookingAt0), 0, 0);
+	//colour = vec4(abs(getExpectedDepth(dh, depth, normal, vec2(10, 0)) - depth0));
+	//colour = vec4(depth / 10.0 * lookingAt.z);
+	//colour = vec4(normal.z * 0.5 + 0.5, normal.y * 0.5 + 0.5, normal.x * 0.5 + 0.5, 1.0);
 	//colour = vec4(vec3(1.0 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0)), 0);
 	/*if (mypc.time == 0) {
 		imageStore(texelBuffer, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), colour / 9.0);
