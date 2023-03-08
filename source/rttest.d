@@ -95,7 +95,7 @@ struct TestApp(ECS) {
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr2;
 	}
 	void initAccelStructure() {
-		enum string wavefrontCode = import("wand.wobj");
+		enum string wavefrontCode = import("wand2.wobj");
 		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
 
 		/*float[9] vertices = [

@@ -8,16 +8,16 @@
 //	das ganze würde dann auch gut mit perfekten reflexionen funktionieren
 
 // todo:
+// die samples weniger periodisch machen, vlt ein wenig drehen
+// die grossen samples untereinander smoothen wenn farbe nicht zu unterschiedlich
 // besseren tiefentest: mit normalen zusammen prüfen ob die fläche die gleiche ist
-// herausfinden was es mit dem weissen quadrat auf dem boden auf sich hat(problem ist im raytracing)
-// ein ray pro pixel, und für den auch die normale speichern
-// tiefendifferenz der tiefe nach anpassen
 // beim rand mehr samples von den anderen seiten holen (vlt auch allgemein mehr),
+// auf halbe auflösung rendern mit callable shadern
+// ein ray pro pixel, und für den auch die normale speichern
 // man könnte auch an den rändern anders bluren
 // mehr zufällige pixelverteilung für AA
 // bessere 9x9 blurverteilung statt einfach nur diagonal rutschen
-// bei den samples auf deren normals/tiefen achten anstatt sie einfach zu verwerfen -> für schönere ränder
-// oder besser die normals der samples speichern
+// die normals der samples speichern
 // man könnte bei dem normalentests prüfen ob objekt flat oder smooth geshadet ist, um ecken zu erhalten
 
 #version 460

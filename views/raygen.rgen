@@ -56,6 +56,12 @@ void main() {
 
     float offX = (int(mypc.time) % 3 - 1) * 0.5;
     float offY = (int(mypc.time) / 3 - 1) * 0.5;
+
+    int perX = int(mypc.time) % 3 * 3 + int(mypc.time);
+    int perY = int(mypc.time) / 3 * 3 - int(mypc.time);
+    
+    perX = int(mypc.time);
+    perY = 0;
     
     //vec3 pos2 = vec3(-2.0 + (gl_LaunchIDEXT.x - windowWidth / 2.0) / float(windowHeight), 2.0 - ((gl_LaunchIDEXT.y - windowHeight / 2.0) / float(windowHeight)), -9.0);
     //vec3 pos2 = pos + vec3((int(gl_LaunchIDEXT.x) / 9 * 9 - windowWidth / 2.0) / float(windowHeight), -((int(gl_LaunchIDEXT.y) / 9 * 9 - windowHeight / 2.0) / float(windowHeight)), 1.0);
@@ -90,7 +96,10 @@ void main() {
     );
     //dir = normalize(pos2 - pos);
     //vec3 dir = normalize(vec3(0, -0.3, 1));
-    float tmin = 0.00001;
+    //darf nicht zu gering sein, sonst gibt es den würfelartefakt?
+    //float tmin = 0.00001;
+    //float tmin = 0.01;
+    float tmin = 0.0;
     float tmax = 1000.0;
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pos, tmin, dir, tmax, 0);
@@ -125,11 +134,22 @@ void main() {
                 vec3 hitPos = hitValue.pos;
                 //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * imageSize(image).x) + pathLength + i + j * 2 * pathLength)));
                 //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * 9) % 82 + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * 9) % 82 + pathLength + i + j * 2 * pathLength)));
-                vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, rng2(int((gl_LaunchIDEXT.x + int(mypc.time)) % 9 + (gl_LaunchIDEXT.y + int(mypc.time)) % 9 * 9) * 32 + i + j * 2 * pathLength)), noise3D(randomId, seed, rng2(int((gl_LaunchIDEXT.x + int(mypc.time)) % 9 + (gl_LaunchIDEXT.y + int(mypc.time)) % 9 * 9) * 32 + pathLength + i + j * 2 * pathLength)));
+                /*vec3 randomNormal = sphereDistribution(
+                    noise3D(randomId, seed,
+                        rng2(int((gl_LaunchIDEXT.x + int(mypc.time)) + (gl_LaunchIDEXT.y + int(mypc.time)) * 9) * 32 + i + j * 2 * pathLength)),
+                    noise3D(randomId, seed,
+                        rng2(int((gl_LaunchIDEXT.x + int(mypc.time)) * 2 + (gl_LaunchIDEXT.y + int(mypc.time)) * 6) * 32 + pathLength + i + j * 2 * pathLength))
+                );*/
+                vec3 randomNormal = sphereDistribution(
+                    noise3D(randomId, seed, rng2(
+                        int((gl_LaunchIDEXT.x) % 9 + (gl_LaunchIDEXT.y + perY) % 9 * 9) * 32 + i + j * 2 * pathLength + int(mypc.time) * 47)),
+                    noise3D(randomId, seed, rng2(
+                        int((gl_LaunchIDEXT.x) % 9 + (gl_LaunchIDEXT.y + perY) % 9 * 9) * 32 + pathLength + i + j * 2 * pathLength + int(mypc.time) * 47))
+                    );
                 //vec3 randomNormal = sphereDistribution(noise3D(randomId, seed, i + j * 2 * pathLength), noise3D(randomId, seed, pathLength + i + j * 2 * pathLength)); 
                 vec3 newDir = normalize(randomNormal + hitValue.normal);
                 attenuation = attenuation * hitValue.colour;
-                traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, hitPos, tmin, newDir, tmax, 0);
+                traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, hitPos + hitValue.normal * 0.001, tmin, newDir, tmax, 0);
                 radiance += hitValue.radiance * attenuation;
                 if (hitValue.hitType == 0) {
                     miss = true;

@@ -26,7 +26,7 @@ void main() {
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, normalize(worldPos - origin));
     RayPayload hitValue2;
-    hitValue2.colour = vec3(1, 1, 1);//vec3(dotProduct, dotProduct, dotProduct);
+    hitValue2.colour = vec3(1, 0.5, 0.5);//vec3(dotProduct, dotProduct, dotProduct);
     hitValue2.pos = worldPos;
     hitValue2.normal = normalize(worldPos - origin);
     hitValue2.hitType = 2;
