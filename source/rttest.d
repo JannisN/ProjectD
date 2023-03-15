@@ -1111,7 +1111,7 @@ struct TestApp(ECS) {
 		passedTime += dt;
 		// ?zweite update funktion für shader list so dass alles kopiert wird
 
-		rtTime++;
+		//rtTime++;
 		rtTime %= 9;
 		import std.math.trigonometry;
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'W')) {
