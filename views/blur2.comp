@@ -31,7 +31,7 @@ void main() {
     const float dh = 1.0 / float(mypc.borderY - mypc.fromY) / float(blurSize);
 
     //int timeOffset = 0;
-    int timeOffset = mypc.time % 3 - int(blurSize) / 2;
+    int timeOffset = mypc.time - int(blurSize) / 2;
 
     vec4 normal = vec4(imageLoad(normalImage, ivec2(sourceX + blurSize / 2 + timeOffset, sourceY + blurSize / 2 + timeOffset)));
 	imageStore(normalImage, ivec2(destX, destY), normal);
