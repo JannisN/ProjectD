@@ -45,19 +45,20 @@ void main() {
     int sampleCount = 0;
     float totalSampleCount = 0;
     vec4 blurredColour = vec4(0);
-    for (int i = 0; i < blurSize; i++) {
-        for (int j = 0; j < blurSize; j++) {
+    // im ersten pass könnte man vlt beim 3x3 kernel bleiben
+    for (int i = 0; i < blurSize + 9; i++) {
+        for (int j = 0; j < blurSize + 9; j++) {
             /*if (
                 sourceX + i + timeOffset >= mypc.fromX && sourceY + j + timeOffset >= mypc.fromY
                 && sourceX + i + timeOffset < mypc.borderX && sourceY + j + timeOffset < mypc.borderY
             )*/ {
-                vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(sourceX + i + timeOffset - 3, sourceY + j + timeOffset - 3)));
                 vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
-                vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(sourceX + i + timeOffset - 3, sourceY + j + timeOffset - 3)));
                 float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-                if (abs(depth2 - getExpectedDepth(dh, depthCenter, normalCenter, vec2(i - blurSize / 2, j - blurSize / 2))) < 0.2 && dot(normalCenter, normal2) > 0.80) {
+                if (abs(depth2 - getExpectedDepth(dh, depthCenter, normalCenter, vec2(i - blurSize / 2 - 3, j - blurSize / 2 - 3))) < 0.2 && dot(normalCenter, normal2) > 0.80) {
                     sampleCount++;
-                    vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i + timeOffset, sourceY + j + timeOffset)));
+                    vec4 sampleColour = vec4(imageLoad(blurredImage, ivec2(sourceX + i + timeOffset - 3, sourceY + j + timeOffset - 3)));
                     blurredColour += sampleColour;
                     if (sampleColour.a > 0.0) {
                         totalSampleCount += sampleColour.a * 255.0;

@@ -492,10 +492,10 @@ void main() {
 		}
 	}*/
 
-	val00 = getAverage3(n1X, n1Y, coordsOffset);
-	val01 = getAverage3(n1X, n1Y + 1, coordsOffset);
-	val11 = getAverage3(n1X + 1, n1Y + 1, coordsOffset);
-	val10 = getAverage3(n1X + 1, n1Y, coordsOffset);
+	val00 = getAverage2(n1X, n1Y, coordsOffset);
+	val01 = getAverage2(n1X, n1Y + 1, coordsOffset);
+	val11 = getAverage2(n1X + 1, n1Y + 1, coordsOffset);
+	val10 = getAverage2(n1X + 1, n1Y, coordsOffset);
 
 	float total = 0.0;
 
