@@ -39,7 +39,7 @@ struct TestApp(ECS) {
 		pos[2] = -10.0;
 		rot[0] = 0.0;
 		rot[1] = 0.0;
-		rtTime = 4;
+		//rtTime = 4;
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
