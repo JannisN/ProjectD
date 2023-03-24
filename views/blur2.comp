@@ -7,6 +7,7 @@ layout (push_constant) uniform mypc_t {
     int toX, toY;
     int borderX, borderY;
     int time;
+    int secondaryTime;
 } mypc;
 
 layout (set = 0, binding = 0, rgba8) uniform image2D blurredImage;
@@ -58,9 +59,9 @@ void main() {
     if (mypc.fromX == 0) {
         blurStage = 0;
     }
-    // vlt noch timeOffset vom ersten blur berücksichtigen
-    // und samples an rändern von woanders nehmen
-    vec3 lookingAtCenter = normalize(vec3((gl_GlobalInvocationID.x + (blurSize / 2 + timeOffset) / float(blurSize) - mypc.borderX / 2.0) / float(mypc.borderY), -(gl_GlobalInvocationID.y + (blurSize / 2 + timeOffset) / float(blurSize) - mypc.borderY / 2.0) / float(mypc.borderY), 1.0));
+    // evt den offset vom antialiasing berücksichtigen, wahrscheinlich aber nicht nötig
+    // und samples an rändern von woanders nehmen (speziell auch am rand vom fenster)
+    vec3 lookingAtCenter = normalize(vec3((gl_GlobalInvocationID.x + (blurSize / 2 + timeOffset) / float(blurSize) + (mypc.secondaryTime) / float(blurSize * blurSize) - mypc.borderX / 2.0) / float(mypc.borderY), -(gl_GlobalInvocationID.y + (blurSize / 2 + timeOffset) / float(blurSize) + (mypc.secondaryTime) / float(blurSize * blurSize) - mypc.borderY / 2.0) / float(mypc.borderY), 1.0));
     for (int i = 0; i < blurSize + 2 * blurStage; i++) {
         for (int j = 0; j < blurSize + 2 * blurStage; j++) {
             /*if (
@@ -74,7 +75,7 @@ void main() {
                 //if (abs(depth2 - getExpectedDepth(dh, depthCenter, normalCenter, vec2(i - blurSize / 2 - blurStage, j - blurSize / 2 - blurStage))) < 0.2 && dot(normalCenter, normal2) > 0.80) {
 
                 //vec3 lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + i - windowWidth / 2.0) / float(windowHeight), -(gl_GlobalInvocationID.y + j - windowHeight / 2.0) / float(windowHeight), 1.0));
-                vec3 lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + (i - blurStage - blurSize / 2) / float(blurSize) + (blurSize / 2 + timeOffset) / float(blurSize) - mypc.borderX / 2.0) / float(mypc.borderY), -(gl_GlobalInvocationID.y + (j - blurStage - blurSize / 2) / float(blurSize) + (blurSize / 2 + timeOffset) / float(blurSize) - mypc.borderY / 2.0) / float(mypc.borderY), 1.0));
+                vec3 lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + (i - blurStage - blurSize / 2) / float(blurSize) + (blurSize / 2 + timeOffset) / float(blurSize) + (mypc.secondaryTime) / float(blurSize * blurSize) - mypc.borderX / 2.0) / float(mypc.borderY), -(gl_GlobalInvocationID.y + (j - blurStage - blurSize / 2) / float(blurSize) + (blurSize / 2 + timeOffset) / float(blurSize) + (mypc.secondaryTime) / float(blurSize * blurSize) - mypc.borderY / 2.0) / float(mypc.borderY), 1.0));
                 //lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + (i - (blurStage + blurSize / 2)) / float(blurSize) - mypc.borderX / 2.0) / float(mypc.borderY), -(gl_GlobalInvocationID.y + (j - (blurStage + blurSize / 2)) / float(blurSize) - mypc.borderY / 2.0) / float(mypc.borderY), 1.0));
 
                 if (/*(i == (blurSize + 2 * blurStage) / 2 && j == (blurSize + 2 * blurStage) / 2)*/ abs(depth2 - getExpectedDepth(depthCenter, normalCenter, lookingAtCenter, lookingAt2)) < 0.2
