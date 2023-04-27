@@ -538,23 +538,58 @@ void main() {
 	
 
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
-	if (
-		val00.a == 0.0 &&
+	if (total == 0.0
+		/*val00.a == 0.0 &&
 		val01.a == 0.0 &&
 		val11.a == 0.0 &&
-		val10.a == 0.0
+		val10.a == 0.0*/
 	) {
+    	const int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
+    	const int windowHeight = imageSize(texelBuffer2).y;
 		ivec2 coordsNew = ivec2(int(gl_GlobalInvocationID.x - mypc.time % 3 + 1) / 3, int(gl_GlobalInvocationID.y - mypc.time % 3 + 1) / 3);
-		coordsNew += ivec2(imageSize(texelBuffer).x, 0);
+		ivec2 coordsNewNoShift = coordsNew;
 		if (mypc.time % 3 > 1) {
 			coordsNew += ivec2(1, 1);
 		}
+		ivec2 coordsNewWithOffset = coordsNew + ivec2(imageSize(texelBuffer).x, 0);
 		float offX = (int(mypc.time) % 3 - 1) * 0.5;
 		float offY = (int(mypc.time) / 3 - 1) * 0.5;
 
 		vec3 lookingAtCenter = normalize(vec3((gl_GlobalInvocationID.x - windowWidth / 2.0 + offX) / float(windowHeight), -(gl_GlobalInvocationID.y - windowHeight / 2.0 + offY) / float(windowHeight), 1.0));
 
-		colour = vec4(0.0, 0.0, 1.0, 1.0);
+		vec4 normalIm = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+		vec3 normal = (normalIm.xyz - vec3(0.5)) * 2.0;
+		vec4 depthIm = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+		float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
+
+		vec4 val = vec4(0);
+		vec4 val2 = vec4(0);
+		int count = 0;
+
+		for (int i = 0; i < 3; i++) {
+			for (int j = 0; j < 3; j++) {
+				vec3 lookingAt2 = normalize(vec3(((i - 1) * 3 + coordsNewNoShift.x * 3 + 1 + mypc.time % 3 - windowWidth / 2.0 + offX) / float(windowHeight), -((j - 1) * 3 + coordsNewNoShift.y * 3 + 1 + mypc.time % 3 - windowHeight / 2.0 + offY) / float(windowHeight), 1.0));
+				vec4 normalIm2 = vec4(imageLoad(normalImage, coordsNewWithOffset));
+				vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+				vec4 depthIm2 = vec4(imageLoad(depthImage, coordsNewWithOffset));
+				float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+				val2 += vec4(0.5 + lookingAt2.x, 0.5 + lookingAt2.y, 0.0, 1.0);
+				if (abs(depth2 - getExpectedDepth(depth, normal, lookingAtCenter, lookingAt2)) < 0.2 && dot(normal, normal2) > 0.90
+					|| (gl_GlobalInvocationID.x == (i - 1) * 3 + coordsNewNoShift.x * 3 + 1 + mypc.time % 3
+					&& gl_GlobalInvocationID.y == (j - 1) * 3 + coordsNewNoShift.y * 3 + 1 + mypc.time % 3)) {
+					val += vec4(imageLoad(texelBuffer2, coordsNewWithOffset));
+					count++;
+				}
+			}
+		}
+
+		if (count != 0) {
+			colour = val / float(count);
+			//colour = vec4(1.0, 0.0, float(count) / 9.0, 1.0);
+		} else {
+			colour = vec4(0.0, 0.0, 1.0, 1.0);
+		}
+		//colour = vec4(1.0, 0.0, 0.0, 1.0);
 	}
 	//colour = vec4(distr1X);
 	//vec4 colour = vec4(val00.a + val01.a + val11.a + val10.a);
