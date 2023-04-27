@@ -108,6 +108,8 @@ void main() {
     vec3 firstNormal = hitValue.normal;
     vec3 firstColour = hitValue.colour;
     //vec3 saveNormal = rotInv * hitValue.normal;
+    //vec3 saveNormal = hitValue.normal;
+    //if (hitValue.hitType != 0)
     vec3 saveNormal = rotYinv * rotXinv * hitValue.normal;
     imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(saveNormal / 2.0 + vec3(0.5), 0));
     float depth = dot(dir, firstPos - pos) / 100.0;

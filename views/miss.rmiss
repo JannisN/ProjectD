@@ -15,6 +15,6 @@ void main() {
     hitValue.colour = vec3(1.0, 1.0, 1.0);
     hitValue.hitType = 0;
     hitValue.radiance = vec3(1.0, 1.0, 1.0);
-    hitValue.normal = vec3(0,0,-1);
+    hitValue.normal = -gl_WorldRayDirectionEXT;
     hitValue.pos = vec3(50, 50, 50);
 }
