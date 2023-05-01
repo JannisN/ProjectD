@@ -538,19 +538,15 @@ void main() {
 	
 
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
-	if (total == 0.0
-		/*val00.a == 0.0 &&
-		val01.a == 0.0 &&
-		val11.a == 0.0 &&
-		val10.a == 0.0*/
-	) {
+	colour.a = total;
+
+	// todo: samples sollten nicht von ausserhalb vom bild genommen werden; kann vorkommen wenn ein objekt sehr nahe ist
+	// alphawerte verbessern, anzahl an samples speichern
+	if (total == 0.0) {
     	const int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
     	const int windowHeight = imageSize(texelBuffer2).y;
 		ivec2 coordsNew = ivec2(int(gl_GlobalInvocationID.x - mypc.time % 3 + 1) / 3, int(gl_GlobalInvocationID.y - mypc.time % 3 + 1) / 3);
 		ivec2 coordsNewNoShift = coordsNew;
-		/*if (mypc.time % 3 > 1) {
-			coordsNew += ivec2(1, 1);
-		}*/
 		ivec2 coordsNewWithOffset = coordsNew + ivec2(imageSize(texelBuffer).x, 0);
 		float offX = (int(mypc.time) % 3 - 1) * 0.5;
 		float offY = (int(mypc.time) / 3 - 1) * 0.5;
@@ -563,9 +559,7 @@ void main() {
 		float depth = 100 * (depthIm.x + depthIm.y / 255.0 + depthIm.z / 255.0 / 255.0);
 
 		vec4 val = vec4(0);
-		vec4 val2 = vec4(0);
 		int count = 0;
-		float f = 0;
 
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 3; j++) {
@@ -574,8 +568,6 @@ void main() {
 				vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
 				vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(coordsNewWithOffset.x + i - 1, coordsNewWithOffset.y + j - 1)));
 				float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
-				val2 += vec4(0.5 + lookingAt2.x, 0.5 + lookingAt2.y, 0.0, 1.0);
-				f += abs(depth2 - getExpectedDepth(depth, normal, lookingAtCenter, lookingAt2));
 				if (coordsNew.y < windowHeight)
 				if (abs(depth2 - getExpectedDepth(depth, normal, lookingAtCenter, lookingAt2)) < 0.2 && dot(normal, normal2) > 0.90
 					|| (gl_GlobalInvocationID.x == (i - 1) * 3 + coordsNewNoShift.x * 3 + /*1 +*/ mypc.time % 3
@@ -585,19 +577,35 @@ void main() {
 				}
 			}
 		}
-		// todo: 9x9 blur ein pixel mehr für rand
-		// herausfinden von wo so viel blau kommt
-
 		if (count != 0) {
 			colour = val / float(count);
-			//colour.y = f / 9.0;
-			//colour = vec4(1.0, float(count) / 9.0, 0.0, 1.0);
+			colour.a = float(count) / float(127.0);
 		} else {
-			colour = vec4(0.0, 0.0, 1.0, 1.0);
-			//colour.y = f / 9.0;
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					vec3 lookingAt2 = normalize(vec3((gl_GlobalInvocationID.x + i - 1 - windowWidth / 2.0 + offX) / float(windowHeight), -(gl_GlobalInvocationID.y + j - 1 - windowHeight / 2.0 + offY) / float(windowHeight), 1.0));
+					vec4 normalIm2 = vec4(imageLoad(normalImage, ivec2(int(gl_GlobalInvocationID.x + i - 1), int(gl_GlobalInvocationID.y + j - 1))));
+					vec3 normal2 = (normalIm2.xyz - vec3(0.5)) * 2.0;
+					vec4 depthIm2 = vec4(imageLoad(depthImage, ivec2(int(gl_GlobalInvocationID.x + i - 1), int(gl_GlobalInvocationID.y + j - 1))));
+					float depth2 = 100 * (depthIm2.x + depthIm2.y / 255.0 + depthIm2.z / 255.0 / 255.0);
+					if (gl_GlobalInvocationID.y + j - 1 < windowHeight)
+					if (abs(depth2 - getExpectedDepth(depth, normal, lookingAtCenter, lookingAt2)) < 0.2 && dot(normal, normal2) > 0.90
+						|| (i == 1 && j == 1)) {
+						val += vec4(imageLoad(texelBuffer2, ivec2(int(gl_GlobalInvocationID.x + i - 1), int(gl_GlobalInvocationID.y + j - 1))));
+						count++;
+					}
+				}
+			}
+			if (count != 0) {
+				colour = val / float(count);
+				colour.a = float(count) / float(255.0);
+			} else {
+				// debug: sollte nicht passieren
+				colour = vec4(0.0, 0.0, 1.0, 1.0);
+			}
 		}
-		//colour = vec4(1.0, 0.0, 0.0, 1.0);
 	}
+	//colour.b = 1.0 - colour.a;
 	//colour = vec4(total);
 	//colour = vec4(distr1X);
 	//vec4 colour = vec4(val00.a + val01.a + val11.a + val10.a);
