@@ -540,8 +540,24 @@ void main() {
 	vec4 colour = (val00 + val01 + val11 + val10) / total;
 	colour.a = total;
 
-	// todo: samples sollten nicht von ausserhalb vom bild genommen werden; kann vorkommen wenn ein objekt sehr nahe ist
+	if (total == 0.0 && false) {
+		val00 = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y)));
+		val01 = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X, n1Y + 1)));
+		val11 = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y + 1)));
+		val10 = vec4(imageLoad(texelBuffer2, coordsOffset + ivec2(n1X + 1, n1Y)));
+		val00.xyz *= ((distr1X) * (distr1Y));
+		val01.xyz *= ((distr1X) * ((1.0 - distr1Y)));
+		val11.xyz *= (((1.0 - distr1X)) * ((1.0 - distr1Y)));
+		val10.xyz *= (((1.0 - distr1X)) * (distr1Y));
+		colour = (val00 + val01 + val11 + val10);
+	}
+
+	// todo:
+	// samples sollten nicht von ausserhalb vom bild genommen werden; kann vorkommen wenn ein objekt sehr nahe ist
 	// alphawerte verbessern, anzahl an samples speichern
+	// vlt einen grossen pixel mehr für den rand
+	// ausprobieren wie es aussieht wenn man den durchschnitt der grossen pixel nimmt statt auf 3x3 bzw 1x1 runterzugehen
+	// bessere noise function
 	if (total == 0.0) {
     	const int windowWidth = imageSize(texelBuffer2).x * 3 / 4;
     	const int windowHeight = imageSize(texelBuffer2).y;

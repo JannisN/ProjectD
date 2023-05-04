@@ -1111,8 +1111,8 @@ struct TestApp(ECS) {
 		passedTime += dt;
 		// ?zweite update funktion für shader list so dass alles kopiert wird
 
-		//rtTime++;
-		rtTime %= 9;
+		rtTime++;
+		//rtTime %= 9;
 		import std.math.trigonometry;
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'W')) {
 			pos[2] += 2.0 * dt * cos(rot[1]);
@@ -1400,7 +1400,7 @@ struct TestApp(ECS) {
 		//pushConstants2[3] = capabilities.currentExtent.height / 3 + ((capabilities.currentExtent.height % 3 == 0) ? 0 : 1);
 		pushConstants2[4] = capabilities.currentExtent.width / 9;
 		pushConstants2[5] = capabilities.currentExtent.height / 9;
-		pushConstants2[6] = rtTime / 3;
+		pushConstants2[6] = rtTime / 3 % 3;
 		pushConstants2[7] = rtTime % 3;
 		compressedX = compressedX / 3;// + ((compressedX % 3 == 0) ? 0 : 1);
 		compressedY = compressedY / 3;// + ((compressedY % 3 == 0) ? 0 : 1);
@@ -1457,7 +1457,7 @@ struct TestApp(ECS) {
 		borderX = capabilities.currentExtent.width % localWorkGroupSize[0] > 0 ? 1 : 0;
 		borderY = capabilities.currentExtent.height % localWorkGroupSize[1] > 0 ? 1 : 0;
 		uint[1] pushConstants3;
-		pushConstants3[0] = rtTime;
+		pushConstants3[0] = rtTime % 9;
 		cmdBuffer.pushConstants(pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 1, pushConstants3.ptr);
 		cmdBuffer.dispatch(capabilities.currentExtent.width / localWorkGroupSize[0] + borderX, capabilities.currentExtent.height / localWorkGroupSize[1] + borderY, 1);
 
