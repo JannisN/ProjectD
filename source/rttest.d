@@ -1171,6 +1171,10 @@ struct TestApp(ECS) {
 		foreach (id; dynEcs.getGeneralUpdateList!Text()) {
 			Text text = dynEcs.getForced!Text(id);
             dynEcs.removeComponent!Text(id);
+			if (dynEcs.getEntity(id).has!(GpuLocal!Buffer))
+				dynEcs.removeComponent!(GpuLocal!Buffer)(id);
+			if (dynEcs.getEntity(id).has!(CpuLocal!Buffer))
+				dynEcs.removeComponent!(CpuLocal!Buffer)(id);
             dynEcs.addComponent!Text(id, text);
 		}
 		foreach (i; dynEcs.getAddUpdateList!Text()) {
