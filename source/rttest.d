@@ -56,7 +56,7 @@ struct TestApp(ECS) {
 				dynEcs.remove(id);
 			}
 			rtTime++;
-			rebuildAccelerationStructure();
+			//rebuildAccelerationStructure();
 		}
 	}
 	void receive(WindowResizeEvent event) {
@@ -351,7 +351,7 @@ struct TestApp(ECS) {
 		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
 		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 		sphereInstancesData.arrayOfPointers = VK_FALSE;
-		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.t.getDeviceAddress(); //.getDeviceAddress();
+		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.getDeviceAddress(); //.getDeviceAddress();
 		accelStruct.geometries2[1].sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
 		accelStruct.geometries2[1].geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
 		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
@@ -412,7 +412,8 @@ struct TestApp(ECS) {
 		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
 		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 		sphereInstancesData.arrayOfPointers = VK_FALSE;
-		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.t.getDeviceAddress(); //.getDeviceAddress();
+		// in der zeile ist das problem
+		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.getDeviceAddress(); //.getDeviceAddress();
 		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
 		accelStruct.buildInfo2.pGeometries = &accelStruct.geometries2[1];
 		accelStruct.buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
@@ -444,8 +445,8 @@ struct TestApp(ECS) {
 		cmdBuffer.begin();
 		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.end();
-		queue.submit(cmdBuffer, fence);
-		fence.wait();
+		writeln("result: ", queue.submit(cmdBuffer, fence));
+		writeln("result: ", fence.wait());
 		fence.reset();
 		cmdBuffer.reset();
 
@@ -723,12 +724,12 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[1]);
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 
-		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
+		circleShaderList = ShaderList!(Circle, false)(device, memoryAllocator, 16);
 
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-		instanceShaderList = ShaderList!VkAccelerationStructureInstanceKHR(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
+		instanceShaderList = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
 		
 		initAccelStructure();
 		initRtPipeline();
@@ -754,6 +755,8 @@ struct TestApp(ECS) {
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		fence.reset();
+
+		rebuildAccelerationStructure();
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1289,7 +1292,7 @@ struct TestApp(ECS) {
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
 		
-		import std.math.trigonometry;
+		/*import std.math.trigonometry;
 		VkTransformMatrixKHR transformMatrix2;
 		transformMatrix2.matrix = [
 			[1.0f, 0.0f, 0.0f, sin(passedTime)],
@@ -1300,7 +1303,7 @@ struct TestApp(ECS) {
 		VkAccelerationStructureInstanceKHR* instanceptr = cast(VkAccelerationStructureInstanceKHR*) memory.map(accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof);
 		instanceptr[1].transform = transformMatrix2;
 		memory.flush(array(mappedMemoryRange(*memory, accelStruct.instanceBuffer.allocatedMemory.allocation.offset, 2 * VkAccelerationStructureInstanceKHR.sizeof)));
-		memory.unmap();
+		memory.unmap();*/
 		
 		cmdBuffer.begin();
 		/*cmdBuffer.clearColorImage(
@@ -1719,7 +1722,7 @@ struct TestApp(ECS) {
 	size_t timeCounter;
 	
 	CircleImplStruct circleImplStruct;
-	ShaderList!Circle circleShaderList;
+	ShaderList!(Circle, false) circleShaderList;
 
 	AccelStruct accelStruct;
 	RtPipeline rtPipeline;
@@ -1762,7 +1765,7 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(),
         ECSConfig(true, true)
 	) sphereEcs;
-	ShaderList!VkAccelerationStructureInstanceKHR instanceShaderList;
+	ShaderList!(VkAccelerationStructureInstanceKHR, false) instanceShaderList;
 }
 
 struct Circle {

@@ -2624,7 +2624,12 @@ struct ShaderListIndex(T) {
 // auch eine version später wo die elemente verlinkt sind, zb. für ein lattice um raytracing zu beschleunigen pro gitterelemt eine referenz zur einer liste im buffer
 // der unterschied zu dieser version wäre dann zb. dass beim löschen eines elements ein neuer link erzeugt werden muss
 // vlt später auch die option statt uint ulong, falls 64 bit auf gpu nötig
-struct ShaderList(T) {
+struct ShaderList(T, bool withCount = true) {
+	static if (withCount) {
+		enum size_t countOffset = uint.sizeof;
+	} else {
+		enum size_t countOffset = 0;
+	}
 	Device* device;
 	MemoryAllocator* memoryAllocator;
 	uint maxLength;
@@ -2720,7 +2725,9 @@ struct ShaderList(T) {
 				length--;
 			}
 		}
-		*tCount = length;
+		static if (withCount) {
+			*tCount = length;
+		}
 		cpuMemory.flush(array(mappedMemoryRange(*cpuMemory, cpuBuffer.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
 		cpuMemory.unmap();
 		Vector!VkBufferCopy copies = Vector!VkBufferCopy(updateRangeCount);
@@ -2756,8 +2763,10 @@ struct ShaderList(T) {
 				}
 			}
 		}
-		if (oldLength != length) {
-			cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+		static if (withCount) {
+			if (oldLength != length) {
+				cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+			}
 		}
 		if (updateRangeCount > 0) {
 			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
@@ -2782,7 +2791,7 @@ struct ShaderList(T) {
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
 		uint* tCount = cast(uint*) mappedMemory;
-		T* t = cast(T*) (mappedMemory + uint.sizeof);
+		T* t = cast(T*) (mappedMemory + countOffset);
 		size_t oldLength = length;
 		static if (ecs.hasRemoveUpdateList!T()) {
 			foreach (id; ecs.getRemoveIdsList!T()) {
@@ -2833,7 +2842,10 @@ struct ShaderList(T) {
 				length--;
 			}
 		}
-		*tCount = length;
+		static if (withCount) {
+			*tCount = length;
+		}
+		// hier vlt nicht whole size? oder ist das egal wegen performance?
 		cpuMemory.flush(array(mappedMemoryRange(*cpuMemory, cpuBuffer.allocatedMemory.allocation.offset, VK_WHOLE_SIZE)));
 		cpuMemory.unmap();
 		Vector!VkBufferCopy copies = Vector!VkBufferCopy(updateRangeCount);
@@ -2841,14 +2853,14 @@ struct ShaderList(T) {
 		static if (ecs.hasAddUpdateList!T()) {
 			foreach (id; ecs.getAddUpdateList!T()) {
 				uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
-				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copies[copyIndex] = VkBufferCopy(countOffset + T.sizeof * shaderListIndex, countOffset + T.sizeof * shaderListIndex, T.sizeof);
 				copyIndex++;
 			}
 		}
 		static if (ecs.hasGeneralUpdateList!T()) {
 			foreach (id; ecs.getGeneralUpdateList!T()) {
 				uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
-				copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+				copies[copyIndex] = VkBufferCopy(countOffset + T.sizeof * shaderListIndex, countOffset + T.sizeof * shaderListIndex, T.sizeof);
 				copyIndex++;
 			}
 		}
@@ -2857,7 +2869,7 @@ struct ShaderList(T) {
 			static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
 				foreach (id; ecs.specificUpdates[i]) {
 					uint shaderListIndex = ecs.getComponent!(ShaderListIndex!T)(id).index;
-					copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), uint.sizeof + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), getSize!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])());
+					copies[copyIndex] = VkBufferCopy(countOffset + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), countOffset + T.sizeof * shaderListIndex + getOffset!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])(), getSize!(typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1])());
 				}
 			}
 		}
@@ -2865,13 +2877,15 @@ struct ShaderList(T) {
 			foreach (e; ecs.getRemoveUpdateList!(ShaderListIndex!T)()) {
 				uint shaderListIndex = e.index;
 				if (shaderListIndex < length) {
-					copies[copyIndex] = VkBufferCopy(uint.sizeof + T.sizeof * shaderListIndex, uint.sizeof + T.sizeof * shaderListIndex, T.sizeof);
+					copies[copyIndex] = VkBufferCopy(countOffset + T.sizeof * shaderListIndex, countOffset + T.sizeof * shaderListIndex, T.sizeof);
 					copyIndex++;
 				}
 			}
 		}
-		if (oldLength != length) {
-			cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+		static if (withCount) {
+			if (oldLength != length) {
+				cmdBuffer.copyBuffer(cpuBuffer, 0, gpuBuffer, 0, uint.sizeof);
+			}
 		}
 		if (updateRangeCount > 0) {
 			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
