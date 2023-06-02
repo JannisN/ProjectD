@@ -2635,15 +2635,26 @@ struct ShaderList(T) {
 	Memory* gpuMemory;
 	Vector!size_t entities = void;
 	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength) {
+		this(device, memoryAllocator, maxLength, 0, 0, null, null);
+	}
+	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength, VkBufferUsageFlags localFlags, VkBufferUsageFlags deviceFlags, VkMemoryAllocateFlagsInfo* localAllocFlags, VkMemoryAllocateFlagsInfo* deviceAllocFlags) {
 		this.device = &device;
 		this.memoryAllocator = &memoryAllocator;
 		this.maxLength = maxLength;
 		entities = Vector!size_t(maxLength);
-		cpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
-		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		cpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), localFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 
-		memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		if (localAllocFlags == null) {
+			memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		} else {
+			memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, *localAllocFlags);
+		}
+		if (deviceAllocFlags == null) {
+			memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		} else {
+			memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *deviceAllocFlags);
+		}
 		cpuMemory = &cpuBuffer.allocatedMemory.allocatorList.memory;
 		gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;
 	}

@@ -56,6 +56,7 @@ struct TestApp(ECS) {
 				dynEcs.remove(id);
 			}
 			rtTime++;
+			rebuildAccelerationStructure();
 		}
 	}
 	void receive(WindowResizeEvent event) {
@@ -89,7 +90,7 @@ struct TestApp(ECS) {
 		AccelerationStructure tlas;
 		AllocatedResource!Buffer scratchBuffer2;
 
-		VkAccelerationStructureGeometryKHR geometry2;
+		VkAccelerationStructureGeometryKHR[2] geometries2;
 		VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
 		VkAccelerationStructureBuildRangeInfoKHR rangeInfo2;
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr2;
@@ -343,9 +344,17 @@ struct TestApp(ECS) {
 		instancesData.data.deviceAddress = accelStruct.instanceBuffer.getDeviceAddress();
 
 		//VkAccelerationStructureGeometryKHR geometry2;
-		accelStruct.geometry2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		accelStruct.geometry2.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		accelStruct.geometry2.geometry.instances = instancesData;
+		accelStruct.geometries2[0].sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		accelStruct.geometries2[0].geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		accelStruct.geometries2[0].geometry.instances = instancesData;
+
+		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
+		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		sphereInstancesData.arrayOfPointers = VK_FALSE;
+		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.t.getDeviceAddress(); //.getDeviceAddress();
+		accelStruct.geometries2[1].sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		accelStruct.geometries2[1].geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
 
 		/*VkAccelerationStructureGeometryInstancesDataKHR aabbInstancesData;
 		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -356,11 +365,12 @@ struct TestApp(ECS) {
 		geometry2[1].geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
 		geometry2[1].geometry.instances = aabbInstancesData;*/
 
+
 		//VkAccelerationStructureBuildGeometryInfoKHR buildInfo2;
 		accelStruct.buildInfo2.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 		accelStruct.buildInfo2.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 		accelStruct.buildInfo2.geometryCount = 1;
-		accelStruct.buildInfo2.pGeometries = &accelStruct.geometry2;
+		accelStruct.buildInfo2.pGeometries = &accelStruct.geometries2[0];
 		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		accelStruct.buildInfo2.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 		accelStruct.buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
@@ -395,6 +405,50 @@ struct TestApp(ECS) {
 		fence.reset();
 
 		// für update
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+		accelStruct.buildInfo2.srcAccelerationStructure = accelStruct.tlas;
+	}
+	void rebuildAccelerationStructure() {
+		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
+		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		sphereInstancesData.arrayOfPointers = VK_FALSE;
+		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.t.getDeviceAddress(); //.getDeviceAddress();
+		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
+		accelStruct.buildInfo2.pGeometries = &accelStruct.geometries2[1];
+		accelStruct.buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelStruct.buildInfo2.dstAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		accelStruct.buildInfo2.scratchData = VkDeviceOrHostAddressKHR();
+		accelStruct.rangeInfo2.primitiveCount = instanceShaderList.length;
+		accelStruct.scratchBuffer2.destroy();
+		accelStruct.tlas.destroy();
+		accelStruct.tlasBuffer.destroy();
+
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo2 = device.getAccelerationStructureBuildSizesKHR(
+			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&accelStruct.buildInfo2,
+			&accelStruct.rangeInfo2.primitiveCount
+		);
+		accelStruct.tlasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
+		memoryAllocator.allocate(accelStruct.tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		accelStruct.tlas = device.createAccelerationStructure(accelStruct.buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
+
+		accelStruct.buildInfo2.dstAccelerationStructure = accelStruct.tlas;
+		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(accelStruct.scratchBuffer2, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
+		accelStruct.rangeInfoPtr2 = &accelStruct.rangeInfo2;
+		cmdBuffer.begin();
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
+		cmdBuffer.end();
+		queue.submit(cmdBuffer, fence);
+		fence.wait();
+		fence.reset();
+		cmdBuffer.reset();
+
 		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 		accelStruct.buildInfo2.srcAccelerationStructure = accelStruct.tlas;
 	}
@@ -670,9 +724,36 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 
 		circleShaderList = ShaderList!Circle(device, memoryAllocator, 16);
+
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		instanceShaderList = ShaderList!VkAccelerationStructureInstanceKHR(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
 		
 		initAccelStructure();
 		initRtPipeline();
+
+		VkTransformMatrixKHR transformMatrix2;
+		transformMatrix2.matrix = [
+			[1.0f, 0.0f, 0.0f, 0.0f],
+			[0.0f, 1.0f, 0.0f, 0.0f],
+			[0.0f, 0.0f, 1.0f, 0.0f],
+		];
+		VkAccelerationStructureInstanceKHR testInstance;
+		testInstance.transform = transformMatrix2;
+		testInstance.instanceCustomIndex = 1;
+		testInstance.mask = 0xff;
+		testInstance.instanceShaderBindingTableRecordOffset = 1;
+		testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
+		sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+
+		cmdBuffer.begin();
+		instanceShaderList.update2(sphereEcs, cmdBuffer);
+		cmdBuffer.end();
+		queue.submit(cmdBuffer, fence);
+		fence.wait();
+		fence.reset();
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1663,6 +1744,25 @@ struct TestApp(ECS) {
 	float[3] pos;
 	float[2] rot;
 	int rtTime;
+
+	DynamicECS!(
+        PartialVec,//Vector
+		TypeSeqStruct!(
+			Sphere,
+            ShaderListIndex!Sphere,
+			VkAccelerationStructureInstanceKHR,
+            ShaderListIndex!VkAccelerationStructureInstanceKHR,
+		),
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, VkAccelerationStructureInstanceKHR), // general
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(Sphere, VkAccelerationStructureInstanceKHR), // add
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
+		TypeSeqStruct!(),
+        ECSConfig(true, true)
+	) sphereEcs;
+	ShaderList!VkAccelerationStructureInstanceKHR instanceShaderList;
 }
 
 struct Circle {
@@ -1675,6 +1775,11 @@ struct Text {
 	String text;
 	float x, y;
 	float scale;
+}
+
+struct Sphere {
+	float x, y, z;
+	float radius;
 }
 
 struct TestController(Args...) {
