@@ -44,7 +44,6 @@ struct TestApp(ECS) {
 	void receive(MouseButtonEvent event) {
 		writeln("event");
 		if (event.action == MouseButtonAction.press) {
-			// fixen: geht kaputt nach ner zeit spammen
 			char[20] fval;
 			import core.stdc.stdio;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
@@ -56,6 +55,31 @@ struct TestApp(ECS) {
 				dynEcs.remove(id);
 			}
 			rtTime++;
+
+			import std.math.trigonometry;
+			VkTransformMatrixKHR transformMatrix2;
+			transformMatrix2.matrix = [
+				[1.0f, 0.0f, 0.0f, sin(passedTime)],
+				[0.0f, 1.0f, 0.0f, cos(passedTime)],
+				[0.0f, 0.0f, 1.0f, 1.0f],
+			];
+			VkAccelerationStructureInstanceKHR testInstance;
+			testInstance.transform = transformMatrix2;
+			testInstance.instanceCustomIndex = 1;
+			testInstance.mask = 0xff;
+			testInstance.instanceShaderBindingTableRecordOffset = 1;
+			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
+			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+
+			/*cmdBuffer.begin();
+			instanceShaderList.update2(sphereEcs, cmdBuffer);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+
+			rebuildAccelerationStructure();*/
 			//rebuildAccelerationStructure();
 		}
 	}
@@ -412,7 +436,6 @@ struct TestApp(ECS) {
 		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
 		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 		sphereInstancesData.arrayOfPointers = VK_FALSE;
-		// in der zeile ist das problem
 		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.getDeviceAddress(); //.getDeviceAddress();
 		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
 		accelStruct.buildInfo2.pGeometries = &accelStruct.geometries2[1];
@@ -452,6 +475,48 @@ struct TestApp(ECS) {
 
 		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 		accelStruct.buildInfo2.srcAccelerationStructure = accelStruct.tlas;
+	}
+	void recreateTlas() {
+		VkAccelerationStructureGeometryInstancesDataKHR sphereInstancesData;
+		sphereInstancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		sphereInstancesData.arrayOfPointers = VK_FALSE;
+		sphereInstancesData.data.deviceAddress = instanceShaderList.gpuBuffer.getDeviceAddress(); //.getDeviceAddress();
+		accelStruct.geometries2[1].geometry.instances = sphereInstancesData;
+		accelStruct.buildInfo2.pGeometries = &accelStruct.geometries2[1];
+		accelStruct.buildInfo2.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelStruct.buildInfo2.dstAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		accelStruct.buildInfo2.scratchData = VkDeviceOrHostAddressKHR();
+		accelStruct.rangeInfo2.primitiveCount = instanceShaderList.length;
+		accelStruct.scratchBuffer2.destroy();
+		accelStruct.tlas.destroy();
+		accelStruct.tlasBuffer.destroy();
+
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo2 = device.getAccelerationStructureBuildSizesKHR(
+			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&accelStruct.buildInfo2,
+			&accelStruct.rangeInfo2.primitiveCount
+		);
+		accelStruct.tlasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
+		memoryAllocator.allocate(accelStruct.tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		accelStruct.tlas = device.createAccelerationStructure(accelStruct.buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
+
+		accelStruct.buildInfo2.dstAccelerationStructure = accelStruct.tlas;
+		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(accelStruct.scratchBuffer2, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
+		accelStruct.rangeInfoPtr2 = &accelStruct.rangeInfo2;
+	}
+	void buildTlas() {
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
+	}
+	void updateTlas() {
+		accelStruct.buildInfo2.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+		accelStruct.buildInfo2.srcAccelerationStructure = accelStruct.tlas;
+		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 	}
 	struct RtPipeline {
 		Shader raygenShader;
@@ -1291,6 +1356,16 @@ struct TestApp(ECS) {
 		fence.reset();
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
+
+		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+			cmdBuffer.begin();
+			instanceShaderList.update2(sphereEcs, cmdBuffer, false);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+			recreateTlas();
+		}
 		
 		/*import std.math.trigonometry;
 		VkTransformMatrixKHR transformMatrix2;
@@ -1312,7 +1387,15 @@ struct TestApp(ECS) {
 			VkClearColorValue([1.0, 1.0, 1.0, 0.0]),
 			array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
 		);*/
-		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
+		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+			buildTlas();
+		} else if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+			updateTlas();
+		}
+		sphereEcs.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
+		sphereEcs.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
+		sphereEcs.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();
+		//cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,

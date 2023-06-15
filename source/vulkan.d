@@ -2787,7 +2787,7 @@ struct ShaderList(T, bool withCount = true) {
 			ecs.clearUpdateList!(T, E[1])();
 		}
 	}
-	void update2(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer) {
+	void update2(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer, bool clearLists = true) {
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
 		uint* tCount = cast(uint*) mappedMemory;
@@ -2890,22 +2890,24 @@ struct ShaderList(T, bool withCount = true) {
 		if (updateRangeCount > 0) {
 			cmdBuffer.copyBuffer(cpuBuffer, gpuBuffer, copies);
 		}
-		static if (ecs.hasAddUpdateList!T()) {
-			ecs.clearAddUpdateList!T();
-		}
-		static if (ecs.hasGeneralUpdateList!T()) {
-			ecs.clearGeneralUpdateList!T();
-		}
-		static if (ecs.hasRemoveUpdateList!T()) {
-			ecs.clearRemoveUpdateList!T();
+		if (clearLists) {
+			static if (ecs.hasAddUpdateList!T()) {
+				ecs.clearAddUpdateList!T();
+			}
+			static if (ecs.hasGeneralUpdateList!T()) {
+				ecs.clearGeneralUpdateList!T();
+			}
+			static if (ecs.hasRemoveUpdateList!T()) {
+				ecs.clearRemoveUpdateList!T();
+			}
+			static foreach (i, Component; typeof(ecs).SpecificUpdatesOnlyComponents) {
+				static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
+					ecs.clearSpecificUpdateList!(T, typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1]);
+				}
+			}
 		}
 		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
 			ecs.clearRemoveUpdateList!(ShaderListIndex!T)();
-		}
-		static foreach (i, Component; typeof(ecs).SpecificUpdatesOnlyComponents) {
-			static if (is (typeof(ecs).SpecificUpdatesOnlyComponents[i] == T)) {
-				ecs.clearSpecificUpdateList!(T, typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1]);
-			}
 		}
 	}
 }
