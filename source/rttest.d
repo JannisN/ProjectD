@@ -57,7 +57,7 @@ struct TestApp(ECS) {
 			rtTime++;
 
 			import std.math.trigonometry;
-			VkTransformMatrixKHR transformMatrix2;
+			/*VkTransformMatrixKHR transformMatrix2;
 			transformMatrix2.matrix = [
 				[1.0f, 0.0f, 0.0f, sin(passedTime)],
 				[0.0f, 1.0f, 0.0f, cos(passedTime)],
@@ -71,6 +71,9 @@ struct TestApp(ECS) {
 			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
 			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+			*/
+
+			sphereEcs.add().add!Sphere(Sphere(sin(passedTime), cos(passedTime), 1.0, 1.0));
 
 			/*cmdBuffer.begin();
 			instanceShaderList.update2(sphereEcs, cmdBuffer);
@@ -1356,6 +1359,26 @@ struct TestApp(ECS) {
 		fence.reset();
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
+
+		foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
+			auto entity = sphereEcs.getEntity(i);
+			Sphere sphere = entity.get!Sphere();
+			VkTransformMatrixKHR transformMatrix2;
+			transformMatrix2.matrix = [
+				[1.0f, 0.0f, 0.0f, sphere.x],
+				[0.0f, 1.0f, 0.0f, sphere.y],
+				[0.0f, 0.0f, 1.0f, sphere.z],
+			];
+			VkAccelerationStructureInstanceKHR testInstance;
+			testInstance.transform = transformMatrix2;
+			testInstance.instanceCustomIndex = 1;
+			testInstance.mask = 0xff;
+			testInstance.instanceShaderBindingTableRecordOffset = 1;
+			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
+			sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
+		}
+		sphereEcs.clearAddUpdateList!Sphere();
 
 		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			cmdBuffer.begin();
