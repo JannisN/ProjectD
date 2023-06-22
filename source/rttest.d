@@ -881,6 +881,85 @@ struct TestApp(ECS) {
 				1
 			)
 		);
+
+		enum string sphereCode = import("sphere.wobj");
+		WavefrontModel wavefrontModel = WavefrontModel(sphereCode);
+
+		float[] vertices = wavefrontModel.vertices;
+		uint[] indices = wavefrontModel.indicesVertices;
+		float[] normals = wavefrontModel.normals;
+		uint[] normalIndices = wavefrontModel.indicesNormals;
+		float[] uvs = wavefrontModel.uvs;
+		uint[] uvIndices = wavefrontModel.indicesUvs;
+
+		// provisorisch ---------
+		sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof * 4, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		memory = &cast(Memory) sphereVertexBuffer.allocatedMemory.allocatorList.memory;
+		float* floatptr = cast(float*) memory.map(sphereVertexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof * 4);
+		for (int i = 0; i < indices.length; i += 3) {
+			floatptr[i * 4] = vertices[indices[i] * 3] * 1.0 + 0.0;
+			floatptr[i * 4 + 1] = vertices[indices[i] * 3 + 1] * 1.0 + 0.0;
+			floatptr[i * 4 + 2] = uvs[uvIndices[i] * 2] * 128;
+			floatptr[i * 4 + 3] = uvs[uvIndices[i] * 2 + 1] * 128;
+
+			floatptr[i * 4 + 4] = vertices[indices[i + 1] * 3] * 1.0 + 0.0;
+			floatptr[i * 4 + 5] = vertices[indices[i + 1] * 3 + 1] * 1.0 + 0.0;
+			floatptr[i * 4 + 6] = uvs[uvIndices[i + 1] * 2] * 128;
+			floatptr[i * 4 + 7] = uvs[uvIndices[i + 1] * 2 + 1] * 128;
+
+			floatptr[i * 4 + 8] = vertices[indices[i + 2] * 3] * 1.0 + 0.0;
+			floatptr[i * 4 + 9] = vertices[indices[i + 2] * 3 + 1] * 1.0 + 0.0;
+			floatptr[i * 4 + 10] = uvs[uvIndices[i + 2] * 2] * 128;
+			floatptr[i * 4 + 11] = uvs[uvIndices[i + 2] * 2 + 1] * 128;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, sphereVertexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof * 4)));
+		memory.unmap();
+		sphereVertexCount = cast(uint)indices.length;
+		// ------------
+
+		//sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		//memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		sphereVertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
+		memoryAllocator.allocate(sphereVertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		/*memory = &cast(Memory) sphereVertexBuffer.allocatedMemory.allocatorList.memory;
+		float* floatptr = cast(float*) memory.map(sphereVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof);
+		foreach (j, float f; vertices) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, sphereVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
+		memory.unmap();*/
+
+		memory = &cast(Memory) sphereVertexIndexBuffer.allocatedMemory.allocatorList.memory;
+		uint* intptr = cast(uint*) memory.map(sphereVertexIndexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof);
+		foreach (j, uint f; indices) {
+			intptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, sphereVertexIndexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof)));
+		memory.unmap();
+
+
+		sphereNormalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normals.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		memoryAllocator.allocate(sphereNormalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		sphereNormalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		memoryAllocator.allocate(sphereNormalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		memory = &cast(Memory) sphereNormalBuffer.allocatedMemory.allocatorList.memory;
+		floatptr = cast(float*) memory.map(sphereNormalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof);
+		foreach (j, float f; normals) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, sphereNormalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof)));
+		memory.unmap();
+
+		memory = &cast(Memory) sphereNormalIndexBuffer.allocatedMemory.allocatorList.memory;
+		intptr = cast(uint*) memory.map(sphereNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof);
+		foreach (j, uint f; normalIndices) {
+			intptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, sphereNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
+		memory.unmap();
 	}
 	struct CircleImplStruct {
 		DescriptorSetLayout descriptorSetLayout;
@@ -1736,8 +1815,12 @@ struct TestApp(ECS) {
 			auto text = dynEcs.getComponent!Text(i);
 			auto gpuBuffer = &dynEcs.getComponent!(GpuLocal!Buffer)(i);
 			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)gpuBuffer.resource), array(cast(ulong) 0));
-			cmdBuffer.draw(6 * cast(uint)text.text.length, cast(uint)text.text.length * 2, 0, 0);
+			cmdBuffer.draw(6 * cast(uint)text.text.length, 1, 0, 0);
 		}
+
+		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t), array(cast(ulong) 0));
+		cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+
 		cmdBuffer.endRenderPass();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1872,6 +1955,14 @@ struct TestApp(ECS) {
         ECSConfig(true, true)
 	) sphereEcs;
 	ShaderList!(VkAccelerationStructureInstanceKHR, false) instanceShaderList;
+
+	AllocatedResource!Buffer sphereVertexBuffer;
+	AllocatedResource!Buffer sphereVertexIndexBuffer;
+	AllocatedResource!Buffer sphereNormalBuffer;
+	AllocatedResource!Buffer sphereNormalIndexBuffer;
+	AllocatedResource!Buffer sphereUvBuffer;
+	AllocatedResource!Buffer sphereUvIndexBuffer;
+	uint sphereVertexCount;
 }
 
 struct Circle {
