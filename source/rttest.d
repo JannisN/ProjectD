@@ -1238,7 +1238,7 @@ struct TestApp(ECS) {
 			false,
 			false,
 			VkPolygonMode.VK_POLYGON_MODE_FILL,
-			VkCullModeFlagBits.VK_CULL_MODE_NONE,
+			VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
 			VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			false,
 			0, 0, 0, 1
@@ -1963,6 +1963,17 @@ struct TestApp(ECS) {
 	AllocatedResource!Buffer sphereUvBuffer;
 	AllocatedResource!Buffer sphereUvIndexBuffer;
 	uint sphereVertexCount;
+
+	struct GraphicsPackage {
+		Shader vertexShader;
+		Shader fragmentShader;
+		GraphicsPipeline pipeline;
+		DescriptorSetLayout descriptorSetLayout;
+		PipelineLayout pipelineLayout;
+		DescriptorPool descriptorPool;
+		DescriptorSet descriptorSet;
+	}
+	GraphicsPackage rasterizerPackage;
 }
 
 struct Circle {
