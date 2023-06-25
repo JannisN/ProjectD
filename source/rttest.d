@@ -1144,27 +1144,6 @@ struct TestApp(ECS) {
 		initWindow();
 	}
 	void initWindow() {
-		rasterDepthImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_D32_SFLOAT, VkExtent3D(capabilities.currentExtent.height, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-		memoryAllocator.allocate(depthImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		rasterDepthImageView = ImageView(
-			device,
-			rasterDepthImage,
-			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
-			VkFormat.VK_FORMAT_D32_SFLOAT,
-			VkComponentMapping(
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
-				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
-			),
-			VkImageSubresourceRange(
-				VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT,
-				0,
-				1,
-				0,
-				1
-			)
-		);
 		graphicsDescriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
 			0,
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1221,6 +1200,31 @@ struct TestApp(ECS) {
 			true,
 			oldSwapchain
 		);
+		rasterDepthImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_D32_SFLOAT, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		memoryAllocator.allocate(rasterDepthImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		rasterDepthImageView = ImageView(
+			device,
+			rasterDepthImage,
+			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+			VkFormat.VK_FORMAT_D32_SFLOAT,
+			VkComponentMapping(
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+			),
+			VkImageSubresourceRange(
+				VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT,
+				0,
+				1,
+				0,
+				1
+			)
+		);
+		auto depthAttachmentRef = VkAttachmentReference(
+			1,
+			VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		);
 		renderPass = device.createRenderPass(
 			array(
 				VkAttachmentDescription(
@@ -1238,12 +1242,12 @@ struct TestApp(ECS) {
 					0,
 					VkFormat.VK_FORMAT_D32_SFLOAT,
 					VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
-					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
-					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
 					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
-					VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
+					VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 				)
 			),
 			array(
@@ -1256,10 +1260,7 @@ struct TestApp(ECS) {
 						),
 					),
 					[],
-					VkAttachmentReference(
-						1,
-						VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
-					),
+					&depthAttachmentRef,
 					[]
 				)
 			),
@@ -1987,7 +1988,7 @@ struct TestApp(ECS) {
 
 		cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
-		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
 		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
 		cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);

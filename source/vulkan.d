@@ -2102,7 +2102,7 @@ struct Framebuffer {
 	alias framebuffer this;
 }
 
-VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, VkAttachmentReference depthStencilAttachment, uint[] preserveAttachments) {
+VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments, VkAttachmentReference[] colorAttachments, VkAttachmentReference[] resolveAttachments, VkAttachmentReference* depthStencilAttachment, uint[] preserveAttachments) {
 	VkSubpassDescription description;
 	description.flags = 0;
 	description.pipelineBindPoint = VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -2111,7 +2111,7 @@ VkSubpassDescription subpassDescription(VkAttachmentReference[] inputAttachments
 	description.colorAttachmentCount = cast(uint) colorAttachments.length;
 	description.pColorAttachments = colorAttachments.ptr;
 	description.pResolveAttachments = resolveAttachments.ptr;
-	description.pDepthStencilAttachment = &depthStencilAttachment;
+	description.pDepthStencilAttachment = depthStencilAttachment;
 	description.preserveAttachmentCount = cast(uint) preserveAttachments.length;
 	description.pPreserveAttachments = preserveAttachments.ptr;
 	return description;
