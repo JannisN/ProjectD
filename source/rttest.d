@@ -785,6 +785,10 @@ struct TestApp(ECS) {
 		enum string fragmentSource = import("frag.spv");
 		vertexShader = device.createShader(vertexSource);
 		fragmentShader = device.createShader(fragmentSource);
+		enum string vertexSourceNoRT = import("rasterVert.spv");
+		enum string fragmentSourceNoRT = import("rasterFrag.spv");
+		rasterizerPackage.vertexShader = device.createShader(vertexSourceNoRT);
+		rasterizerPackage.fragmentShader = device.createShader(fragmentSourceNoRT);
 		createComputeShader();
 		timer.update();
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
@@ -892,8 +896,21 @@ struct TestApp(ECS) {
 		float[] uvs = wavefrontModel.uvs;
 		uint[] uvIndices = wavefrontModel.indicesUvs;
 
+		Vector!float normalsOrdered = Vector!float(vertices.length);
+		foreach (i, e; normalIndices) {
+			normalsOrdered[indices[i] * 3] = normals[e * 3];
+			normalsOrdered[indices[i] * 3 + 1] = normals[e * 3 + 1];
+			normalsOrdered[indices[i] * 3 + 2] = normals[e * 3 + 2];
+			/*normalsOrdered[i * 3] = normals[e * 3];
+			normalsOrdered[i * 3 + 1] = normals[e * 3 + 1];
+			normalsOrdered[i * 3 + 2] = normals[e * 3 + 2];*/
+		}
+
+		sphereVertexCount = cast(uint)vertices.length / 3;
+		sphereIndexCount = cast(uint)indices.length;
+
 		// provisorisch ---------
-		sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof * 4, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		/*sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof * 4, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 		memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		memory = &cast(Memory) sphereVertexBuffer.allocatedMemory.allocatorList.memory;
 		float* floatptr = cast(float*) memory.map(sphereVertexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof * 4);
@@ -915,21 +932,21 @@ struct TestApp(ECS) {
 		}
 		memory.flush(array(mappedMemoryRange(*memory, sphereVertexBuffer.allocatedMemory.allocation.offset, indices.length * float.sizeof * 4)));
 		memory.unmap();
-		sphereVertexCount = cast(uint)indices.length;
+		sphereVertexCount = cast(uint)indices.length;*/
 		// ------------
 
-		//sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
-		//memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		sphereVertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
 		memoryAllocator.allocate(sphereVertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-		/*memory = &cast(Memory) sphereVertexBuffer.allocatedMemory.allocatorList.memory;
+		memory = &cast(Memory) sphereVertexBuffer.allocatedMemory.allocatorList.memory;
 		float* floatptr = cast(float*) memory.map(sphereVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof);
 		foreach (j, float f; vertices) {
 			floatptr[j] = f;
 		}
 		memory.flush(array(mappedMemoryRange(*memory, sphereVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
-		memory.unmap();*/
+		memory.unmap();
 
 		memory = &cast(Memory) sphereVertexIndexBuffer.allocatedMemory.allocatorList.memory;
 		uint* intptr = cast(uint*) memory.map(sphereVertexIndexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof);
@@ -940,17 +957,17 @@ struct TestApp(ECS) {
 		memory.unmap();
 
 
-		sphereNormalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normals.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		sphereNormalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalsOrdered.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 		memoryAllocator.allocate(sphereNormalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		sphereNormalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 		memoryAllocator.allocate(sphereNormalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 		memory = &cast(Memory) sphereNormalBuffer.allocatedMemory.allocatorList.memory;
-		floatptr = cast(float*) memory.map(sphereNormalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof);
-		foreach (j, float f; normals) {
+		floatptr = cast(float*) memory.map(sphereNormalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof);
+		foreach (j, float f; normalsOrdered) {
 			floatptr[j] = f;
 		}
-		memory.flush(array(mappedMemoryRange(*memory, sphereNormalBuffer.allocatedMemory.allocation.offset, normals.length * float.sizeof)));
+		memory.flush(array(mappedMemoryRange(*memory, sphereNormalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof)));
 		memory.unmap();
 
 		memory = &cast(Memory) sphereNormalIndexBuffer.allocatedMemory.allocatorList.memory;
@@ -1140,6 +1157,23 @@ struct TestApp(ECS) {
 		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
 
+		{
+			rasterizerPackage.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+				0,
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1,
+				VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+				null
+			)));
+			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			)));
+			rasterizerPackage.descriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
+			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizerPackage.pipelineLayout = device.createPipelineLayout(array(rasterizerPackage.descriptorSetLayout), []);
+		}
+
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
 		bool surfacesupport = instance.physicalDevices[0].surfaceSupported(surface);
 		capabilities = instance.physicalDevices[0].getSurfaceCapabilities(surface);
@@ -1217,55 +1251,114 @@ struct TestApp(ECS) {
 			framebuffers[i] = renderPass.createFramebuffer(array(swapchainViews[i].imageView), capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		}
 		
-		auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main", [], 0, null);
-		auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main", [], 0, null);
-		auto vertexInputStateCreateInfo = vertexInputState(
-			array(VkVertexInputBindingDescription(0, float.sizeof * 4, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
-			array(
-				VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0),
-				VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
-			)
-		);
-		auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
-		VkViewport dummyViewport;
-		if (capabilities.currentExtent.width < capabilities.currentExtent.height)
-			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
-		else
-			dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
-		auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
-		auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
-		auto rasterizationStateCreateInfo = rasterizationState(
-			false,
-			false,
-			VkPolygonMode.VK_POLYGON_MODE_FILL,
-			VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
-			VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
-			false,
-			0, 0, 0, 1
-		);
-		auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
-		VkPipelineColorBlendAttachmentState blendAttachment;
-		blendAttachment.blendEnable = VK_TRUE;
-		blendAttachment.colorWriteMask = 0xf;
-		blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
-		blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
-		//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
-		//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
-		//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
-		auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+		{
+			auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, vertexShader, "main", [], 0, null);
+			auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader, "main", [], 0, null);
+			auto vertexInputStateCreateInfo = vertexInputState(
+				array(VkVertexInputBindingDescription(0, float.sizeof * 4, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)),
+				array(
+					VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0),
+					VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
+				)
+			);
+			auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
+			VkViewport dummyViewport;
+			if (capabilities.currentExtent.width < capabilities.currentExtent.height)
+				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
+			else
+				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
+			auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
+			auto rasterizationStateCreateInfo = rasterizationState(
+				false,
+				false,
+				VkPolygonMode.VK_POLYGON_MODE_FILL,
+				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
+				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+				false,
+				0, 0, 0, 1
+			);
+			auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
+			VkPipelineColorBlendAttachmentState blendAttachment;
+			blendAttachment.blendEnable = VK_TRUE;
+			blendAttachment.colorWriteMask = 0xf;
+			blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
+			//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
 
-		graphicsPipeline = renderPass.createGraphicsPipeline(
-			vertStage,
-			fragStage,
-			vertexInputStateCreateInfo,
-			inputAssemblyStateCreateInfo,
-			viewportStateCreateInfo,
-			rasterizationStateCreateInfo,
-			multiSample,
-			blend,
-			pipelineLayoutGraphics
-		);
+			graphicsPipeline = renderPass.createGraphicsPipeline(
+				vertStage,
+				fragStage,
+				vertexInputStateCreateInfo,
+				inputAssemblyStateCreateInfo,
+				viewportStateCreateInfo,
+				rasterizationStateCreateInfo,
+				multiSample,
+				blend,
+				pipelineLayoutGraphics
+			);
+		}
+		
+		// no RT
+		{
+			auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, rasterizerPackage.vertexShader, "main", [], 0, null);
+			auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, rasterizerPackage.fragmentShader, "main", [], 0, null);
+			auto vertexInputStateCreateInfo = vertexInputState(
+				array(
+					VkVertexInputBindingDescription(0, float.sizeof * 3, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX),
+					VkVertexInputBindingDescription(1, float.sizeof * 3, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)
+				),
+				array(
+					VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0),
+					VkVertexInputAttributeDescription(1, 1, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0),
+					//VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
+				)
+			);
+			auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
+			VkViewport dummyViewport;
+			if (capabilities.currentExtent.width < capabilities.currentExtent.height)
+				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
+			else
+				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
+			auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
+			auto rasterizationStateCreateInfo = rasterizationState(
+				false,
+				false,
+				VkPolygonMode.VK_POLYGON_MODE_FILL,
+				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
+				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+				false,
+				0, 0, 0, 1
+			);
+			auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
+			VkPipelineColorBlendAttachmentState blendAttachment;
+			blendAttachment.blendEnable = VK_TRUE;
+			blendAttachment.colorWriteMask = 0xf;
+			blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
+			//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+
+			rasterizerPackage.pipeline = renderPass.createGraphicsPipeline(
+				vertStage,
+				fragStage,
+				vertexInputStateCreateInfo,
+				inputAssemblyStateCreateInfo,
+				viewportStateCreateInfo,
+				rasterizationStateCreateInfo,
+				multiSample,
+				blend,
+				rasterizerPackage.pipelineLayout
+			);
+		}
 
 		uint extendedWidth = capabilities.currentExtent.width + capabilities.currentExtent.width / 3;
 		if (capabilities.currentExtent.width % 3 != 0) {
@@ -1818,10 +1911,23 @@ struct TestApp(ECS) {
 			cmdBuffer.draw(6 * cast(uint)text.text.length, 1, 0, 0);
 		}
 
-		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t), array(cast(ulong) 0));
-		cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+		//cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t), array(cast(ulong) 0));
+		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
 
 		cmdBuffer.endRenderPass();
+
+
+		cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
+		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0]))), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+
+		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+		cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+		cmdBuffer.drawIndexed(sphereIndexCount, 1, 0, 0, 0);
+
+		cmdBuffer.endRenderPass();
+
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -1963,6 +2069,7 @@ struct TestApp(ECS) {
 	AllocatedResource!Buffer sphereUvBuffer;
 	AllocatedResource!Buffer sphereUvIndexBuffer;
 	uint sphereVertexCount;
+	uint sphereIndexCount;
 
 	struct GraphicsPackage {
 		Shader vertexShader;
