@@ -802,6 +802,7 @@ struct TestApp(ECS) {
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
 		instanceShaderList = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
+		sphereShaderList = ShaderList!(Sphere, false)(device, memoryAllocator, 16);
 		
 		initAccelStructure();
 		initRtPipeline();
@@ -823,6 +824,7 @@ struct TestApp(ECS) {
 
 		cmdBuffer.begin();
 		instanceShaderList.update2(sphereEcs, cmdBuffer);
+		sphereShaderList.update2(sphereEcs, cmdBuffer);
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
@@ -1160,19 +1162,35 @@ struct TestApp(ECS) {
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
 
 		{
-			rasterizerPackage.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
-				0,
-				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				1,
-				VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
-				null
-			)));
-			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
-				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				1
-			)));
+			rasterizerPackage.descriptorSetLayout = device.createDescriptorSetLayout(array(
+				VkDescriptorSetLayoutBinding(
+					0,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),
+				VkDescriptorSetLayoutBinding(
+					1,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT,
+					null
+				)
+			));
+			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 1, array(
+				VkDescriptorPoolSize(
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1
+				),
+				VkDescriptorPoolSize(
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					1
+				)
+			));
 			rasterizerPackage.descriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
 			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer));
 			rasterizerPackage.pipelineLayout = device.createPipelineLayout(array(rasterizerPackage.descriptorSetLayout), []);
 		}
 
@@ -1384,7 +1402,8 @@ struct TestApp(ECS) {
 				false,
 				false,
 				VkPolygonMode.VK_POLYGON_MODE_FILL,
-				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
+				//VkCullModeFlagBits.VK_CULL_MODE_NONE,
+				VkCullModeFlagBits.VK_CULL_MODE_BACK_BIT,
 				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				false,
 				0, 0, 0, 1
@@ -1616,6 +1635,14 @@ struct TestApp(ECS) {
 			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
 			sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
+		}
+		if (sphereEcs.getAddUpdateList!Sphere().length > 0 || sphereEcs.getRemoveUpdateList!Sphere().length > 0) {
+			cmdBuffer.begin();
+			sphereShaderList.update2(sphereEcs, cmdBuffer, false);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
 		}
 		sphereEcs.clearAddUpdateList!Sphere();
 
@@ -1993,7 +2020,7 @@ struct TestApp(ECS) {
 		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
 		cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
 		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
-		cmdBuffer.drawIndexed(sphereIndexCount, 1, 0, 0, 0);
+		cmdBuffer.drawIndexed(sphereIndexCount, sphereShaderList.length, 0, 0, 0);
 
 		cmdBuffer.endRenderPass();
 
@@ -2134,6 +2161,7 @@ struct TestApp(ECS) {
         ECSConfig(true, true)
 	) sphereEcs;
 	ShaderList!(VkAccelerationStructureInstanceKHR, false) instanceShaderList;
+	ShaderList!(Sphere, false) sphereShaderList;
 
 	AllocatedResource!Buffer sphereVertexBuffer;
 	AllocatedResource!Buffer sphereVertexIndexBuffer;
