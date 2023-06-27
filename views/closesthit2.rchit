@@ -17,6 +17,14 @@ struct RayPayload {
 
 layout(location = 0) rayPayloadInEXT RayPayload hitValue;
 
+struct Sphere {
+	float x, y, z;
+	float radius;
+};
+layout (set = 0, binding = 5) buffer sphereList_t {
+	Sphere spheres[];
+} sphereList;
+
 void main() {
     vec4 origin4 = vec4(1, 1, -0, 1);
     //vec4 origin4 = vec4(-1, -1, -7, 1);
@@ -26,7 +34,8 @@ void main() {
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, normalize(worldPos - origin));
     RayPayload hitValue2;
-    hitValue2.colour = vec3(1, 0.5, 0.5);//vec3(dotProduct, dotProduct, dotProduct);
+    Sphere sphere = sphereList.spheres[gl_InstanceCustomIndexEXT];
+    hitValue2.colour = vec3(abs(sphere.x), abs(sphere.y), abs(sphere.z));//vec3(dotProduct, dotProduct, dotProduct);
     hitValue2.pos = worldPos;
     hitValue2.normal = normalize(worldPos - origin);
     hitValue2.hitType = 2;

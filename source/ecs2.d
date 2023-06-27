@@ -149,7 +149,8 @@ struct VirtualComponent(ECS, Component) {
 struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, StaticSpecificIndicesMultiple) {
     VirtualComponent!(ECS, Component)* virtualComponent;
     auto ref opAssign(T)(lazy T t) {
-        getMember = t;
+        //virtualComponent.getComponent().member = t;
+        mixin("virtualComponent.getComponent()." ~ member ~ "= t;");
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
             if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
                 size_t updateId = virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualComponent.virtualEntity.entityId);

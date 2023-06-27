@@ -638,6 +638,12 @@ struct TestApp(ECS) {
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
 			null
+		), VkDescriptorSetLayoutBinding(
+			5,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			null
 		)));
 		rtPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(
 			VkDescriptorPoolSize(
@@ -659,8 +665,11 @@ struct TestApp(ECS) {
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				1
 			)
-
 		));
 		rtPipeline.pipelineLayout = device.createPipelineLayout(
 			array(rtPipeline.descriptorSetLayout),
@@ -815,7 +824,7 @@ struct TestApp(ECS) {
 		];
 		VkAccelerationStructureInstanceKHR testInstance;
 		testInstance.transform = transformMatrix2;
-		testInstance.instanceCustomIndex = 1;
+		testInstance.instanceCustomIndex = 100;
 		testInstance.mask = 0xff;
 		testInstance.instanceShaderBindingTableRecordOffset = 1;
 		testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -1618,6 +1627,14 @@ struct TestApp(ECS) {
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
 
+		if (sphereEcs.getAddUpdateList!Sphere().length > 0 || sphereEcs.getRemoveUpdateList!Sphere().length > 0) {
+			cmdBuffer.begin();
+			sphereShaderList.update2(sphereEcs, cmdBuffer, false);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+		}
 		foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
 			auto entity = sphereEcs.getEntity(i);
 			Sphere sphere = entity.get!Sphere();
@@ -1629,24 +1646,20 @@ struct TestApp(ECS) {
 			];
 			VkAccelerationStructureInstanceKHR testInstance;
 			testInstance.transform = transformMatrix2;
-			testInstance.instanceCustomIndex = 1;
+			testInstance.instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
 			testInstance.mask = 0xff;
 			testInstance.instanceShaderBindingTableRecordOffset = 1;
 			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
 			sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
 		}
-		if (sphereEcs.getAddUpdateList!Sphere().length > 0 || sphereEcs.getRemoveUpdateList!Sphere().length > 0) {
-			cmdBuffer.begin();
-			sphereShaderList.update2(sphereEcs, cmdBuffer, false);
-			cmdBuffer.end();
-			queue.submit(cmdBuffer, fence);
-			fence.wait();
-			fence.reset();
-		}
 		sphereEcs.clearAddUpdateList!Sphere();
+		foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
+			auto entity = sphereEcs.getEntity(i);
+			entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
+		}
 
-		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+		if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			cmdBuffer.begin();
 			instanceShaderList.update2(sphereEcs, cmdBuffer, false);
 			cmdBuffer.end();
@@ -1711,6 +1724,7 @@ struct TestApp(ECS) {
 			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, accelStruct.addressBuffer),
 			WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 			WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+			WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer),
 		));
 		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
