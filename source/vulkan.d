@@ -115,6 +115,40 @@ Vector!VkExtensionProperties getInstanceExtensions(ref Result result) {
 }
 
 struct PhysicalDevice {
+	Vector!VkExtensionProperties getExtensions() {
+		uint extensionsCount;
+		Vector!VkExtensionProperties extensions;
+		vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionsCount, null);
+		if (extensionsCount != 0) {
+			extensions = Vector!VkExtensionProperties(extensionsCount);
+			vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionsCount, extensions.ptr);
+		}
+		return extensions;
+	}
+	bool hasExtensions(const char*[] extensionNames) {
+		auto extensions = getExtensions();
+		bool result = true;
+		foreach (s; extensionNames) {
+			bool found = false;
+			foreach (e; extensions) {
+				if (0 == strcmp(s, e.extensionName.ptr)) {
+					found = true;
+				}
+			}
+			if (!found) {
+				result = false;
+				break;
+			}
+		}
+		return result;
+	}
+	bool hasExtensions(uint count)(string[count] extensionNames) {
+		char*[count] e;
+		for (int i = 0; i < count; i++) {
+			e[i] = cast(char*) extensionNames[i].ptr;
+		}
+		return hasExtensions(e);
+	}
 	VkFormatProperties getFormatProperites(VkFormat format) {
 		VkFormatProperties properties;
 		vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &properties);

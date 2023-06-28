@@ -757,9 +757,13 @@ struct TestApp(ECS) {
 		version(linux) {
 			instance = Instance("test", 1, VK_API_VERSION_1_3, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_xcb_surface"));
 		}
+		
+		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
+
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
 		features.shaderInt64 = VK_TRUE;
+		features.fragmentStoresAndAtomics = VK_TRUE; //???
 		VkPhysicalDeviceVulkan12Features features12;
 		features12.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 		features12.bufferDeviceAddress = VK_TRUE;
@@ -779,7 +783,11 @@ struct TestApp(ECS) {
 		VkPhysicalDeviceVulkan13Features features13;
 		features13.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
 		features13.maintenance4 = VK_TRUE;
-		device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12, rayQueryFeatures, rayTracingPipelineFeatures, accelerationStructureFeatures, features13);
+		if (rt) {
+			device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12, rayQueryFeatures, rayTracingPipelineFeatures, accelerationStructureFeatures, features13);
+		} else {
+			device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+		}
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		memoryAllocator.device = &device;
@@ -810,36 +818,39 @@ struct TestApp(ECS) {
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-		instanceShaderList = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
+		if (rt) {
+			instanceShaderList = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
+			initAccelStructure();
+			initRtPipeline();
+
+			VkTransformMatrixKHR transformMatrix2;
+			transformMatrix2.matrix = [
+				[1.0f, 0.0f, 0.0f, 0.0f],
+				[0.0f, 1.0f, 0.0f, 0.0f],
+				[0.0f, 0.0f, 1.0f, 0.0f],
+			];
+			VkAccelerationStructureInstanceKHR testInstance;
+			testInstance.transform = transformMatrix2;
+			testInstance.instanceCustomIndex = 100;
+			testInstance.mask = 0xff;
+			testInstance.instanceShaderBindingTableRecordOffset = 1;
+			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
+			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+		}
 		sphereShaderList = ShaderList!(Sphere, false)(device, memoryAllocator, 16);
-		
-		initAccelStructure();
-		initRtPipeline();
 
-		VkTransformMatrixKHR transformMatrix2;
-		transformMatrix2.matrix = [
-			[1.0f, 0.0f, 0.0f, 0.0f],
-			[0.0f, 1.0f, 0.0f, 0.0f],
-			[0.0f, 0.0f, 1.0f, 0.0f],
-		];
-		VkAccelerationStructureInstanceKHR testInstance;
-		testInstance.transform = transformMatrix2;
-		testInstance.instanceCustomIndex = 100;
-		testInstance.mask = 0xff;
-		testInstance.instanceShaderBindingTableRecordOffset = 1;
-		testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-		testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
-		sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+		if (rt) {
+			cmdBuffer.begin();
+			instanceShaderList.update2(sphereEcs, cmdBuffer);
+			sphereShaderList.update2(sphereEcs, cmdBuffer);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
 
-		cmdBuffer.begin();
-		instanceShaderList.update2(sphereEcs, cmdBuffer);
-		sphereShaderList.update2(sphereEcs, cmdBuffer);
-		cmdBuffer.end();
-		queue.submit(cmdBuffer, fence);
-		fence.wait();
-		fence.reset();
-
-		rebuildAccelerationStructure();
+			rebuildAccelerationStructure();
+		}
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1635,38 +1646,42 @@ struct TestApp(ECS) {
 			fence.wait();
 			fence.reset();
 		}
-		foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
-			auto entity = sphereEcs.getEntity(i);
-			Sphere sphere = entity.get!Sphere();
-			VkTransformMatrixKHR transformMatrix2;
-			transformMatrix2.matrix = [
-				[1.0f, 0.0f, 0.0f, sphere.x],
-				[0.0f, 1.0f, 0.0f, sphere.y],
-				[0.0f, 0.0f, 1.0f, sphere.z],
-			];
-			VkAccelerationStructureInstanceKHR testInstance;
-			testInstance.transform = transformMatrix2;
-			testInstance.instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
-			testInstance.mask = 0xff;
-			testInstance.instanceShaderBindingTableRecordOffset = 1;
-			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
-			sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
+		if (rt) {
+			foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
+				auto entity = sphereEcs.getEntity(i);
+				Sphere sphere = entity.get!Sphere();
+				VkTransformMatrixKHR transformMatrix2;
+				transformMatrix2.matrix = [
+					[1.0f, 0.0f, 0.0f, sphere.x],
+					[0.0f, 1.0f, 0.0f, sphere.y],
+					[0.0f, 0.0f, 1.0f, sphere.z],
+				];
+				VkAccelerationStructureInstanceKHR testInstance;
+				testInstance.transform = transformMatrix2;
+				testInstance.instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
+				testInstance.mask = 0xff;
+				testInstance.instanceShaderBindingTableRecordOffset = 1;
+				testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+				testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
+				sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
+			}
 		}
 		sphereEcs.clearAddUpdateList!Sphere();
-		foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
-			auto entity = sphereEcs.getEntity(i);
-			entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
-		}
+		if (rt) {
+			foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
+				auto entity = sphereEcs.getEntity(i);
+				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
+			}
 
-		if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
-			cmdBuffer.begin();
-			instanceShaderList.update2(sphereEcs, cmdBuffer, false);
-			cmdBuffer.end();
-			queue.submit(cmdBuffer, fence);
-			fence.wait();
-			fence.reset();
-			recreateTlas();
+			if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+				cmdBuffer.begin();
+				instanceShaderList.update2(sphereEcs, cmdBuffer, false);
+				cmdBuffer.end();
+				queue.submit(cmdBuffer, fence);
+				fence.wait();
+				fence.reset();
+				recreateTlas();
+			}
 		}
 		
 		/*import std.math.trigonometry;
@@ -1683,12 +1698,8 @@ struct TestApp(ECS) {
 		memory.unmap();*/
 		
 		cmdBuffer.begin();
-		/*cmdBuffer.clearColorImage(
-			blurredImage,
-			VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-			VkClearColorValue([1.0, 1.0, 1.0, 0.0]),
-			array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
-		);*/
+		if (rt) {
+
 		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			buildTlas();
 		} else if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
@@ -1996,6 +2007,41 @@ struct TestApp(ECS) {
 				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 			))
 		);
+		}
+		if (!rt) {
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				0, [], [],
+				array(imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					swapchain.images[imageIndex],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				))
+			);
+			cmdBuffer.clearColorImage(
+				swapchain.images[imageIndex],
+				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+				VkClearColorValue([1.0, 1.0, 1.0, 1.0]),
+				array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1))
+			);
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				0, [], [],
+				array(imageMemoryBarrier(
+					0,
+					VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					swapchain.images[imageIndex],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				))
+			);
+		}
 		/*cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -2026,7 +2072,20 @@ struct TestApp(ECS) {
 
 		cmdBuffer.endRenderPass();
 
-
+		if (!rt) {
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				0, [], [],
+				array(imageMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					swapchain.images[imageIndex],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				))
+			);
 		cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
@@ -2037,6 +2096,7 @@ struct TestApp(ECS) {
 		cmdBuffer.drawIndexed(sphereIndexCount, sphereShaderList.length, 0, 0, 0);
 
 		cmdBuffer.endRenderPass();
+		}
 
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -2196,6 +2256,7 @@ struct TestApp(ECS) {
 		DescriptorSet descriptorSet;
 	}
 	GraphicsPackage rasterizerPackage;
+	bool rt;
 }
 
 struct Circle {
