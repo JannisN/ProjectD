@@ -797,6 +797,7 @@ struct TestApp(ECS) {
 		}
 		
 		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
+		//rt = false;
 
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
@@ -861,7 +862,7 @@ struct TestApp(ECS) {
 			initAccelStructure();
 			initRtPipeline();
 
-			VkTransformMatrixKHR transformMatrix2;
+			/*VkTransformMatrixKHR transformMatrix2;
 			transformMatrix2.matrix = [
 				[1.0f, 0.0f, 0.0f, 0.0f],
 				[0.0f, 1.0f, 0.0f, 0.0f],
@@ -874,7 +875,7 @@ struct TestApp(ECS) {
 			testInstance.instanceShaderBindingTableRecordOffset = 1;
 			testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 			testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
-			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
+			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);*/
 		}
 		sphereShaderList = ShaderList!(Sphere, false)(device, memoryAllocator, 16);
 
@@ -1249,7 +1250,7 @@ struct TestApp(ECS) {
 			rasterizerPackage.descriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
 			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer));
-			rasterizerPackage.pipelineLayout = device.createPipelineLayout(array(rasterizerPackage.descriptorSetLayout), []);
+			rasterizerPackage.pipelineLayout = device.createPipelineLayout(array(rasterizerPackage.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6)));
 		}
 
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -1390,6 +1391,7 @@ struct TestApp(ECS) {
 				false,
 				false,
 				VkPolygonMode.VK_POLYGON_MODE_FILL,
+				//VkCullModeFlagBits.VK_CULL_MODE_NONE,
 				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
 				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				false,
@@ -1410,7 +1412,7 @@ struct TestApp(ECS) {
 			auto depthStencil = depthStencilState(
 				true,
 				true,
-				VkCompareOp.VK_COMPARE_OP_LESS_OR_EQUAL,
+				VkCompareOp.VK_COMPARE_OP_GREATER_OR_EQUAL,
 				false,
 				false,
 				VkStencilOpState(),
@@ -1450,10 +1452,10 @@ struct TestApp(ECS) {
 			);
 			auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
 			VkViewport dummyViewport;
-			if (capabilities.currentExtent.width < capabilities.currentExtent.height)
-				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.width, 0.1f, 1.0f);
-			else
-				dummyViewport = VkViewport(0.0f, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			//dummyViewport = VkViewport(capabilities.currentExtent.width / 2.0 - capabilities.currentExtent.height / 2.0, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			dummyViewport = VkViewport(0.0, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.height, 0.0f, 1.0f);
+			//dummyViewport = VkViewport(0.0, 0.0f, cast(float)capabilities.currentExtent.height * (cast(float)capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width), capabilities.currentExtent.height, 0.1f, 1.0f);
+			//dummyViewport = VkViewport(0.0, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
 			auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
 			auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
 			auto rasterizationStateCreateInfo = rasterizationState(
@@ -1461,7 +1463,7 @@ struct TestApp(ECS) {
 				false,
 				VkPolygonMode.VK_POLYGON_MODE_FILL,
 				//VkCullModeFlagBits.VK_CULL_MODE_NONE,
-				VkCullModeFlagBits.VK_CULL_MODE_BACK_BIT,
+				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
 				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				false,
 				0, 0, 0, 1
@@ -1481,7 +1483,7 @@ struct TestApp(ECS) {
 			auto depthStencil = depthStencilState(
 				true,
 				true,
-				VkCompareOp.VK_COMPARE_OP_LESS_OR_EQUAL,
+				VkCompareOp.VK_COMPARE_OP_GREATER_OR_EQUAL,
 				false,
 				false,
 				VkStencilOpState(),
@@ -2093,7 +2095,7 @@ struct TestApp(ECS) {
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayoutGraphics, 0, array(graphicsDescriptorSet), []);
 		VkClearValue clear;
-		clear.depthStencil = VkClearDepthStencilValue(1.0, 0);
+		clear.depthStencil = VkClearDepthStencilValue(0.0, 0);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 		foreach (i; dynEcs.getComponentEntityIds!Text()) {
 			auto text = dynEcs.getComponent!Text(i);
@@ -2123,6 +2125,14 @@ struct TestApp(ECS) {
 			);
 		cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
+		float[6] rtPushConstants;
+		rtPushConstants[0] = pos[0];
+		rtPushConstants[1] = pos[1];
+		rtPushConstants[2] = pos[2];
+		rtPushConstants[3] = rot[1];
+		rtPushConstants[4] = rot[0];
+		rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
+		cmdBuffer.pushConstants(rasterizerPackage.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
 		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
 		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
