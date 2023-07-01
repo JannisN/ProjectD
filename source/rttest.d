@@ -246,9 +246,19 @@ struct TestApp(ECS) {
 		memoryAllocator.allocate(accelStruct.aabbBlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
 		accelStruct.aabbBlas = device.createAccelerationStructure(aabbBuildInfo.type, aabbSizeInfo.accelerationStructureSize, 0, accelStruct.aabbBlasBuffer.buffer, 0);
 		aabbBuildInfo.dstAccelerationStructure = accelStruct.aabbBlas.accelerationStructure;
-		accelStruct.aabbScratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, aabbSizeInfo.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &accProperties;
+		device.physicalDevice.getProperties(&properties);
+		
+		accelStruct.aabbScratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, aabbSizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
 		memoryAllocator.allocate(accelStruct.aabbScratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		aabbBuildInfo.scratchData.deviceAddress = accelStruct.aabbScratchBuffer.getDeviceAddress();
+		VkDeviceAddress da = accelStruct.aabbScratchBuffer.getDeviceAddress();
+		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+		aabbBuildInfo.scratchData.deviceAddress = accelStruct.aabbScratchBuffer.getDeviceAddress() + daOffset;
 		VkAccelerationStructureBuildRangeInfoKHR* aabbRangeInfoPtr = &aabbRangeInfo;
 
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles;
@@ -294,10 +304,12 @@ struct TestApp(ECS) {
 		accelStruct.blas = device.createAccelerationStructure(buildInfo.type, sizeInfo.accelerationStructureSize, 0, accelStruct.blasBuffer.buffer, 0);
 
 		buildInfo.dstAccelerationStructure = accelStruct.blas.accelerationStructure;
-		accelStruct.scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		accelStruct.scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
 		memoryAllocator.allocate(accelStruct.scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		da = accelStruct.scratchBuffer.getDeviceAddress();
+		daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
 		Vector!byte scratchVector = Vector!byte(sizeInfo.buildScratchSize);
-		buildInfo.scratchData.deviceAddress = accelStruct.scratchBuffer.getDeviceAddress();
+		buildInfo.scratchData.deviceAddress = accelStruct.scratchBuffer.getDeviceAddress() + daOffset;
 		//buildInfo.scratchData.hostAddress = scratchVector.ptr;
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr = &rangeInfo;
 		// noch nicht verfügbar im treiber
@@ -418,9 +430,11 @@ struct TestApp(ECS) {
 		accelStruct.tlas = device.createAccelerationStructure(accelStruct.buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
 
 		accelStruct.buildInfo2.dstAccelerationStructure = accelStruct.tlas;
-		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
 		memoryAllocator.allocate(accelStruct.scratchBuffer2, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
+		da = accelStruct.scratchBuffer2.getDeviceAddress();
+		daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress() + daOffset;
 		accelStruct.rangeInfoPtr2 = &accelStruct.rangeInfo2;
 
 		cmdBuffer.begin();
@@ -463,10 +477,19 @@ struct TestApp(ECS) {
 		memoryAllocator.allocate(accelStruct.tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
 		accelStruct.tlas = device.createAccelerationStructure(accelStruct.buildInfo2.type, sizeInfo2.accelerationStructureSize, 0, accelStruct.tlasBuffer.buffer, 0);
 
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &accProperties;
+		device.physicalDevice.getProperties(&properties);
+		
 		accelStruct.buildInfo2.dstAccelerationStructure = accelStruct.tlas;
-		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		accelStruct.scratchBuffer2 = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo2.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
 		memoryAllocator.allocate(accelStruct.scratchBuffer2, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress();
+		VkDeviceAddress da = accelStruct.scratchBuffer2.getDeviceAddress();
+		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+		accelStruct.buildInfo2.scratchData.deviceAddress = accelStruct.scratchBuffer2.getDeviceAddress() + daOffset;
 		accelStruct.rangeInfoPtr2 = &accelStruct.rangeInfo2;
 		cmdBuffer.begin();
 		cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
@@ -535,9 +558,13 @@ struct TestApp(ECS) {
 		AllocatedResource!Buffer sbRayGen;
 		AllocatedResource!Buffer sbMiss;
 		AllocatedResource!Buffer sbHit;
+		size_t offsetRayGen;
+		size_t offsetMiss;
+		size_t offsetHit;
 		uint groupHandleSize;
 		uint recordSize;
 		uint groupSizeAligned;
+		uint addressOffset;
 	}
 	void initRtPipeline() {
 		enum string raygenCode = import("raygen.spv");
@@ -700,7 +727,9 @@ struct TestApp(ECS) {
 
 		uint groupCount = 4;
 		rtPipeline.groupHandleSize = rtProperties.shaderGroupHandleSize;
+		//rtPipeline.addressOffset = rtPipeline.groupHandleSize % rtProperties.shaderGroupBaseAlignment;
 		rtPipeline.groupSizeAligned = (rtPipeline.groupHandleSize % rtProperties.shaderGroupBaseAlignment == 0) ? rtPipeline.groupHandleSize : ((rtPipeline.groupHandleSize / rtProperties.shaderGroupBaseAlignment + 1) * rtProperties.shaderGroupBaseAlignment);
+		writeln("data: ", rtPipeline.groupHandleSize, " ", rtProperties.shaderGroupBaseAlignment, " ", rtPipeline.groupSizeAligned, " ");
 		uint sbtSize = groupCount * rtPipeline.groupSizeAligned;
 		rtPipeline.recordSize = rtPipeline.groupSizeAligned;
 		Vector!byte shaderHandleStorage = Vector!byte(sbtSize);
@@ -720,29 +749,38 @@ struct TestApp(ECS) {
 		rtPipeline.sbHit = AllocatedResource!Buffer(device.createBuffer(0, 2 * rtPipeline.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
 		memoryAllocator.allocate(rtPipeline.sbHit, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
 
+		VkDeviceAddress da = rtPipeline.sbRayGen.getDeviceAddress();
+		size_t daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipeline.offsetRayGen = daOffset;
 		Memory* memory = &cast(Memory) rtPipeline.sbRayGen.allocatedMemory.allocatorList.memory;
 		byte* byteptr = cast(byte*) memory.map(rtPipeline.sbRayGen.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned);
 		foreach (j; 0 .. rtPipeline.groupHandleSize) {
-			byteptr[j] = shaderHandleStorage[0 * rtPipeline.groupHandleSize + j];
+			byteptr[j + daOffset] = shaderHandleStorage[0 * rtPipeline.groupHandleSize + j];
 		}
 		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbRayGen.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned)));
 		memory.unmap();
 
+		da = rtPipeline.sbMiss.getDeviceAddress();
+		daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipeline.offsetMiss = daOffset;
 		memory = &cast(Memory) rtPipeline.sbMiss.allocatedMemory.allocatorList.memory;
 		byteptr = cast(byte*) memory.map(rtPipeline.sbMiss.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned);
 		foreach (j; 0 .. rtPipeline.groupHandleSize) {
-			byteptr[j] = shaderHandleStorage[1 * rtPipeline.groupHandleSize + j];
+			byteptr[j + daOffset] = shaderHandleStorage[1 * rtPipeline.groupHandleSize + j];
 		}
 		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbMiss.allocatedMemory.allocation.offset, rtPipeline.groupSizeAligned)));
 		memory.unmap();
 
+		da = rtPipeline.sbHit.getDeviceAddress();
+		daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipeline.offsetHit = daOffset;
 		memory = &cast(Memory) rtPipeline.sbHit.allocatedMemory.allocatorList.memory;
 		byteptr = cast(byte*) memory.map(rtPipeline.sbHit.allocatedMemory.allocation.offset, 2 * rtPipeline.groupSizeAligned);
 		foreach (j; 0 .. rtPipeline.groupHandleSize) {
-			byteptr[j] = shaderHandleStorage[2 * rtPipeline.groupHandleSize + j];
+			byteptr[j + daOffset] = shaderHandleStorage[2 * rtPipeline.groupHandleSize + j];
 		}
 		foreach (j; 0 .. rtPipeline.groupHandleSize) {
-			byteptr[j + rtPipeline.groupSizeAligned] = shaderHandleStorage[3 * rtPipeline.groupHandleSize + j];
+			byteptr[j + rtPipeline.groupSizeAligned + daOffset] = shaderHandleStorage[3 * rtPipeline.groupHandleSize + j];
 		}
 		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbHit.allocatedMemory.allocation.offset, 2 * rtPipeline.groupSizeAligned)));
 		memory.unmap();
@@ -1751,25 +1789,22 @@ struct TestApp(ECS) {
 		//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
 		VkStridedDeviceAddressRegionKHR rayGenRegion;
-		rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress();
-		rayGenRegion.size = rtPipeline.groupSizeAligned;
-		rayGenRegion.stride = rtPipeline.groupSizeAligned;
+		rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress() + rtPipeline.offsetRayGen;
+		rayGenRegion.size = rtPipeline.groupHandleSize;
+		rayGenRegion.stride = rtPipeline.groupHandleSize;
 
 		VkStridedDeviceAddressRegionKHR missRegion;
-		missRegion.deviceAddress = rtPipeline.sbMiss.getDeviceAddress();
-		missRegion.size = rtPipeline.groupSizeAligned;
-		missRegion.stride = rtPipeline.groupSizeAligned;
+		missRegion.deviceAddress = rtPipeline.sbMiss.getDeviceAddress() + rtPipeline.offsetMiss;
+		missRegion.size = rtPipeline.groupHandleSize;
+		missRegion.stride = rtPipeline.groupHandleSize;
 
 		VkStridedDeviceAddressRegionKHR hitRegion;
-		hitRegion.deviceAddress = rtPipeline.sbHit.getDeviceAddress();
-		hitRegion.size = rtPipeline.groupSizeAligned * 2;
+		hitRegion.deviceAddress = rtPipeline.sbHit.getDeviceAddress() + rtPipeline.offsetHit;
+		hitRegion.size = rtPipeline.groupHandleSize * 2;
 		hitRegion.stride = rtPipeline.groupSizeAligned;
-		/*hitRegion.size = rtPipeline.groupHandleSize * 1;
-		hitRegion.stride = rtPipeline.groupHandleSize;*/
 
 		VkStridedDeviceAddressRegionKHR callableRegion;
 
-		//pfnCmdTraceRaysKHR(cmdBuffer.commandBuffer, &rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 		cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
 
 
