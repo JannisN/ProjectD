@@ -74,6 +74,7 @@ struct TestApp(ECS) {
 			*/
 
 			sphereEcs.add().add!Sphere(Sphere(sin(passedTime), cos(passedTime), 1.0, 1.0));
+			//sphereEcs.add().add!Cube(Cube(0.0, 0.0, 0.0, 1.0));
 
 			/*cmdBuffer.begin();
 			instanceShaderList.update2(sphereEcs, cmdBuffer);
@@ -123,7 +124,7 @@ struct TestApp(ECS) {
 		VkAccelerationStructureBuildRangeInfoKHR* rangeInfoPtr2;
 	}
 	void initAccelStructure() {
-		enum string wavefrontCode = import("wand2.wobj");
+		enum string wavefrontCode = import("cube.wobj");
 		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
 
 		/*float[9] vertices = [
@@ -878,11 +879,13 @@ struct TestApp(ECS) {
 			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);*/
 		}
 		sphereShaderList = ShaderList!(Sphere, false)(device, memoryAllocator, 16);
+		cubeShaderList = ShaderList!(Cube, false)(device, memoryAllocator, 16);
 
 		if (rt) {
 			cmdBuffer.begin();
 			instanceShaderList.update2(sphereEcs, cmdBuffer);
 			sphereShaderList.update2(sphereEcs, cmdBuffer);
+			cubeShaderList.update2(sphereEcs, cmdBuffer);
 			cmdBuffer.end();
 			queue.submit(cmdBuffer, fence);
 			fence.wait();
@@ -890,6 +893,7 @@ struct TestApp(ECS) {
 
 			rebuildAccelerationStructure();
 		}
+		sphereEcs.add().add!Cube(Cube(-0.0, 0.0, 0.0, 1.0));
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1686,6 +1690,14 @@ struct TestApp(ECS) {
 			fence.wait();
 			fence.reset();
 		}
+		if (sphereEcs.getAddUpdateList!Cube().length > 0 || sphereEcs.getRemoveUpdateList!Cube().length > 0) {
+			cmdBuffer.begin();
+			cubeShaderList.update2(sphereEcs, cmdBuffer, false);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+		}
 		if (rt) {
 			foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
 				auto entity = sphereEcs.getEntity(i);
@@ -1705,12 +1717,35 @@ struct TestApp(ECS) {
 				testInstance.accelerationStructureReference = accelStruct.aabbBlasBuffer.getDeviceAddress();
 				sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
 			}
+			foreach (i; sphereEcs.getAddUpdateList!Cube()) {
+				auto entity = sphereEcs.getEntity(i);
+				Cube cube = entity.get!Cube();
+				VkTransformMatrixKHR transformMatrix2;
+				transformMatrix2.matrix = [
+					[cube.size, 0.0f, 0.0f, cube.x],
+					[0.0f, cube.size, 0.0f, cube.y],
+					[0.0f, 0.0f, cube.size, cube.z],
+				];
+				VkAccelerationStructureInstanceKHR testInstance;
+				testInstance.transform = transformMatrix2;
+				testInstance.instanceCustomIndex = entity.get!(ShaderListIndex!Cube)().index;
+				testInstance.mask = 0xff;
+				testInstance.instanceShaderBindingTableRecordOffset = 0;
+				testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+				testInstance.accelerationStructureReference = accelStruct.blasBuffer.getDeviceAddress();
+				sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
+			}
 		}
 		sphereEcs.clearAddUpdateList!Sphere();
+		sphereEcs.clearAddUpdateList!Cube();
 		if (rt) {
 			foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
 				auto entity = sphereEcs.getEntity(i);
 				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
+			}
+			foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Cube)()) {
+				auto entity = sphereEcs.getEntity(i);
+				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Cube)().index;
 			}
 
 			if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
@@ -2267,20 +2302,23 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(
 			Sphere,
             ShaderListIndex!Sphere,
+			Cube,
+			ShaderListIndex!Cube,
 			VkAccelerationStructureInstanceKHR,
             ShaderListIndex!VkAccelerationStructureInstanceKHR,
 		),
-		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, VkAccelerationStructureInstanceKHR), // general
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR), // general
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
-		TypeSeqStruct!(Sphere, VkAccelerationStructureInstanceKHR), // add
-		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
+		TypeSeqStruct!(Sphere, Cube, VkAccelerationStructureInstanceKHR), // add
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
 		TypeSeqStruct!(),
         ECSConfig(true, true)
 	) sphereEcs;
 	ShaderList!(VkAccelerationStructureInstanceKHR, false) instanceShaderList;
 	ShaderList!(Sphere, false) sphereShaderList;
+	ShaderList!(Cube, false) cubeShaderList;
 
 	AllocatedResource!Buffer sphereVertexBuffer;
 	AllocatedResource!Buffer sphereVertexIndexBuffer;
@@ -2319,6 +2357,11 @@ struct Text {
 struct Sphere {
 	float x, y, z;
 	float radius;
+}
+
+struct Cube {
+	float x, y, z;
+	float size;
 }
 
 struct TestController(Args...) {
