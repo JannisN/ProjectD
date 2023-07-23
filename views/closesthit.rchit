@@ -31,6 +31,14 @@ layout(buffer_reference, scalar) buffer Indices {uvec3 i[]; };
 layout(buffer_reference, scalar) buffer Normals {vec3 v[]; };
 layout(buffer_reference, scalar) buffer NormalIndices {uvec3 i[]; };
 
+struct Cube {
+	float x, y, z;
+	float size;
+};
+layout (set = 0, binding = 6) buffer cubeList_t {
+	Cube cubes[];
+} cubeList;
+
 void main() {
     AddressBuffers addressBuffers = sceneDesc.i[gl_InstanceCustomIndexEXT];
     Vertices vertices = Vertices(addressBuffers.vertices);
@@ -45,9 +53,11 @@ void main() {
     vec3 n1 = normals.v[indNormals.y];
     vec3 n2 = normals.v[indNormals.z];
 
+    Cube cube = cubeList.cubes[gl_InstanceCustomIndexEXT];
+
     const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
     vec3 N = n0 * barycentricCoords.x + n1 * barycentricCoords.y + n2 * barycentricCoords.z;
-    N = normalize(N * gl_WorldToObjectEXT).xyz;
+    N = normalize(((N) * gl_WorldToObjectEXT).xyz/* - vec3(cube.x, cube.y, cube.z)*/);
 
     vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 

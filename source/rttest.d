@@ -73,7 +73,7 @@ struct TestApp(ECS) {
 			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
 			*/
 
-			sphereEcs.add().add!Sphere(Sphere(sin(passedTime), cos(passedTime), 1.0, 1.0));
+			sphereEcs.add().add!Sphere(Sphere(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime), 1.0));
 			//sphereEcs.add().add!Cube(Cube(0.0, 0.0, 0.0, 1.0));
 
 			/*cmdBuffer.begin();
@@ -672,6 +672,12 @@ struct TestApp(ECS) {
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 			null
+		), VkDescriptorSetLayoutBinding(
+			6,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+			null
 		)));
 		rtPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(
 			VkDescriptorPoolSize(
@@ -692,6 +698,10 @@ struct TestApp(ECS) {
 			),
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 				1
 			),
 			VkDescriptorPoolSize(
@@ -893,7 +903,7 @@ struct TestApp(ECS) {
 
 			rebuildAccelerationStructure();
 		}
-		sphereEcs.add().add!Cube(Cube(-0.0, 0.0, 0.0, 1.0));
+		sphereEcs.add().add!Cube(Cube(0.0, -5.0, 0.0, 5.0));
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1704,9 +1714,9 @@ struct TestApp(ECS) {
 				Sphere sphere = entity.get!Sphere();
 				VkTransformMatrixKHR transformMatrix2;
 				transformMatrix2.matrix = [
-					[1.0f, 0.0f, 0.0f, sphere.x],
-					[0.0f, 1.0f, 0.0f, sphere.y],
-					[0.0f, 0.0f, 1.0f, sphere.z],
+					[sphere.radius, 0.0f, 0.0f, sphere.x - 1],
+					[0.0f, sphere.radius, 0.0f, sphere.y - 1],
+					[0.0f, 0.0f, sphere.radius, sphere.z],
 				];
 				VkAccelerationStructureInstanceKHR testInstance;
 				testInstance.transform = transformMatrix2;
@@ -1811,6 +1821,7 @@ struct TestApp(ECS) {
 			WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 			WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 			WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer),
+			WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer),
 		));
 		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
