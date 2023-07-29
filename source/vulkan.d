@@ -2673,6 +2673,10 @@ struct ShaderList(T, bool withCount = true) {
 	Memory* cpuMemory;
 	Memory* gpuMemory;
 	Vector!size_t entities = void;
+	VkBufferUsageFlags localFlags;
+	VkBufferUsageFlags deviceFlags;
+	VkMemoryAllocateFlagsInfo* localAllocFlags;
+	VkMemoryAllocateFlagsInfo* deviceAllocFlags;
 	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength) {
 		this(device, memoryAllocator, maxLength, 0, 0, null, null);
 	}
@@ -2684,6 +2688,10 @@ struct ShaderList(T, bool withCount = true) {
 		cpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), localFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 
+		this.localFlags = localFlags;
+		this.deviceFlags = deviceFlags;
+		this.localAllocFlags = localAllocFlags;
+		this.deviceAllocFlags = deviceAllocFlags;
 		if (localAllocFlags == null) {
 			memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		} else {
@@ -2827,12 +2835,59 @@ struct ShaderList(T, bool withCount = true) {
 		uint* tCount = cast(uint*) mappedMemory;
 		T* t = cast(T*) (mappedMemory + countOffset);
 		size_t oldLength = length;
+		static if (ecs.hasAddUpdateList!T()) {
+			int newLength;
+			static if (ecs.hasRemoveUpdateList!T) {
+				newLength = length + cast(uint) ecs.getAddUpdateList!T().length - cast(uint) ecs.getRemoveUpdateList!T().length;
+			} else {
+				newLength = length + cast(uint) ecs.getAddUpdateList!T().length;
+			}
+			if (newLength > maxLength) {
+				uint newMaxLength = newLength * 2;
+				VkDeviceSize newBufferSize = T.sizeof * newMaxLength + uint.sizeof;
+				auto newCpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, newBufferSize, localFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
+				auto newGpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, newBufferSize, deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+
+				if (localAllocFlags == null) {
+					memoryAllocator.allocate(newCpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+				} else {
+					memoryAllocator.allocate(newCpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, *localAllocFlags);
+				}
+				if (deviceAllocFlags == null) {
+					memoryAllocator.allocate(newGpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				} else {
+					memoryAllocator.allocate(newGpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *deviceAllocFlags);
+				}
+
+				// beide buffer kopieren
+				// sicherstellen dass gpubuffer fertig kopiert ist bevor der nächste buffer kopiert wird
+				// der alte gpubuffer darf erst beim nächsten update gelöscht werden da er erst kopiert werden muss
+
+				//cpuMemory = &cpuBuffer.allocatedMemory.allocatorList.memory;
+				//gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;
+			}
+		}
+		// was passiert wenn man zwischen updates ein element hinzufügt und wieder entfernt? sollte überprüft werden
 		static if (ecs.hasRemoveUpdateList!T()) {
 			foreach (id; ecs.getRemoveIdsList!T()) {
 				// ? könnte problem geben wenn id für ein neues objekt verwendet wird
 				if (ecs.entityHas!(ShaderListIndex!T)(id)) {
 					ecs.removeComponent!(ShaderListIndex!T)(id);
 				}
+			}
+		}
+		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
+			foreach (e; ecs.getRemoveUpdateList!(ShaderListIndex!T)()) {
+				uint shaderListIndex = e.index;
+				if (shaderListIndex != length - 1) {
+					t[shaderListIndex] = t[length - 1];
+					entities[shaderListIndex] = entities[length - 1];
+					if (ecs.entityHas!(ShaderListIndex!T)(entities[shaderListIndex])) {
+						ecs.getComponent!(ShaderListIndex!T)(entities[shaderListIndex]).index = shaderListIndex;
+					}
+					updateRangeCount++;
+				}
+				length--;
 			}
 		}
 		static if (ecs.hasAddUpdateList!T()) {
@@ -2860,20 +2915,6 @@ struct ShaderList(T, bool withCount = true) {
 					mixin("t[shaderListIndex]." ~ typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1] ~ " = ecs.getForced!T(" ~ "id" ~ ")." ~ typeof(ecs).TemplateSpecificUpdates.TypeSeq[i].TypeSeq[1] ~ ";");
 					updateRangeCount++;
 				}
-			}
-		}
-		static if (ecs.hasRemoveUpdateList!(ShaderListIndex!T)()) {
-			foreach (e; ecs.getRemoveUpdateList!(ShaderListIndex!T)()) {
-				uint shaderListIndex = e.index;
-				if (shaderListIndex != length - 1) {
-					t[shaderListIndex] = t[length - 1];
-					entities[shaderListIndex] = entities[length - 1];
-					if (ecs.entityHas!(ShaderListIndex!T)(entities[shaderListIndex])) {
-						ecs.getComponent!(ShaderListIndex!T)(entities[shaderListIndex]).index = shaderListIndex;
-					}
-					updateRangeCount++;
-				}
-				length--;
 			}
 		}
 		static if (withCount) {
