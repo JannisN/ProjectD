@@ -302,9 +302,20 @@ auto array(T, Args...)(ref Args args) {
 }*/
 auto move(T)(ref T t) {
 	T empty;
+	//T empty2;
 	T ret;
 	memcpy(cast(void*) &ret, cast(void*) &t, T.sizeof);
 	memcpy(cast(void*) &t, cast(void*) &empty, T.sizeof);
+	//memcpy(cast(void*) &empty, cast(void*) &empty2, T.sizeof);
+	return ret;
+}
+
+auto move(T)(ref T from, ref T to) {
+	T empty;
+	//T empty2;
+	memcpy(cast(void*) &to, cast(void*) &t, T.sizeof);
+	memcpy(cast(void*) &from, cast(void*) &empty, T.sizeof);
+	//memcpy(cast(void*) &empty, cast(void*) &empty2, T.sizeof);
 	return ret;
 }
 

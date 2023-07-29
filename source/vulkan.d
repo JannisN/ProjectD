@@ -2677,6 +2677,7 @@ struct ShaderList(T, bool withCount = true) {
 	VkBufferUsageFlags deviceFlags;
 	VkMemoryAllocateFlagsInfo* localAllocFlags;
 	VkMemoryAllocateFlagsInfo* deviceAllocFlags;
+	AllocatedResource!Buffer oldGpuBuffer;
 	this(ref Device device, ref MemoryAllocator memoryAllocator, uint maxLength) {
 		this(device, memoryAllocator, maxLength, 0, 0, null, null);
 	}
@@ -2686,7 +2687,7 @@ struct ShaderList(T, bool withCount = true) {
 		this.maxLength = maxLength;
 		entities = Vector!size_t(maxLength);
 		cpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), localFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
-		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		gpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, getMemorySize(), deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 
 		this.localFlags = localFlags;
 		this.deviceFlags = deviceFlags;
@@ -2706,7 +2707,7 @@ struct ShaderList(T, bool withCount = true) {
 		gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;
 	}
 	VkDeviceSize getMemorySize() {
-		return T.sizeof * maxLength + uint.sizeof;
+		return T.sizeof * maxLength + countOffset;
 	}
 	VkDeviceSize getOffset(string member)() {
 		T t;
@@ -2830,6 +2831,7 @@ struct ShaderList(T, bool withCount = true) {
 		}
 	}
 	void update2(Ecs)(ref Ecs ecs, ref CommandBuffer cmdBuffer, bool clearLists = true) {
+		oldGpuBuffer.destroy();
 		void* mappedMemory = cpuMemory.map(cpuBuffer.allocatedMemory.allocation.offset, getMemorySize());
 		uint updateRangeCount = 0;
 		uint* tCount = cast(uint*) mappedMemory;
@@ -2844,9 +2846,9 @@ struct ShaderList(T, bool withCount = true) {
 			}
 			if (newLength > maxLength) {
 				uint newMaxLength = newLength * 2;
-				VkDeviceSize newBufferSize = T.sizeof * newMaxLength + uint.sizeof;
+				VkDeviceSize newBufferSize = T.sizeof * newMaxLength + countOffset;
 				auto newCpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, newBufferSize, localFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
-				auto newGpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, newBufferSize, deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+				auto newGpuBuffer = AllocatedResource!Buffer(device.createBuffer(0, newBufferSize, deviceFlags | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT));
 
 				if (localAllocFlags == null) {
 					memoryAllocator.allocate(newCpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -2860,11 +2862,24 @@ struct ShaderList(T, bool withCount = true) {
 				}
 
 				// beide buffer kopieren
-				// sicherstellen dass gpubuffer fertig kopiert ist bevor der nächste buffer kopiert wird
-				// der alte gpubuffer darf erst beim nächsten update gelöscht werden da er erst kopiert werden muss
+				Vector!byte cp = Vector!byte(cast(size_t) getMemorySize());
+				memcpy(cast(void*)cp.data(), mappedMemory, getMemorySize());
+				cpuMemory.unmap();
+				cpuMemory = &newCpuBuffer.allocatedMemory.allocatorList.memory;
+				mappedMemory = cpuMemory.map(newCpuBuffer.allocatedMemory.allocation.offset, newBufferSize);
+				memcpy(mappedMemory, cast(void*)cp.data(), getMemorySize());
+				cmdBuffer.copyBuffer(gpuBuffer, 0, newGpuBuffer, 0, getMemorySize());
+				gpuMemory = &newGpuBuffer.allocatedMemory.allocatorList.memory;
 
-				//cpuMemory = &cpuBuffer.allocatedMemory.allocatorList.memory;
-				//gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;
+				oldGpuBuffer = move(gpuBuffer);
+				gpuBuffer = move(newGpuBuffer);
+				cpuBuffer = move(newCpuBuffer);
+				maxLength = newMaxLength;
+				entities.resize(newMaxLength);
+
+				tCount = cast(uint*) mappedMemory;
+				t = cast(T*) (mappedMemory + countOffset);
+				// sicherstellen dass gpubuffer fertig kopiert ist bevor der nächste buffer kopiert wird, pipelinebarrier nötig?
 			}
 		}
 		// was passiert wenn man zwischen updates ein element hinzufügt und wieder entfernt? sollte überprüft werden
