@@ -295,10 +295,17 @@ auto array(T, Args...)(ref Args args) {
 }
 
 // sollte memcpy verwenden?
-auto move(T)(ref T t) {
+/*auto move(T)(ref T t) {
 	T moved = t;
 	emplace(&t);
 	return moved;
+}*/
+auto move(T)(ref T t) {
+	T empty;
+	T ret;
+	memcpy(cast(void*) &ret, cast(void*) &t, T.sizeof);
+	memcpy(cast(void*) &t, cast(void*) &empty, T.sizeof);
+	return ret;
 }
 
 struct Vector(T) if (!is(T == class)) {
