@@ -1797,8 +1797,18 @@ struct TestApp(ECS) {
 
 		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			buildTlas();
+			/*cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+			cmdBuffer.begin();*/
 		} else if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			updateTlas();
+			/*cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+			cmdBuffer.begin();*/
 		}
 		sphereEcs.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
 		sphereEcs.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
@@ -1808,19 +1818,30 @@ struct TestApp(ECS) {
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 			0, [],
-			array(bufferMemoryBarrier(
-				0,
-				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-				accelStruct.tlasBuffer
-			)),
-			array(imageMemoryBarrier(
-				0,
-				VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-				VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
-				VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-				swapchain.images[imageIndex],
-				VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-			))
+			[],
+			array(
+				imageMemoryBarrier(
+					0,
+					VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					swapchain.images[imageIndex],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+			)
+		);
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+			0, [],
+			array(
+				bufferMemoryBarrier(
+					VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+					VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+					accelStruct.tlasBuffer
+				),
+			),
+			[]
 		);
 
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);

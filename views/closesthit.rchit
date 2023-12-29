@@ -26,10 +26,14 @@ struct AddressBuffers {
     uint64_t normalIndices;
 };
 layout(set = 0, binding = 2) buffer _scene_desc { AddressBuffers i[]; } sceneDesc;
-layout(buffer_reference, scalar) buffer Vertices {vec3 v[]; };
-layout(buffer_reference, scalar) buffer Indices {uvec3 i[]; };
-layout(buffer_reference, scalar) buffer Normals {vec3 v[]; };
-layout(buffer_reference, scalar) buffer NormalIndices {uvec3 i[]; };
+//layout(buffer_reference, scalar) buffer Vertices {vec3 v[]; };
+//layout(buffer_reference, scalar) buffer Indices {uvec3 i[]; };
+//layout(buffer_reference, scalar) buffer Normals {vec3 v[]; };
+//layout(buffer_reference, scalar) buffer NormalIndices {uvec3 i[]; };
+layout(buffer_reference, scalar) buffer Vertices {float v[]; };
+layout(buffer_reference, scalar) buffer Indices {uint i[]; };
+layout(buffer_reference, scalar) buffer Normals {float v[]; };
+layout(buffer_reference, scalar) buffer NormalIndices {uint i[]; };
 
 struct Cube {
 	float x, y, z;
@@ -46,12 +50,15 @@ void main() {
     Normals normals = Normals(addressBuffers.normals);
     NormalIndices normalIndices = NormalIndices(addressBuffers.normalIndices);
     
-    uvec3 ind = indices.i[gl_PrimitiveID];
-    uvec3 indNormals = normalIndices.i[gl_PrimitiveID];
+    uvec3 ind = uvec3(indices.i[gl_PrimitiveID * 3], indices.i[gl_PrimitiveID * 3 + 1], indices.i[gl_PrimitiveID * 3 + 2]);
+    uvec3 indNormals = uvec3(normalIndices.i[gl_PrimitiveID * 3], normalIndices.i[gl_PrimitiveID * 3 + 1], normalIndices.i[gl_PrimitiveID * 3 + 2]);
 
-    vec3 n0 = normals.v[indNormals.x];
-    vec3 n1 = normals.v[indNormals.y];
-    vec3 n2 = normals.v[indNormals.z];
+    //vec3 n0 = normals.v[indNormals.x];
+    //vec3 n1 = normals.v[indNormals.y];
+    //vec3 n2 = normals.v[indNormals.z];
+    vec3 n0 = vec3(normals.v[indNormals.x * 3], normals.v[indNormals.x * 3 + 1], normals.v[indNormals.x * 3 + 2]);
+    vec3 n1 = vec3(normals.v[indNormals.y * 3], normals.v[indNormals.y * 3 + 1], normals.v[indNormals.y * 3 + 2]);
+    vec3 n2 = vec3(normals.v[indNormals.z * 3], normals.v[indNormals.z * 3 + 1], normals.v[indNormals.z * 3 + 2]);
 
     Cube cube = cubeList.cubes[gl_InstanceCustomIndexEXT];
 
