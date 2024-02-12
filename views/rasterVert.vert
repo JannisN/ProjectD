@@ -51,7 +51,7 @@ void main() {
 	normalOut.y *= -1.0;
 	Sphere sphere = sphereList.spheres[gl_InstanceIndex];
 	//gl_Position = vec4(pos, 1);
-	vec3 finalPos = pos + vec3(sphere.x, sphere.y, sphere.z) - mypc.pos;
+	vec3 finalPos = pos * sphere.radius + vec3(sphere.x, sphere.y, sphere.z) - mypc.pos;
 	finalPos = rotYinv * rotXinv * finalPos;
 	finalPos.x *= mypc.screenRatio * 2.0;
 	finalPos.y *= -2.0;

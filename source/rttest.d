@@ -818,7 +818,7 @@ struct TestApp(ECS) {
 		}
 		
 		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
-		//rt = false;
+		rt = false;
 
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
@@ -1062,6 +1062,74 @@ struct TestApp(ECS) {
 		}
 		memory.flush(array(mappedMemoryRange(*memory, sphereNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
 		memory.unmap();
+
+		// ---------------
+
+		enum string cubeCode = import("cube.wobj");
+		WavefrontModel cubeWavefrontModel = WavefrontModel(cubeCode);
+
+		vertices = cubeWavefrontModel.vertices;
+		indices = cubeWavefrontModel.indicesVertices;
+		normals = cubeWavefrontModel.normals;
+		normalIndices = cubeWavefrontModel.indicesNormals;
+		uvs = cubeWavefrontModel.uvs;
+		uvIndices = cubeWavefrontModel.indicesUvs;
+
+		Vector!float cubeNormalsOrdered = Vector!float(vertices.length);
+		foreach (i, e; normalIndices) {
+			cubeNormalsOrdered[indices[i] * 3] = normals[e * 3];
+			cubeNormalsOrdered[indices[i] * 3 + 1] = normals[e * 3 + 1];
+			cubeNormalsOrdered[indices[i] * 3 + 2] = normals[e * 3 + 2];
+			/*normalsOrdered[i * 3] = normals[e * 3];
+			normalsOrdered[i * 3 + 1] = normals[e * 3 + 1];
+			normalsOrdered[i * 3 + 2] = normals[e * 3 + 2];*/
+		}
+
+		cubeVertexCount = cast(uint)vertices.length / 3;
+		cubeIndexCount = cast(uint)indices.length;
+
+		cubeVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(cubeVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		cubeVertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
+		memoryAllocator.allocate(cubeVertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		memory = &cast(Memory) cubeVertexBuffer.allocatedMemory.allocatorList.memory;
+		floatptr = cast(float*) memory.map(cubeVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof);
+		foreach (j, float f; vertices) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, cubeVertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
+		memory.unmap();
+
+		memory = &cast(Memory) cubeVertexIndexBuffer.allocatedMemory.allocatorList.memory;
+		intptr = cast(uint*) memory.map(cubeVertexIndexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof);
+		foreach (j, uint f; indices) {
+			intptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, cubeVertexIndexBuffer.allocatedMemory.allocation.offset, indices.length * uint.sizeof)));
+		memory.unmap();
+
+
+		cubeNormalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalsOrdered.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		memoryAllocator.allocate(cubeNormalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		cubeNormalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+		memoryAllocator.allocate(cubeNormalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+		memory = &cast(Memory) cubeNormalBuffer.allocatedMemory.allocatorList.memory;
+		floatptr = cast(float*) memory.map(cubeNormalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof);
+		foreach (j, float f; normalsOrdered) {
+			floatptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, cubeNormalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof)));
+		memory.unmap();
+
+		memory = &cast(Memory) cubeNormalIndexBuffer.allocatedMemory.allocatorList.memory;
+		intptr = cast(uint*) memory.map(cubeNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof);
+		foreach (j, uint f; normalIndices) {
+			intptr[j] = f;
+		}
+		memory.flush(array(mappedMemoryRange(*memory, cubeNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
+		memory.unmap();
 	}
 	struct CircleImplStruct {
 		DescriptorSetLayout descriptorSetLayout;
@@ -1261,7 +1329,7 @@ struct TestApp(ECS) {
 					null
 				)
 			));
-			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 1, array(
+			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 2, array(
 				VkDescriptorPoolSize(
 					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 					1
@@ -1275,6 +1343,10 @@ struct TestApp(ECS) {
 			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizerPackage.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer));
 			rasterizerPackage.pipelineLayout = device.createPipelineLayout(array(rasterizerPackage.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6)));
+
+			cubeDescriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
+			cubeDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			cubeDescriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer));
 		}
 
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -2253,7 +2325,14 @@ struct TestApp(ECS) {
 		cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
 		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
 		cmdBuffer.drawIndexed(sphereIndexCount, sphereShaderList.length, 0, 0, 0);
+		cmdBuffer.endRenderPass();
 
+		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(cubeDescriptorSet), []);
+		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)cubeVertexBuffer.t, cast(Buffer)cubeNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+		cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+		cmdBuffer.drawIndexed(cubeIndexCount, cubeShaderList.length, 0, 0, 0);
 		cmdBuffer.endRenderPass();
 		}
 
@@ -2408,6 +2487,15 @@ struct TestApp(ECS) {
 	uint sphereVertexCount;
 	uint sphereIndexCount;
 
+	AllocatedResource!Buffer cubeVertexBuffer;
+	AllocatedResource!Buffer cubeVertexIndexBuffer;
+	AllocatedResource!Buffer cubeNormalBuffer;
+	AllocatedResource!Buffer cubeNormalIndexBuffer;
+	AllocatedResource!Buffer cubeUvBuffer;
+	AllocatedResource!Buffer cubeUvIndexBuffer;
+	uint cubeVertexCount;
+	uint cubeIndexCount;
+
 	struct GraphicsPackage {
 		Shader vertexShader;
 		Shader fragmentShader;
@@ -2418,6 +2506,7 @@ struct TestApp(ECS) {
 		DescriptorSet descriptorSet;
 	}
 	GraphicsPackage rasterizerPackage;
+	DescriptorSet cubeDescriptorSet;
 	bool rt;
 }
 
