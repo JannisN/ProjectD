@@ -2570,6 +2570,32 @@ struct TestApp(ECS) {
 	GraphicsPackage rasterizerPackage;
 	DescriptorSet cubeDescriptorSet;
 	bool rt;
+
+	struct ProceduralModel {
+		uint id;
+	}
+	DynamicECS!(
+        Vector,//Vector
+		TypeSeqStruct!(
+			WavefrontModel,
+			ProceduralModel,
+		// todo: ............
+			Sphere,
+            ShaderListIndex!Sphere,
+			Cube,
+			ShaderListIndex!Cube,
+			VkAccelerationStructureInstanceKHR,
+            ShaderListIndex!VkAccelerationStructureInstanceKHR,
+		),
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR), // general
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(Sphere, Cube, VkAccelerationStructureInstanceKHR), // add
+		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
+		TypeSeqStruct!(),
+        ECSConfig(false, false)
+	) models;
 }
 
 struct Circle {
