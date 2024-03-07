@@ -1168,6 +1168,19 @@ template isTypeCompatible(T, Args...) {
 	enum bool isTypeCompatible = isTypeCompatibleImpl!(T, Args)();
 }
 
+template isValueCompatible(T, Args...) {
+	bool isValueCompatibleImpl(T, Args...)() {
+		bool result = true;
+		static foreach (i; 0 .. Args.length) {
+			static if (!is(typeof(Args[i]) : T)) {
+				result = false;
+			}
+		}
+		return result;
+	}
+	enum bool isValueCompatible = isValueCompatibleImpl!(T, Args)();
+}
+
 template countType(T, Args...) {
 	uint countTypeImpl(T, Args...)() {
 		uint count = 0;
@@ -1367,7 +1380,7 @@ auto compatibleTypesToArrayInGroup(T, uint group, Args...)(in Args args) {
 
 template multiplyArgs(Args...) {
 	static if (Args.length != 0) {
-		static assert(isTypeCompatible!(Args[0], Args));
+		static assert(isValueCompatible!(typeof(Args[0]), Args));
 	}
 	auto multiplyArgsImpl(Args...)() {
 		static if (Args.length == 0) {

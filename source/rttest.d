@@ -10,6 +10,7 @@ import png;
 import font;
 import ecs2;
 import wavefront;
+import tensor;
 
 // todo:
 // getcomponents sollte virtualcomponents zurückgeben(das heisst neue iterator struct)
@@ -2574,28 +2575,33 @@ struct TestApp(ECS) {
 	struct ProceduralModel {
 		uint id;
 	}
+	struct ModelInstances {
+		// objekt ids für spezifisches model, für draw command, um im shader dann auf eigenschaften des objekts zugreifen zu können
+		ShaderList!(uint, false) instances;
+	}
 	DynamicECS!(
-        Vector,//Vector
+        Vector,
 		TypeSeqStruct!(
 			WavefrontModel,
 			ProceduralModel,
-		// todo: ............
-			Sphere,
-            ShaderListIndex!Sphere,
-			Cube,
-			ShaderListIndex!Cube,
-			VkAccelerationStructureInstanceKHR,
-            ShaderListIndex!VkAccelerationStructureInstanceKHR,
+			ModelInstances
 		),
-		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR), // general
+		TypeSeqStruct!(), // general
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
-		TypeSeqStruct!(Sphere, Cube, VkAccelerationStructureInstanceKHR), // add
-		TypeSeqStruct!(Sphere, ShaderListIndex!Sphere, Cube, ShaderListIndex!Cube, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
+		TypeSeqStruct!(), // add
+		TypeSeqStruct!(), // remove
 		TypeSeqStruct!(),
         ECSConfig(false, false)
 	) models;
+}
+
+struct Drawable {
+	Tensor!(float, 3) pos;
+	Tensor!(float, 3) scale;
+	Tensor!(float, 3) rot;
+	Tensor!(float, 3) rgb;
 }
 
 struct Circle {
