@@ -1379,11 +1379,11 @@ struct TestApp(ECS) {
 			rasterizerPackage.descriptorPool = device.createDescriptorPool(0, 2, array(
 				VkDescriptorPoolSize(
 					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-					1
+					2
 				),
 				VkDescriptorPoolSize(
 					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-					1
+					2
 				)
 			));
 			rasterizerPackage.descriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
@@ -1716,6 +1716,7 @@ struct TestApp(ECS) {
 				1
 			)
 		);
+		if (rt) {
 		cmdBuffer.begin();
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -1753,6 +1754,7 @@ struct TestApp(ECS) {
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		fence.reset();
+		}
 	}
 	double circlePos = 0.0;
 	double circleVel = 0.0;
@@ -1986,6 +1988,7 @@ struct TestApp(ECS) {
 				),
 			)
 		);
+		
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
