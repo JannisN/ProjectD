@@ -2578,16 +2578,16 @@ struct TestApp(ECS) {
 	struct ProceduralModel {
 		uint id;
 	}
-	struct ModelInstances {
+	/*struct ModelInstances {
 		// objekt ids für spezifisches model, für draw command, um im shader dann auf eigenschaften des objekts zugreifen zu können
 		ShaderList!(uint, false) instances;
-	}
+	}*/
 	DynamicECS!(
         Vector,
 		TypeSeqStruct!(
 			WavefrontModel,
 			ProceduralModel,
-			ModelInstances
+			//ModelInstances
 		),
 		TypeSeqStruct!(), // general
 		TypeSeqStruct!(),
