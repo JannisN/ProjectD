@@ -2609,11 +2609,18 @@ struct TestApp(ECS) {
 		// objekt ids für spezifisches model, für draw command, um im shader dann auf eigenschaften des objekts zugreifen zu können
 		ShaderList!(uint, false) instances;
 	}*/
+	// wichtig: shader list RTModelInfo muss synchronisiert bleiben mit den models indices
+	// am besten als ShaderList funktion implementieren
 	DynamicECS!(
         Vector,
 		TypeSeqStruct!(
 			WavefrontModel,
 			ProceduralModel,
+			RTModelInfo,
+			RTPolygonModel,
+			RTProceduralModel,
+			RasterizedModel,
+            ShaderListIndex!RTModelInfo,
 			//ModelInstances
 		),
 		TypeSeqStruct!(), // general
@@ -2625,9 +2632,22 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(),
         ECSConfig(false, false)
 	) models;
+	ShaderList!(RTModelInfo, false) rtModelInfoShaderList;
 
 	RTPolygonModel rtCube;
 	RTProceduralModel rtSphere;
+}
+
+struct BufferAddresses {
+	ulong vertices;
+	ulong vertexIndices;
+	ulong normals;
+	ulong normalIndices;
+}
+
+struct RTModelInfo {
+	BufferAddresses addresses;
+	uint proceduralModelId;
 }
 
 struct RasterizedModel {
