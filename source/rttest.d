@@ -2494,7 +2494,7 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
-		TypeSeqStruct!(), // add
+		TypeSeqStruct!(WavefrontModel), // add
 		TypeSeqStruct!(), // remove
 		TypeSeqStruct!(),
         ECSConfig(false, false)
@@ -2504,6 +2504,27 @@ struct TestApp(ECS) {
 	RTPolygonModel rtCube;
 	RTProceduralModel rtSphere;
 	Tlas tlas;
+	
+	DynamicECS!(
+        PartialVec,//Vector
+		TypeSeqStruct!(
+			Drawable,
+            ShaderListIndex!Drawable,
+			VkAccelerationStructureInstanceKHR,
+            ShaderListIndex!VkAccelerationStructureInstanceKHR,
+		),
+		// überprüfen welche von denen auch wirklich gebraucht werden
+		TypeSeqStruct!(Drawable, ShaderListIndex!Drawable, VkAccelerationStructureInstanceKHR), // general
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(),
+		TypeSeqStruct!(Drawable, VkAccelerationStructureInstanceKHR), // add
+		TypeSeqStruct!(Drawable, ShaderListIndex!Drawable, VkAccelerationStructureInstanceKHR, ShaderListIndex!VkAccelerationStructureInstanceKHR), // remove
+		TypeSeqStruct!(),
+        ECSConfig(true, true)
+	) objects;
+	ShaderList!(VkAccelerationStructureInstanceKHR, false) accelerationInstances;
+	ShaderList!(Drawable, false) drawables;
 }
 
 struct Tlas {
@@ -2561,6 +2582,7 @@ struct Drawable {
 	Tensor!(float, 3) scale;
 	Tensor!(float, 3) rot;
 	Tensor!(float, 3) rgb;
+	uint modelId;
 }
 
 struct Circle {
