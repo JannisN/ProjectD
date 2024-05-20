@@ -41,6 +41,10 @@ struct VirtualEntity(ECS) {
         ecs.addComponent!Component(entityId, component);
         return this;
     }
+    auto ref add(Component, Args...)(Args args) {
+        ecs.addComponent!Component(entityId, Component(args));
+        return this;
+    }
     auto ref remove(Component)() {
         ecs.removeComponent!Component(entityId);
         return this;

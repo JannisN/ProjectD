@@ -811,6 +811,16 @@ struct TestApp(ECS) {
 			initAccelStructure();
 		}
 		sphereEcs.add().add!Cube(Cube(0.0, -5.0, 0.0, 5.0));
+
+		if (rt) {
+			rtModelInfos = ShaderList!(RTModelInfo, false)(device, memoryAllocator, 16);
+		} else {
+
+		}
+		enum string cubeCode = import("cube.wobj");
+		enum string sphereCode = import("sphere.wobj");
+		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
+		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -2499,7 +2509,7 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(),
         ECSConfig(false, false)
 	) models;
-	ShaderList!(RTModelInfo, false) rtModelInfoShaderList;
+	ShaderList!(RTModelInfo, false) rtModelInfos;
 
 	RTPolygonModel rtCube;
 	RTProceduralModel rtSphere;
@@ -2525,6 +2535,9 @@ struct TestApp(ECS) {
 	) objects;
 	ShaderList!(VkAccelerationStructureInstanceKHR, false) accelerationInstances;
 	ShaderList!(Drawable, false) drawables;
+
+	size_t cubeModel;
+	size_t sphereModel;
 }
 
 struct Tlas {
