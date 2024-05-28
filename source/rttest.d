@@ -822,6 +822,11 @@ struct TestApp(ECS) {
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
 		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
 	}
+	void updateModels() {
+		if (rt) {
+
+		}
+	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
 		enum string fontfile = import("free_pixel_regular_16test.xml");
@@ -2519,7 +2524,6 @@ struct TestApp(ECS) {
         PartialVec,//Vector
 		TypeSeqStruct!(
 			Drawable,
-            ShaderListIndex!Drawable,
 			VkAccelerationStructureInstanceKHR,
             ShaderListIndex!VkAccelerationStructureInstanceKHR,
 		),
