@@ -822,10 +822,64 @@ struct TestApp(ECS) {
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
 		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
 	}
-	void updateModels() {
+	void updateModels(ref CommandBuffer cmdBuffer) {
 		if (rt) {
+			VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+			accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+			VkPhysicalDeviceProperties2 properties;
+			properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			properties.pNext = cast(void*) &accProperties;
+			device.physicalDevice.getProperties(&properties);
+			VkMemoryAllocateFlagsInfo flagsInfo;
+			flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+			flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+			size_t n = models.getAddUpdateList!WavefrontModel().length;
+			auto buildInfos = Vector!VkAccelerationStructureBuildGeometryInfoKHR(n);
+			auto rangeInfos = Vector!(VkAccelerationStructureBuildRangeInfoKHR*)(n);
+			// in zukunft evt besser nur einen scratch buffer verwenden
+			auto scratchBuffers = Vector!(AllocatedResource!Buffer)(n);
+			uint i = 0;
+			// man könnte onApply erweitern so dass i automatisch gezählt wird
+			foreach (id; models.getAddUpdateList!WavefrontModel()) {
+				auto entity = models.getEntity(id);
+				if (entity.has!ProceduralModel()) {
+					entity.add!RTProceduralModel(createProceduralBlas(entity.get!ProceduralModel().min, entity.get!ProceduralModel().max));
+					RTModelInfo info;
+					info.proceduralModelId = entity.get!ProceduralModel.id;
+					entity.add!RTModelInfo(info);
+					scratchBuffers[i] = AllocatedResource!Buffer(device.createBuffer(0, entity.get!RTProceduralModel().sizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+					buildInfos[i].pGeometries = &entity.get!RTProceduralModel().geometry;
+					buildInfos[i].dstAccelerationStructure = entity.get!RTProceduralModel().blas.accelerationStructure;
+					rangeInfos[i] = &entity.get!RTProceduralModel().rangeInfo;
+				} else {
+					entity.add!RTPolygonModel(createPolygonBlas(entity.get!WavefrontModel()));
+					RTModelInfo info;
+					info.addresses.vertices = entity.get!RTPolygonModel().vertexBuffer.getDeviceAddress();
+					info.addresses.vertexIndices = entity.get!RTPolygonModel().vertexIndexBuffer.getDeviceAddress();
+					info.addresses.normals = entity.get!RTPolygonModel().normalBuffer.getDeviceAddress();
+					info.addresses.normalIndices = entity.get!RTPolygonModel().normalIndexBuffer.getDeviceAddress();
+					entity.add!RTModelInfo(info);
+					scratchBuffers[i] = AllocatedResource!Buffer(device.createBuffer(0, entity.get!RTPolygonModel().sizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+					buildInfos[i].pGeometries = &entity.get!RTPolygonModel().geometry;
+					buildInfos[i].dstAccelerationStructure = entity.get!RTPolygonModel().blas.accelerationStructure;
+					rangeInfos[i] = &entity.get!RTPolygonModel().rangeInfo;
+				}
+				memoryAllocator.allocate(scratchBuffers[i], VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+				buildInfos[i].sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+				buildInfos[i].flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+				buildInfos[i].geometryCount = 1;
+				buildInfos[i].mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+				buildInfos[i].type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+				size_t deviceAddressOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (scratchBuffers[i].getDeviceAddress() % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+				buildInfos[i].scratchData.deviceAddress = scratchBuffers[i].getDeviceAddress() + deviceAddressOffset;
+				i++;
+			}
+			cmdBuffer.buildAccelerationStructures(buildInfos, rangeInfos);
+		} else {
 
 		}
+		rtModelInfos.update2(models, cmdBuffer, false);
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
