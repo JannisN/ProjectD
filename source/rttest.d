@@ -11,6 +11,7 @@ import font;
 import ecs2;
 import wavefront;
 import tensor;
+import std.mathspecial;
 
 // todo:
 // getcomponents sollte virtualcomponents zurückgeben(das heisst neue iterator struct)
@@ -822,6 +823,7 @@ struct TestApp(ECS) {
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
 		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
 	}
+	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
 		if (rt) {
 			VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
@@ -876,10 +878,74 @@ struct TestApp(ECS) {
 				i++;
 			}
 			cmdBuffer.buildAccelerationStructures(buildInfos, rangeInfos);
+			rtModelInfos.update2(models, cmdBuffer, false);
 		} else {
+			foreach (id; models.getAddUpdateList!WavefrontModel()) {
+				auto entity = models.getEntity(id);
+				entity.add!RasterizedModel();
+				bool isSmooth = entity.get!WavefrontModel().isSmooth;
+				float[] vertices = entity.get!WavefrontModel().vertices;
+				uint[] vertexIndices = entity.get!WavefrontModel().indicesVertices;
+				float[] normals = entity.get!WavefrontModel().normals;
+				uint[] normalIndices = entity.get!WavefrontModel().indicesNormals;
+				float[] uvs = entity.get!WavefrontModel().uvs;
+				uint[] uvIndices = entity.get!WavefrontModel().indicesUvs;
+				RasterizedModel* model = &entity.get!RasterizedModel();
+				if (isSmooth) {
+					Vector!float normalsOrdered = Vector!float(vertices.length);
+					foreach (i, e; normalIndices) {
+						normalsOrdered[vertexIndices[i] * 3] = normals[e * 3];
+						normalsOrdered[vertexIndices[i] * 3 + 1] = normals[e * 3 + 1];
+						normalsOrdered[vertexIndices[i] * 3 + 2] = normals[e * 3 + 2];
+					}
+					model.vertexCount = cast(uint)vertices.length / 3;
+					model.indexCount = cast(uint)vertexIndices.length;
+					model.isSmooth = isSmooth;
 
+					model.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+					model.vertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertexIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.vertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+					Memory* memory = &cast(Memory) model.vertexBuffer.allocatedMemory.allocatorList.memory;
+					float* floatptr = cast(float*) memory.map(model.vertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof);
+					foreach (j, float f; vertices) {
+						floatptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.vertexBuffer.allocatedMemory.allocation.offset, vertices.length * float.sizeof)));
+					memory.unmap();
+
+					memory = &cast(Memory) model.vertexIndexBuffer.allocatedMemory.allocatorList.memory;
+					uint* intptr = cast(uint*) memory.map(model.vertexIndexBuffer.allocatedMemory.allocation.offset, vertexIndices.length * uint.sizeof);
+					foreach (j, uint f; vertexIndices) {
+						intptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.vertexIndexBuffer.allocatedMemory.allocation.offset, vertexIndices.length * uint.sizeof)));
+					memory.unmap();
+
+					model.normalBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalsOrdered.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.normalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+					model.normalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+					memoryAllocator.allocate(model.normalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+					memory = &cast(Memory) model.normalBuffer.allocatedMemory.allocatorList.memory;
+					floatptr = cast(float*) memory.map(model.normalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof);
+					foreach (j, float f; normalsOrdered) {
+						floatptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.normalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof)));
+					memory.unmap();
+
+					memory = &cast(Memory) model.normalIndexBuffer.allocatedMemory.allocatorList.memory;
+					intptr = cast(uint*) memory.map(model.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof);
+					foreach (j, uint f; normalIndices) {
+						intptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
+					memory.unmap();
+				}
+			}
 		}
-		rtModelInfos.update2(models, cmdBuffer, false);
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -2623,7 +2689,17 @@ struct RTModelInfo {
 }
 
 struct RasterizedModel {
-
+	bool isSmooth;
+	AllocatedResource!Buffer vertexBuffer;
+	AllocatedResource!Buffer vertexIndexBuffer;
+	AllocatedResource!Buffer normalBuffer;
+	AllocatedResource!Buffer normalIndexBuffer;
+	//AllocatedResource!Buffer uvBuffer;
+	//AllocatedResource!Buffer uvIndexBuffer;
+	uint vertexCount;
+	uint indexCount;
+	//AllocatedResource!Buffer indexBuffer;
+	//uint normalCount;
 }
 
 struct RTPolygonModel {
@@ -2631,6 +2707,7 @@ struct RTPolygonModel {
 	AllocatedResource!Buffer vertexIndexBuffer;
 	AllocatedResource!Buffer normalBuffer;
 	AllocatedResource!Buffer normalIndexBuffer;
+	//addressBuffer muss dann entfernt werden am schluss
 	AllocatedResource!Buffer addressBuffer;
 	AllocatedResource!Buffer blasBuffer;
 	AccelerationStructure blas;

@@ -10,6 +10,7 @@ struct WavefrontModel {
     Vector!uint indicesVertices;
     Vector!uint indicesNormals;
     Vector!uint indicesUvs;
+    bool isSmooth;
     this(string wavefrontModel) {
         size_t vertexCount = 0;
         size_t normalCount = 0;
@@ -29,6 +30,13 @@ struct WavefrontModel {
             } else if (wavefrontModel[pos .. pos + 2] == "f ") {
                 indexCount++;
                 pos += 2;
+            } else if (wavefrontModel[pos .. pos + 2] == "s ") {
+                if (wavefrontModel[pos + 2 .. pos + 3] == "0") {
+                    isSmooth = false;
+                } else {
+                    isSmooth = true;
+                }
+                pos += 3;
             } else {
                 pos++;
             }
