@@ -822,6 +822,14 @@ struct TestApp(ECS) {
 		enum string sphereCode = import("sphere.wobj");
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
 		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
+
+		cmdBuffer.begin();
+		updateModels(cmdBuffer);
+		cmdBuffer.end();
+		writeln("Update models result: ", queue.submit(cmdBuffer, fence));
+		writeln("Fence wait result: ", fence.wait());
+		cmdBuffer.reset();
+		fence.reset();
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
@@ -891,6 +899,7 @@ struct TestApp(ECS) {
 				float[] uvs = entity.get!WavefrontModel().uvs;
 				uint[] uvIndices = entity.get!WavefrontModel().indicesUvs;
 				RasterizedModel* model = &entity.get!RasterizedModel();
+				model.isSmooth = isSmooth;
 				if (isSmooth) {
 					Vector!float normalsOrdered = Vector!float(vertices.length);
 					foreach (i, e; normalIndices) {
@@ -900,7 +909,6 @@ struct TestApp(ECS) {
 					}
 					model.vertexCount = cast(uint)vertices.length / 3;
 					model.indexCount = cast(uint)vertexIndices.length;
-					model.isSmooth = isSmooth;
 
 					model.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 					memoryAllocator.allocate(model.vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -934,6 +942,64 @@ struct TestApp(ECS) {
 						floatptr[j] = f;
 					}
 					memory.flush(array(mappedMemoryRange(*memory, model.normalBuffer.allocatedMemory.allocation.offset, normalsOrdered.length * float.sizeof)));
+					memory.unmap();
+
+					memory = &cast(Memory) model.normalIndexBuffer.allocatedMemory.allocatorList.memory;
+					intptr = cast(uint*) memory.map(model.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof);
+					foreach (j, uint f; normalIndices) {
+						intptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.normalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
+					memory.unmap();
+				} else {
+					uint verticesLength = cast(uint)(3 * vertexIndices.length);
+					Vector!float normalsOrdered = Vector!float(normals.length);
+					foreach (i, e; normalIndices) {
+						normalsOrdered[normalIndices[i] * 3] = normals[e * 3];
+						normalsOrdered[normalIndices[i] * 3 + 1] = normals[e * 3 + 1];
+						normalsOrdered[normalIndices[i] * 3 + 2] = normals[e * 3 + 2];
+					}
+					model.vertexCount = cast(uint)vertices.length / 3;
+					model.indexCount = cast(uint)vertexIndices.length;
+
+					model.vertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, verticesLength * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.vertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+					model.vertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertexIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.vertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+					Memory* memory = &cast(Memory) model.vertexBuffer.allocatedMemory.allocatorList.memory;
+					float* floatptr = cast(float*) memory.map(model.vertexBuffer.allocatedMemory.allocation.offset, verticesLength * float.sizeof);
+					for (uint j = 0; j < vertexIndices.length; j++) {
+						floatptr[3 * j] = vertices[3 * vertexIndices[j]];
+						floatptr[3 * j + 1] = vertices[3 * vertexIndices[j] + 1];
+						floatptr[3 * j + 2] = vertices[3 * vertexIndices[j] + 2];
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.vertexBuffer.allocatedMemory.allocation.offset, verticesLength * float.sizeof)));
+					memory.unmap();
+					model.vertexCount = cast(uint)vertexIndices.length;
+
+					memory = &cast(Memory) model.vertexIndexBuffer.allocatedMemory.allocatorList.memory;
+					uint* intptr = cast(uint*) memory.map(model.vertexIndexBuffer.allocatedMemory.allocation.offset, vertexIndices.length * uint.sizeof);
+					foreach (j, uint f; vertexIndices) {
+						intptr[j] = f;
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.vertexIndexBuffer.allocatedMemory.allocation.offset, vertexIndices.length * uint.sizeof)));
+					memory.unmap();
+
+					model.normalBuffer = AllocatedResource!Buffer(device.createBuffer(0, verticesLength * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+					memoryAllocator.allocate(model.normalBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+					model.normalIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, normalIndices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
+					memoryAllocator.allocate(model.normalIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+					memory = &cast(Memory) model.normalBuffer.allocatedMemory.allocatorList.memory;
+					floatptr = cast(float*) memory.map(model.normalBuffer.allocatedMemory.allocation.offset, verticesLength * float.sizeof);
+
+					for (uint j = 0; j < vertexIndices.length; j++) {
+						floatptr[3 * j] = normals[3 * normalIndices[j]];
+						floatptr[3 * j + 1] = normals[3 * normalIndices[j] + 1];
+						floatptr[3 * j + 2] = normals[3 * normalIndices[j] + 2];
+					}
+					memory.flush(array(mappedMemoryRange(*memory, model.normalBuffer.allocatedMemory.allocation.offset, verticesLength * float.sizeof)));
 					memory.unmap();
 
 					memory = &cast(Memory) model.normalIndexBuffer.allocatedMemory.allocatorList.memory;
