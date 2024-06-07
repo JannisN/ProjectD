@@ -2644,7 +2644,14 @@ struct MemoryAllocator {
 	void allocate(Nexts...)(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags, Nexts nexts) {
 		buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment, nexts);
 		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
-		//writeln("size: ", buffer.getMemoryRequirements().size);
+	}
+	void allocateAligned(Nexts...)(ref AllocatedResource!Buffer buffer, VkMemoryPropertyFlags flags, VkDeviceSize alignment, Nexts nexts) {
+		if (alignment > buffer.getMemoryRequirements().alignment) {
+			buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, alignment, nexts);
+		} else {
+			buffer.allocatedMemory = allocate(buffer.chooseHeap(flags), buffer.getMemoryRequirements().size, buffer.getMemoryRequirements().alignment, nexts);
+		}
+		buffer.bind(buffer.allocatedMemory.allocatorList.memory, buffer.allocatedMemory.allocation.t.offset);
 	}
 	void allocate(Nexts...)(ref AllocatedResource!Image image, VkMemoryPropertyFlags flags, Nexts nexts) {
 		image.allocatedMemory = allocate(image.chooseHeap(flags), image.getMemoryRequirements().size, image.getMemoryRequirements().alignment, nexts);
@@ -2699,9 +2706,10 @@ struct ShaderList(T, bool withCount = true) {
 			memoryAllocator.allocate(cpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, *localAllocFlags);
 		}
 		if (deviceAllocFlags == null) {
-			memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			// aligned für VkDeviceAddress
+			memoryAllocator.allocateAligned(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, cast(VkDeviceSize)16);
 		} else {
-			memoryAllocator.allocate(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *deviceAllocFlags);
+			memoryAllocator.allocateAligned(gpuBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, cast(VkDeviceSize)16, *deviceAllocFlags);
 		}
 		cpuMemory = &cpuBuffer.allocatedMemory.allocatorList.memory;
 		gpuMemory = &gpuBuffer.allocatedMemory.allocatorList.memory;

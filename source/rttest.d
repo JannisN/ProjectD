@@ -813,11 +813,16 @@ struct TestApp(ECS) {
 		}
 		sphereEcs.add().add!Cube(Cube(0.0, -5.0, 0.0, 5.0));
 
+		drawables = ShaderList!(Drawable, false)(device, memoryAllocator, 16);
 		if (rt) {
 			rtModelInfos = ShaderList!(RTModelInfo, false)(device, memoryAllocator, 16);
+			asInstances = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
+			tlasNew = Tlas(device, memoryAllocator);
+			tlasNew.create(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
 		} else {
 
 		}
+		
 		enum string cubeCode = import("cube.wobj");
 		enum string sphereCode = import("sphere.wobj");
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
@@ -825,11 +830,24 @@ struct TestApp(ECS) {
 
 		cmdBuffer.begin();
 		updateModels(cmdBuffer);
+		//drawables.update2(objects, cmdBuffer);
+		if (rt) {
+			//asInstances.update2(objects, cmdBuffer);
+			tlasNew.build(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
+		}
 		cmdBuffer.end();
 		writeln("Update models result: ", queue.submit(cmdBuffer, fence));
 		writeln("Fence wait result: ", fence.wait());
 		cmdBuffer.reset();
 		fence.reset();
+
+		Drawable drawable;
+		drawable.pos = Tensor!(float, 3)(0, -5, 0);
+		drawable.scale = Tensor!(float, 3)(5, 5, 5);
+		drawable.rot = Tensor!(float, 3)(0, 0, 0);
+		drawable.rgb = Tensor!(float, 3)(0.5, 1, 1);
+		drawable.modelId = cast(uint)cubeModel;
+		objects.add().add!Drawable(drawable);
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
@@ -1012,6 +1030,7 @@ struct TestApp(ECS) {
 				}
 			}
 		}
+		models.clearAddUpdateList!WavefrontModel();
 	}
 	void uploadVertexData() {
 		Memory* memory = &uploadBuffer.allocatedMemory.allocatorList.memory;
@@ -1973,6 +1992,14 @@ struct TestApp(ECS) {
 			fence.wait();
 			fence.reset();
 		}
+		if (objects.getAddUpdateList!Drawable().length > 0 || objects.getRemoveUpdateList!Drawable().length > 0) {
+			cmdBuffer.begin();
+			drawables.update2(objects, cmdBuffer, false);
+			cmdBuffer.end();
+			queue.submit(cmdBuffer, fence);
+			fence.wait();
+			fence.reset();
+		}
 		if (rt) {
 			foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
 				auto entity = sphereEcs.getEntity(i);
@@ -2010,7 +2037,31 @@ struct TestApp(ECS) {
 				testInstance.accelerationStructureReference = rtCube.blasBuffer.getDeviceAddress();
 				sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
 			}
+			foreach (i; objects.getAddUpdateList!Drawable()) {
+				auto entity = objects.getEntity(i);
+				Drawable drawable = entity.get!Drawable();
+				VkTransformMatrixKHR transformMatrix;
+				transformMatrix.matrix = [
+					[drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)],
+					[0.0f, drawable.scale(1), 0.0f, drawable.pos(1)],
+					[0.0f, 0.0f, drawable.scale(2), drawable.pos(2)],
+				];
+				VkAccelerationStructureInstanceKHR instance;
+				instance.transform = transformMatrix;
+				instance.instanceCustomIndex = entity.get!(ShaderListIndex!Drawable)().index;
+				instance.mask = 0xff;
+				if (models.getEntity(drawable.modelId).has!RTProceduralModel()) {
+					instance.instanceShaderBindingTableRecordOffset = 1;
+					instance.accelerationStructureReference = models.getEntity(drawable.modelId).get!RTProceduralModel().blasBuffer.getDeviceAddress();
+				} else {
+					instance.instanceShaderBindingTableRecordOffset = 0;
+					instance.accelerationStructureReference = models.getEntity(drawable.modelId).get!RTPolygonModel().blasBuffer.getDeviceAddress();
+				}
+				instance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+				objects.addComponent!VkAccelerationStructureInstanceKHR(i, instance);
+			}
 		}
+		objects.clearAddUpdateList!Drawable();
 		sphereEcs.clearAddUpdateList!Sphere();
 		sphereEcs.clearAddUpdateList!Cube();
 		if (rt) {
@@ -2034,6 +2085,24 @@ struct TestApp(ECS) {
 					recreateTlas2();
 				}
 			}
+
+			/*foreach (i; objects.getGeneralUpdateList!(ShaderListIndex!Drawable)()) {
+				auto entity = objects.getEntity(i);
+				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Drawable)().index;
+			}
+			if (objects.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+				cmdBuffer.begin();
+				asInstances.update2(objects, cmdBuffer, false);
+				cmdBuffer.end();
+				queue.submit(cmdBuffer, fence);
+				fence.wait();
+				fence.reset();
+				if (objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+					// todo: recreateTlas();
+					//recreateTlas2();
+					//tlasNew.recreate(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
+				}
+			}*/
 		}
 		
 		/*import std.math.trigonometry;
@@ -2710,6 +2779,7 @@ struct TestApp(ECS) {
         PartialVec,//Vector
 		TypeSeqStruct!(
 			Drawable,
+            ShaderListIndex!Drawable,
 			VkAccelerationStructureInstanceKHR,
             ShaderListIndex!VkAccelerationStructureInstanceKHR,
 		),
@@ -2723,9 +2793,10 @@ struct TestApp(ECS) {
 		TypeSeqStruct!(),
         ECSConfig(true, true)
 	) objects;
-	ShaderList!(VkAccelerationStructureInstanceKHR, false) accelerationInstances;
+	ShaderList!(VkAccelerationStructureInstanceKHR, false) asInstances;
 	ShaderList!(Drawable, false) drawables;
 
+	Tlas tlasNew;
 	size_t cubeModel;
 	size_t sphereModel;
 }
@@ -2734,6 +2805,142 @@ struct Tlas {
 	AllocatedResource!Buffer tlasBuffer;
 	AccelerationStructure tlas;
 	AllocatedResource!Buffer scratchBuffer;
+	Device* device;
+	MemoryAllocator* memoryAllocator;
+	this(ref Device device, ref MemoryAllocator memoryAllocator) {
+		this.device = &device;
+		this.memoryAllocator = &memoryAllocator;
+	}
+	void create(VkDeviceAddress address, uint length) {
+		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
+		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		instancesData.arrayOfPointers = VK_FALSE;
+		instancesData.data.deviceAddress = address;
+
+		VkAccelerationStructureGeometryKHR geometry;
+		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		geometry.geometry.instances = instancesData;
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
+		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+		buildInfo.geometryCount = 1;
+		buildInfo.pGeometries = &geometry;
+		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		buildInfo.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
+		rangeInfo.firstVertex = 0;
+		rangeInfo.primitiveCount = length;
+		rangeInfo.primitiveOffset = 0;
+		rangeInfo.transformOffset = 0;
+
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo = device.getAccelerationStructureBuildSizesKHR(
+			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&buildInfo,
+			&rangeInfo.primitiveCount
+		);
+		tlasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		memoryAllocator.allocate(tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+		tlas = device.createAccelerationStructure(buildInfo.type, sizeInfo.accelerationStructureSize, 0, tlasBuffer.buffer, 0);
+
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &accProperties;
+		device.physicalDevice.getProperties(&properties);
+		scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
+		memoryAllocator.allocate(scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
+	}
+	void recreate(VkDeviceAddress address, uint length) {
+		tlas.destroy();
+		tlasBuffer.destroy();
+		this.create(address, length);
+	}
+	void build(VkDeviceAddress address, uint length, ref CommandBuffer cmdBuffer) {
+		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
+		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		instancesData.arrayOfPointers = VK_FALSE;
+		instancesData.data.deviceAddress = address;
+
+		VkAccelerationStructureGeometryKHR geometry;
+		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		geometry.geometry.instances = instancesData;
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
+		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+		buildInfo.geometryCount = 1;
+		buildInfo.pGeometries = &geometry;
+		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		buildInfo.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
+		buildInfo.dstAccelerationStructure = tlas;
+
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
+		rangeInfo.firstVertex = 0;
+		rangeInfo.primitiveCount = length;
+		rangeInfo.primitiveOffset = 0;
+		rangeInfo.transformOffset = 0;
+
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &accProperties;
+		device.physicalDevice.getProperties(&properties);
+		VkDeviceAddress da = scratchBuffer.getDeviceAddress();
+		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+		buildInfo.scratchData.deviceAddress = scratchBuffer.getDeviceAddress() + daOffset;
+
+		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], array(&rangeInfo));
+	}
+	void update(VkDeviceAddress address, uint length, ref CommandBuffer cmdBuffer) {
+		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
+		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		instancesData.arrayOfPointers = VK_FALSE;
+		instancesData.data.deviceAddress = address;
+
+		VkAccelerationStructureGeometryKHR geometry;
+		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		geometry.geometry.instances = instancesData;
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
+		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+		buildInfo.geometryCount = 1;
+		buildInfo.pGeometries = &geometry;
+		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		buildInfo.srcAccelerationStructure = tlas;
+		buildInfo.dstAccelerationStructure = tlas;
+
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
+		rangeInfo.firstVertex = 0;
+		rangeInfo.primitiveCount = length;
+		rangeInfo.primitiveOffset = 0;
+		rangeInfo.transformOffset = 0;
+
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
+		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &accProperties;
+		device.physicalDevice.getProperties(&properties);
+		VkDeviceAddress da = scratchBuffer.getDeviceAddress();
+		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
+		buildInfo.scratchData.deviceAddress = scratchBuffer.getDeviceAddress() + daOffset;
+
+		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], array(&rangeInfo));
+	}
 }
 
 struct ProceduralModel {
