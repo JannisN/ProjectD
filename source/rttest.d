@@ -2086,7 +2086,7 @@ struct TestApp(ECS) {
 				}
 			}
 
-			/*foreach (i; objects.getGeneralUpdateList!(ShaderListIndex!Drawable)()) {
+			foreach (i; objects.getGeneralUpdateList!(ShaderListIndex!Drawable)()) {
 				auto entity = objects.getEntity(i);
 				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Drawable)().index;
 			}
@@ -2098,11 +2098,9 @@ struct TestApp(ECS) {
 				fence.wait();
 				fence.reset();
 				if (objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
-					// todo: recreateTlas();
-					//recreateTlas2();
-					//tlasNew.recreate(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
+					tlasNew.recreate(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
 				}
-			}*/
+			}
 		}
 		
 		/*import std.math.trigonometry;
@@ -2136,6 +2134,14 @@ struct TestApp(ECS) {
 			fence.reset();
 			cmdBuffer.begin();*/
 		}
+		if (objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+			tlasNew.build(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
+		} else if (objects.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+			tlasNew.update(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
+		}
+		objects.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
+		objects.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
+		objects.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();
 		sphereEcs.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
 		sphereEcs.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
 		sphereEcs.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();
