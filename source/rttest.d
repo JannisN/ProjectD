@@ -75,6 +75,14 @@ struct TestApp(ECS) {
 			sphereEcs.add().add!VkAccelerationStructureInstanceKHR(testInstance);
 			*/
 
+			Drawable drawable;
+			drawable.pos = Tensor!(float, 3)(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime));
+			drawable.scale = Tensor!(float, 3)(1, 1, 1);
+			drawable.rot = Tensor!(float, 3)(0, 0, 0);
+			drawable.rgb = Tensor!(float, 3)(1.0, 0.5, 1.0);
+			drawable.modelId = cast(uint)sphereModel;
+			objects.add().add!Drawable(drawable);
+
 			sphereEcs.add().add!Sphere(Sphere(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime), 1.0));
 			//sphereEcs.add().add!Cube(Cube(0.0, 0.0, 0.0, 1.0));
 
@@ -850,10 +858,9 @@ struct TestApp(ECS) {
 		drawable.pos = Tensor!(float, 3)(0, -5, 0);
 		drawable.scale = Tensor!(float, 3)(5, 5, 5);
 		drawable.rot = Tensor!(float, 3)(0, 0, 0);
-		drawable.rgb = Tensor!(float, 3)(1, 0, 0);
+		drawable.rgb = Tensor!(float, 3)(0.5, 1.0, 0.5);
 		drawable.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
-		pragma(msg, "sizeof tensor: ", Drawable.sizeof);
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
@@ -2649,7 +2656,7 @@ struct TestApp(ECS) {
 			rtPushConstants[4] = rot[0];
 			rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
 
-			cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+			/*cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
 			cmdBuffer.pushConstants(rasterizerPackage.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
@@ -2666,7 +2673,7 @@ struct TestApp(ECS) {
 			cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
 			cmdBuffer.draw(cubeVertexCount, cubeShaderList.length, 0, 0);
 			//cmdBuffer.drawIndexed(cubeIndexCount, cubeShaderList.length, 0, 0, 0);
-			cmdBuffer.endRenderPass();
+			cmdBuffer.endRenderPass();*/
 
 			// neu ------------------
 			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -2674,17 +2681,26 @@ struct TestApp(ECS) {
 			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
+			foreach (i; objects.getComponentEntityIds!Drawable()) {
+				auto entity = objects.getEntity(i);
+				RasterizedModel* model = &models.getEntity(cast(size_t)entity.get!Drawable().modelId).get!RasterizedModel();
+				if (model.isSmooth) {
+					cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)model.vertexBuffer.t, cast(Buffer)model.normalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+					cmdBuffer.bindIndexBuffer(cast(Buffer)model.vertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+					//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+					cmdBuffer.drawIndexed(model.indexCount, 1, 0, 0, entity.get!(ShaderListIndex!Drawable).index);
+				} else {
+					cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)model.vertexBuffer.t, cast(Buffer)model.normalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+					cmdBuffer.draw(model.vertexCount, 1, 0, entity.get!(ShaderListIndex!Drawable).index);
+				}
+			}
 			/*auto vertexBuffer = &models.getEntity(0).get!RasterizedModel().vertexBuffer;
 			auto normalBuffer = &models.getEntity(0).get!RasterizedModel().normalBuffer;
 			auto vertexCount = models.getEntity(0).get!RasterizedModel().vertexCount;
-			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
 			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)vertexBuffer.t, cast(Buffer)normalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
 			//cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
 			cmdBuffer.draw(vertexCount, 1, 0, 0);*/
-			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
-			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)cubeVertexBuffer.t, cast(Buffer)cubeNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
-			cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
-			cmdBuffer.draw(cubeVertexCount, 1, 0, 0);
 
 			cmdBuffer.endRenderPass();
 		}
