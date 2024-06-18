@@ -733,7 +733,7 @@ struct TestApp(ECS) {
 		}
 		
 		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
-		//rt = false;
+		rt = false;
 
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
@@ -781,6 +781,11 @@ struct TestApp(ECS) {
 		enum string fragmentSourceNoRT = import("rasterFrag.spv");
 		rasterizerPackage.vertexShader = device.createShader(vertexSourceNoRT);
 		rasterizerPackage.fragmentShader = device.createShader(fragmentSourceNoRT);
+		enum string vertexSourceNoRT2 = import("rasterVert2.spv");
+		enum string fragmentSourceNoRT2 = import("rasterFrag2.spv");
+		rasterizer.vertexShader = device.createShader(vertexSourceNoRT2);
+		rasterizer.fragmentShader = device.createShader(fragmentSourceNoRT2);
+
 		createComputeShader();
 		timer.update();
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupInvocations);
@@ -845,9 +850,10 @@ struct TestApp(ECS) {
 		drawable.pos = Tensor!(float, 3)(0, -5, 0);
 		drawable.scale = Tensor!(float, 3)(5, 5, 5);
 		drawable.rot = Tensor!(float, 3)(0, 0, 0);
-		drawable.rgb = Tensor!(float, 3)(0.5, 1, 1);
+		drawable.rgb = Tensor!(float, 3)(1, 0, 0);
 		drawable.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
+		pragma(msg, "sizeof tensor: ", Drawable.sizeof);
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
@@ -1438,6 +1444,7 @@ struct TestApp(ECS) {
 		blurPipeline.descriptorSet = blurPipeline.descriptorPool.allocateSet(blurPipeline.descriptorSetLayout);
 	}
 	void rebuildSwapchain() {
+		// müssen rasterizerpackages nicht explizit zerstört werden?
 		vkDeviceWaitIdle(device.device);
 		swapchainViews.resize(0);
 		framebuffers.resize(0);
@@ -1510,6 +1517,38 @@ struct TestApp(ECS) {
 			cubeDescriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
 			cubeDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			cubeDescriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer));
+		}
+		{
+			rasterizer.descriptorSetLayout = device.createDescriptorSetLayout(array(
+				/*VkDescriptorSetLayoutBinding(
+					0,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),*/
+				VkDescriptorSetLayoutBinding(
+					0,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT,
+					null
+				)
+			));
+			rasterizer.descriptorPool = device.createDescriptorPool(0, 1, array(
+				/*VkDescriptorPoolSize(
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1
+				),*/
+				VkDescriptorPoolSize(
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+					1
+				)
+			));
+			rasterizer.descriptorSet = rasterizer.descriptorPool.allocateSet(rasterizer.descriptorSetLayout);
+			//rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer));
+			rasterizer.pipelineLayout = device.createPipelineLayout(array(rasterizer.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6)));
 		}
 
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -1762,6 +1801,75 @@ struct TestApp(ECS) {
 				blend,
 				depthStencil,
 				rasterizerPackage.pipelineLayout
+			);
+		}
+		{
+			auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, rasterizer.vertexShader, "main", [], 0, null);
+			auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, rasterizer.fragmentShader, "main", [], 0, null);
+			auto vertexInputStateCreateInfo = vertexInputState(
+				array(
+					VkVertexInputBindingDescription(0, float.sizeof * 3, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX),
+					VkVertexInputBindingDescription(1, float.sizeof * 3, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX)
+				),
+				array(
+					VkVertexInputAttributeDescription(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0),
+					VkVertexInputAttributeDescription(1, 1, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0),
+					//VkVertexInputAttributeDescription(1, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, float.sizeof * 2)
+				)
+			);
+			auto inputAssemblyStateCreateInfo = inputAssemblyState(VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false);
+			VkViewport dummyViewport;
+			//dummyViewport = VkViewport(capabilities.currentExtent.width / 2.0 - capabilities.currentExtent.height / 2.0, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			dummyViewport = VkViewport(0.0, 0.0f, capabilities.currentExtent.width, capabilities.currentExtent.height, 0.0f, 1.0f);
+			//dummyViewport = VkViewport(0.0, 0.0f, cast(float)capabilities.currentExtent.height * (cast(float)capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width), capabilities.currentExtent.height, 0.1f, 1.0f);
+			//dummyViewport = VkViewport(0.0, 0.0f, capabilities.currentExtent.height, capabilities.currentExtent.height, 0.1f, 1.0f);
+			auto dummyScissor = VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent);
+			auto viewportStateCreateInfo = viewportState(array(dummyViewport), array(dummyScissor));
+			auto rasterizationStateCreateInfo = rasterizationState(
+				false,
+				false,
+				VkPolygonMode.VK_POLYGON_MODE_FILL,
+				//VkCullModeFlagBits.VK_CULL_MODE_NONE,
+				VkCullModeFlagBits.VK_CULL_MODE_FRONT_BIT,
+				VkFrontFace.VK_FRONT_FACE_COUNTER_CLOCKWISE,
+				false,
+				0, 0, 0, 1
+			);
+			auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
+			VkPipelineColorBlendAttachmentState blendAttachment;
+			blendAttachment.blendEnable = VK_TRUE;
+			blendAttachment.colorWriteMask = 0xf;
+			blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
+			//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+
+			auto depthStencil = depthStencilState(
+				true,
+				true,
+				VkCompareOp.VK_COMPARE_OP_GREATER_OR_EQUAL,
+				false,
+				false,
+				VkStencilOpState(),
+				VkStencilOpState(),
+				0.0,
+				1.0
+			);
+
+			rasterizer.pipeline = renderPass.createGraphicsPipeline(
+				vertStage,
+				fragStage,
+				vertexInputStateCreateInfo,
+				inputAssemblyStateCreateInfo,
+				viewportStateCreateInfo,
+				rasterizationStateCreateInfo,
+				multiSample,
+				blend,
+				depthStencil,
+				rasterizer.pipelineLayout
 			);
 		}
 
@@ -2533,31 +2641,52 @@ struct TestApp(ECS) {
 					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 				))
 			);
-		cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
-		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
-		float[6] rtPushConstants;
-		rtPushConstants[0] = pos[0];
-		rtPushConstants[1] = pos[1];
-		rtPushConstants[2] = pos[2];
-		rtPushConstants[3] = rot[1];
-		rtPushConstants[4] = rot[0];
-		rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
-		cmdBuffer.pushConstants(rasterizerPackage.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
-		cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+			float[6] rtPushConstants;
+			rtPushConstants[0] = pos[0];
+			rtPushConstants[1] = pos[1];
+			rtPushConstants[2] = pos[2];
+			rtPushConstants[3] = rot[1];
+			rtPushConstants[4] = rot[0];
+			rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
 
-		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
-		cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
-		//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
-		cmdBuffer.drawIndexed(sphereIndexCount, sphereShaderList.length, 0, 0, 0);
-		//cmdBuffer.endRenderPass();
+			cmdBuffer.bindPipeline(rasterizerPackage.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(rasterizerPackage.descriptorSet), []);
+			cmdBuffer.pushConstants(rasterizerPackage.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
+			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
-		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(cubeDescriptorSet), []);
-		//cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
-		cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)cubeVertexBuffer.t, cast(Buffer)cubeNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
-		cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
-		cmdBuffer.draw(cubeVertexCount, cubeShaderList.length, 0, 0);
-		//cmdBuffer.drawIndexed(cubeIndexCount, cubeShaderList.length, 0, 0, 0);
-		cmdBuffer.endRenderPass();
+			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)sphereVertexBuffer.t, cast(Buffer)sphereNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+			cmdBuffer.bindIndexBuffer(cast(Buffer)sphereVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+			//cmdBuffer.draw(sphereVertexCount, 1, 0, 0);
+			cmdBuffer.drawIndexed(sphereIndexCount, sphereShaderList.length, 0, 0, 0);
+			//cmdBuffer.endRenderPass();
+
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizerPackage.pipelineLayout, 0, array(cubeDescriptorSet), []);
+			//cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)cubeVertexBuffer.t, cast(Buffer)cubeNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+			cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+			cmdBuffer.draw(cubeVertexCount, cubeShaderList.length, 0, 0);
+			//cmdBuffer.drawIndexed(cubeIndexCount, cubeShaderList.length, 0, 0, 0);
+			cmdBuffer.endRenderPass();
+
+			// neu ------------------
+			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
+			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
+			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+
+			/*auto vertexBuffer = &models.getEntity(0).get!RasterizedModel().vertexBuffer;
+			auto normalBuffer = &models.getEntity(0).get!RasterizedModel().normalBuffer;
+			auto vertexCount = models.getEntity(0).get!RasterizedModel().vertexCount;
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
+			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)vertexBuffer.t, cast(Buffer)normalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+			//cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+			cmdBuffer.draw(vertexCount, 1, 0, 0);*/
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
+			cmdBuffer.bindVertexBuffers(0, array(cast(Buffer)cubeVertexBuffer.t, cast(Buffer)cubeNormalBuffer.t), array(cast(ulong) 0, cast(ulong) 0));
+			cmdBuffer.bindIndexBuffer(cast(Buffer)cubeVertexIndexBuffer.t, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+			cmdBuffer.draw(cubeVertexCount, 1, 0, 0);
+
+			cmdBuffer.endRenderPass();
 		}
 
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -2747,6 +2876,8 @@ struct TestApp(ECS) {
 	GraphicsPackage rasterizerPackage;
 	DescriptorSet cubeDescriptorSet;
 	bool rt;
+
+	GraphicsPackage rasterizer;
 
 	/*struct ModelInstances {
 		// objekt ids für spezifisches model, für draw command, um im shader dann auf eigenschaften des objekts zugreifen zu können
