@@ -729,6 +729,209 @@ struct TestApp(ECS) {
 		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbHit.allocatedMemory.allocation.offset, 2 * rtPipeline.groupSizeAligned)));
 		memory.unmap();
 	}
+	void initRtPipelineNew() {
+		enum string raygenCode = import("raygen.spv");
+		enum string missCode = import("miss.spv");
+		enum string closesthitCode = import("polygon.spv");
+		enum string intersectCode = import("proceduralIntersect.spv");
+		enum string closesthit2Code = import("procedural.spv");
+		rtPipelineNew.raygenShader = device.createShader(raygenCode);
+		rtPipelineNew.missShader = device.createShader(missCode);
+		rtPipelineNew.closesthitShader = device.createShader(closesthitCode);
+		rtPipelineNew.intersectShader = device.createShader(intersectCode);
+		rtPipelineNew.closesthitShader2 = device.createShader(closesthit2Code);
+
+		VkPipelineShaderStageCreateInfo[5] pssci;
+
+		pssci[0].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[0].module_ = rtPipelineNew.raygenShader.shader;
+		pssci[0].pName = "main";
+		pssci[0].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+		pssci[1].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[1].module_ = rtPipelineNew.missShader.shader;
+		pssci[1].pName = "main";
+		pssci[1].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_MISS_BIT_KHR;
+
+		pssci[2].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[2].module_ = rtPipelineNew.closesthitShader.shader;
+		pssci[2].pName = "main";
+		pssci[2].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+		pssci[3].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[3].module_ = rtPipelineNew.intersectShader.shader;
+		pssci[3].pName = "main";
+		pssci[3].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+
+		pssci[4].sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		pssci[4].module_ = rtPipelineNew.closesthitShader2.shader;
+		pssci[4].pName = "main";
+		pssci[4].stage = VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+		VkRayTracingShaderGroupCreateInfoKHR[4] rtsgci;
+
+		rtsgci[0].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[0].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		rtsgci[0].generalShader = 0;
+		rtsgci[0].closestHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[0].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[0].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtsgci[1].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[1].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		rtsgci[1].generalShader = 1;
+		rtsgci[1].closestHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[1].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[1].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtsgci[2].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[2].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		rtsgci[2].generalShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[2].closestHitShader = 2;
+		rtsgci[2].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[2].intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		rtsgci[3].sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		rtsgci[3].type = VkRayTracingShaderGroupTypeKHR.VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
+		rtsgci[3].generalShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[3].closestHitShader = 4;
+		rtsgci[3].anyHitShader = VK_SHADER_UNUSED_KHR;
+		rtsgci[3].intersectionShader = 3;
+
+		rtPipelineNew.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			1,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			2,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VkShaderStageFlagBits.VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			3,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			4,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+			null
+		), VkDescriptorSetLayoutBinding(
+			5,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VkShaderStageFlagBits.VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
+			null
+		)));
+		rtPipelineNew.descriptorPool = device.createDescriptorPool(0, 1, array(
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+				1
+			),
+			VkDescriptorPoolSize(
+				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				1
+			)
+		));
+		rtPipelineNew.pipelineLayout = device.createPipelineLayout(
+			array(rtPipelineNew.descriptorSetLayout),
+			array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, uint.sizeof * 6))
+		);
+		rtPipelineNew.descriptorSet = rtPipelineNew.descriptorPool.allocateSet(rtPipelineNew.descriptorSetLayout);
+		rtPipelineNew.rtPipeline = device.createRayTracingPipeline(pssci, rtsgci, 1, rtPipelineNew.pipelineLayout, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE);
+
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
+		rtProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		VkPhysicalDeviceProperties2 properties;
+		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		properties.pNext = cast(void*) &rtProperties;
+		device.physicalDevice.getProperties(&properties);
+
+		uint groupCount = 4;
+		rtPipelineNew.groupHandleSize = rtProperties.shaderGroupHandleSize;
+		//rtPipeline.addressOffset = rtPipeline.groupHandleSize % rtProperties.shaderGroupBaseAlignment;
+		rtPipelineNew.groupSizeAligned = (rtPipelineNew.groupHandleSize % rtProperties.shaderGroupBaseAlignment == 0) ? rtPipelineNew.groupHandleSize : ((rtPipelineNew.groupHandleSize / rtProperties.shaderGroupBaseAlignment + 1) * rtProperties.shaderGroupBaseAlignment);
+		writeln("data: ", rtPipelineNew.groupHandleSize, " ", rtProperties.shaderGroupBaseAlignment, " ", rtPipelineNew.groupSizeAligned, " ");
+		uint sbtSize = groupCount * rtPipelineNew.groupSizeAligned;
+		rtPipelineNew.recordSize = rtPipelineNew.groupSizeAligned;
+		Vector!byte shaderHandleStorage = Vector!byte(sbtSize);
+		rtPipelineNew.rtPipeline.getShaderGroupHandles(0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr);
+
+		VkMemoryAllocateFlagsInfo flagsInfo;
+		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+		rtPipelineNew.sbRayGen = AllocatedResource!Buffer(device.createBuffer(0, rtPipelineNew.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipelineNew.sbRayGen, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+		rtPipelineNew.sbMiss = AllocatedResource!Buffer(device.createBuffer(0, rtPipelineNew.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipelineNew.sbMiss, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+		rtPipelineNew.sbHit = AllocatedResource!Buffer(device.createBuffer(0, 2 * rtPipelineNew.groupSizeAligned, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR));
+		memoryAllocator.allocate(rtPipelineNew.sbHit, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, flagsInfo);
+
+		VkDeviceAddress da = rtPipelineNew.sbRayGen.getDeviceAddress();
+		size_t daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipelineNew.offsetRayGen = daOffset;
+		Memory* memory = &cast(Memory) rtPipelineNew.sbRayGen.allocatedMemory.allocatorList.memory;
+		byte* byteptr = cast(byte*) memory.map(rtPipelineNew.sbRayGen.allocatedMemory.allocation.offset, rtPipelineNew.groupSizeAligned);
+		foreach (j; 0 .. rtPipelineNew.groupHandleSize) {
+			byteptr[j + daOffset] = shaderHandleStorage[0 * rtPipelineNew.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipelineNew.sbRayGen.allocatedMemory.allocation.offset, rtPipelineNew.groupSizeAligned)));
+		memory.unmap();
+
+		da = rtPipelineNew.sbMiss.getDeviceAddress();
+		daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipelineNew.offsetMiss = daOffset;
+		memory = &cast(Memory) rtPipelineNew.sbMiss.allocatedMemory.allocatorList.memory;
+		byteptr = cast(byte*) memory.map(rtPipelineNew.sbMiss.allocatedMemory.allocation.offset, rtPipelineNew.groupSizeAligned);
+		foreach (j; 0 .. rtPipelineNew.groupHandleSize) {
+			byteptr[j + daOffset] = shaderHandleStorage[1 * rtPipelineNew.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipelineNew.sbMiss.allocatedMemory.allocation.offset, rtPipelineNew.groupSizeAligned)));
+		memory.unmap();
+
+		da = rtPipelineNew.sbHit.getDeviceAddress();
+		daOffset = (rtProperties.shaderGroupBaseAlignment - (da % rtProperties.shaderGroupBaseAlignment)) % rtProperties.shaderGroupBaseAlignment;
+		rtPipelineNew.offsetHit = daOffset;
+		memory = &cast(Memory) rtPipelineNew.sbHit.allocatedMemory.allocatorList.memory;
+		byteptr = cast(byte*) memory.map(rtPipelineNew.sbHit.allocatedMemory.allocation.offset, 2 * rtPipelineNew.groupSizeAligned);
+		foreach (j; 0 .. rtPipelineNew.groupHandleSize) {
+			byteptr[j + daOffset] = shaderHandleStorage[2 * rtPipelineNew.groupHandleSize + j];
+		}
+		foreach (j; 0 .. rtPipelineNew.groupHandleSize) {
+			byteptr[j + rtPipelineNew.groupSizeAligned + daOffset] = shaderHandleStorage[3 * rtPipelineNew.groupHandleSize + j];
+		}
+		memory.flush(array(mappedMemoryRange(*memory, rtPipelineNew.sbHit.allocatedMemory.allocation.offset, 2 * rtPipelineNew.groupSizeAligned)));
+		memory.unmap();
+	}
 	void initVulkan() {
 		version(Windows) {
 			instance = Instance("test", 1, VK_API_VERSION_1_3, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_surface", "VK_KHR_win32_surface"));
@@ -741,7 +944,7 @@ struct TestApp(ECS) {
 		}
 		
 		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
-		rt = false;
+		//rt = false;
 
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
@@ -828,12 +1031,11 @@ struct TestApp(ECS) {
 
 		drawables = ShaderList!(Drawable, false)(device, memoryAllocator, 16);
 		if (rt) {
+			initRtPipelineNew();
 			rtModelInfos = ShaderList!(RTModelInfo, false)(device, memoryAllocator, 16);
 			asInstances = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
 			tlasNew = Tlas(device, memoryAllocator);
 			tlasNew.create(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
-		} else {
-
 		}
 		
 		enum string cubeCode = import("cube.wobj");
@@ -2278,62 +2480,118 @@ struct TestApp(ECS) {
 			)
 		);
 		
-		cmdBuffer.pipelineBarrier(
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-			0, [],
-			array(
-				bufferMemoryBarrier(
-					VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
-					VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
-					tlas.tlasBuffer
+
+		{
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				0, [],
+				array(
+					bufferMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+						VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+						tlas.tlasBuffer
+					),
 				),
-			),
-			[]
-		);
+				[]
+			);
+			VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(tlas.tlas);
+			rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
+				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
+				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtCube.addressBuffer),
+				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer),
+				WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer),
+			));
+			cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
+			float[6] rtPushConstants;
+			rtPushConstants[0] = pos[0];
+			rtPushConstants[1] = pos[1];
+			rtPushConstants[2] = pos[2];
+			rtPushConstants[3] = rot[1];
+			rtPushConstants[4] = rot[0];
+			rtPushConstants[5] = cast(float) rtTime;
+			cmdBuffer.pushConstants(rtPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 6, rtPushConstants.ptr);
 
-		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(tlas.tlas);
-		rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
-			WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
-			WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView/*swapchainViews[imageIndex]*/, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-			WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtCube.addressBuffer),
-			WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-			WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-			WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, sphereShaderList.gpuBuffer),
-			WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer),
-		));
-		cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-		cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
-		float[6] rtPushConstants;
-		rtPushConstants[0] = pos[0];
-		rtPushConstants[1] = pos[1];
-		rtPushConstants[2] = pos[2];
-		rtPushConstants[3] = rot[1];
-		rtPushConstants[4] = rot[0];
-		rtPushConstants[5] = cast(float) rtTime;
-		cmdBuffer.pushConstants(rtPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 6, rtPushConstants.ptr);
+			//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
-		//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+			VkStridedDeviceAddressRegionKHR rayGenRegion;
+			rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress() + rtPipeline.offsetRayGen;
+			rayGenRegion.size = rtPipeline.groupHandleSize;
+			rayGenRegion.stride = rtPipeline.groupHandleSize;
 
-		VkStridedDeviceAddressRegionKHR rayGenRegion;
-		rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress() + rtPipeline.offsetRayGen;
-		rayGenRegion.size = rtPipeline.groupHandleSize;
-		rayGenRegion.stride = rtPipeline.groupHandleSize;
+			VkStridedDeviceAddressRegionKHR missRegion;
+			missRegion.deviceAddress = rtPipeline.sbMiss.getDeviceAddress() + rtPipeline.offsetMiss;
+			missRegion.size = rtPipeline.groupHandleSize;
+			missRegion.stride = rtPipeline.groupHandleSize;
 
-		VkStridedDeviceAddressRegionKHR missRegion;
-		missRegion.deviceAddress = rtPipeline.sbMiss.getDeviceAddress() + rtPipeline.offsetMiss;
-		missRegion.size = rtPipeline.groupHandleSize;
-		missRegion.stride = rtPipeline.groupHandleSize;
+			VkStridedDeviceAddressRegionKHR hitRegion;
+			hitRegion.deviceAddress = rtPipeline.sbHit.getDeviceAddress() + rtPipeline.offsetHit;
+			hitRegion.size = rtPipeline.groupHandleSize * 2;
+			hitRegion.stride = rtPipeline.groupSizeAligned;
 
-		VkStridedDeviceAddressRegionKHR hitRegion;
-		hitRegion.deviceAddress = rtPipeline.sbHit.getDeviceAddress() + rtPipeline.offsetHit;
-		hitRegion.size = rtPipeline.groupHandleSize * 2;
-		hitRegion.stride = rtPipeline.groupSizeAligned;
+			VkStridedDeviceAddressRegionKHR callableRegion;
 
-		VkStridedDeviceAddressRegionKHR callableRegion;
+			cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		}
+		{
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+				0, [],
+				array(
+					bufferMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+						VkAccessFlagBits.VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+						tlasNew.tlasBuffer
+					),
+				),
+				[]
+			);
+			VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(tlasNew.tlas);
+			rtPipelineNew.descriptorSet.write(array!VkWriteDescriptorSet(
+				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
+				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtModelInfos.gpuBuffer.t.buffer),
+				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
+			));
+			cmdBuffer.bindPipeline(rtPipelineNew.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipelineNew.pipelineLayout, 0, array(rtPipelineNew.descriptorSet), []);
+			float[6] rtPushConstants;
+			rtPushConstants[0] = pos[0];
+			rtPushConstants[1] = pos[1];
+			rtPushConstants[2] = pos[2];
+			rtPushConstants[3] = rot[1];
+			rtPushConstants[4] = rot[0];
+			rtPushConstants[5] = cast(float) rtTime;
+			cmdBuffer.pushConstants(rtPipelineNew.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 6, rtPushConstants.ptr);
 
-		cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+			//PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR = cast(PFN_vkCmdTraceRaysKHR)(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 
+			VkStridedDeviceAddressRegionKHR rayGenRegion;
+			rayGenRegion.deviceAddress = rtPipelineNew.sbRayGen.getDeviceAddress() + rtPipelineNew.offsetRayGen;
+			rayGenRegion.size = rtPipelineNew.groupHandleSize;
+			rayGenRegion.stride = rtPipelineNew.groupHandleSize;
+
+			VkStridedDeviceAddressRegionKHR missRegion;
+			missRegion.deviceAddress = rtPipelineNew.sbMiss.getDeviceAddress() + rtPipelineNew.offsetMiss;
+			missRegion.size = rtPipelineNew.groupHandleSize;
+			missRegion.stride = rtPipelineNew.groupHandleSize;
+
+			VkStridedDeviceAddressRegionKHR hitRegion;
+			hitRegion.deviceAddress = rtPipelineNew.sbHit.getDeviceAddress() + rtPipelineNew.offsetHit;
+			hitRegion.size = rtPipelineNew.groupHandleSize * 2;
+			hitRegion.stride = rtPipelineNew.groupSizeAligned;
+
+			VkStridedDeviceAddressRegionKHR callableRegion;
+
+			cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+		}
 
 		/*
 		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelStructInfo = writeAccelerationStructure(accelStruct.tlas);
@@ -2894,6 +3152,7 @@ struct TestApp(ECS) {
 	bool rt;
 
 	GraphicsPackage rasterizer;
+	RtPipeline rtPipelineNew;
 
 	/*struct ModelInstances {
 		// objekt ids für spezifisches model, für draw command, um im shader dann auf eigenschaften des objekts zugreifen zu können
