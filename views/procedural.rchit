@@ -22,7 +22,11 @@ struct AddressBuffers {
     uint64_t normalIndices;
 };
 struct RTModelInfo {
-    AddressBuffers addressBuffers;
+    //AddressBuffers addressBuffers;
+    uint64_t vertices;
+    uint64_t indices;
+    uint64_t normals;
+    uint64_t normalIndices;
     uint proceduralModelId;
 };
 layout (set = 0, binding = 2) buffer modelList_t {
@@ -47,7 +51,7 @@ void main() {
     uint proceduralModelId = modelList.models[drawable.modelId].proceduralModelId;
     
     if (proceduralModelId == 0) {
-        vec4 origin4 = vec4(1, 1, -0, 1);
+        vec4 origin4 = vec4(0, 0, -0, 1);
         //vec4 origin4 = vec4(-1, -1, -7, 1);
         vec3 origin = gl_ObjectToWorldEXT * origin4;
         vec3 worldPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;

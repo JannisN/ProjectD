@@ -26,7 +26,11 @@ struct AddressBuffers {
     uint64_t normalIndices;
 };
 struct RTModelInfo {
-    AddressBuffers addressBuffers;
+    //AddressBuffers addressBuffers;
+    uint64_t vertices;
+    uint64_t indices;
+    uint64_t normals;
+    uint64_t normalIndices;
     uint proceduralModelId;
 };
 layout (set = 0, binding = 2) buffer modelList_t {
@@ -51,7 +55,7 @@ layout (set = 0, binding = 5) buffer drawableList_t {
 
 void main() {
     Drawable drawable = drawableList.drawables[gl_InstanceCustomIndexEXT];
-    AddressBuffers addressBuffers = modelList.models[drawable.modelId].addressBuffers;
+    RTModelInfo addressBuffers = modelList.models[drawable.modelId];
     Vertices vertices = Vertices(addressBuffers.vertices);
     Indices indices = Indices(addressBuffers.indices);
     Normals normals = Normals(addressBuffers.normals);
@@ -76,7 +80,8 @@ void main() {
     const vec3 lightDir = vec3(0, 1.0, 0);
     float dotProduct = dot(lightDir, N);
     RayPayload hitValue2;
-    hitValue2.colour = vec3(1.0, 1.0, 1.0);//barycentricCoords;// * dotProduct;//vec3(dotProduct, dotProduct, dotProduct);
+    hitValue2.colour = vec3(drawable.r, drawable.g, drawable.b);
+    //hitValue2.colour = vec3(1.0, 1.0, 1.0);//barycentricCoords;// * dotProduct;//vec3(dotProduct, dotProduct, dotProduct);
     hitValue2.pos = worldPos;
     hitValue2.normal = N;
     hitValue2.hitType = 1;

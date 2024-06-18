@@ -1041,7 +1041,7 @@ struct TestApp(ECS) {
 		enum string cubeCode = import("cube.wobj");
 		enum string sphereCode = import("sphere.wobj");
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
-		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(0.0f, 0.0f, -1.0f), array(2.0f, 2.0f, 1.0f)).entityId;
+		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
 
 		cmdBuffer.begin();
 		updateModels(cmdBuffer);
@@ -2481,7 +2481,7 @@ struct TestApp(ECS) {
 		);
 		
 
-		{
+		/*{
 			cmdBuffer.pipelineBarrier(
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -2536,7 +2536,7 @@ struct TestApp(ECS) {
 			VkStridedDeviceAddressRegionKHR callableRegion;
 
 			cmdBuffer.traceRays(&rayGenRegion, &missRegion, &hitRegion, &callableRegion, capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
-		}
+		}*/
 		{
 			cmdBuffer.pipelineBarrier(
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
@@ -2555,7 +2555,7 @@ struct TestApp(ECS) {
 			rtPipelineNew.descriptorSet.write(array!VkWriteDescriptorSet(
 				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
 				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtModelInfos.gpuBuffer.t.buffer),
+				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtModelInfos.gpuBuffer),
 				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
@@ -3172,12 +3172,12 @@ struct TestApp(ECS) {
             ShaderListIndex!RTModelInfo,
 			//ModelInstances
 		),
-		TypeSeqStruct!(), // general
+		TypeSeqStruct!(RTModelInfo, ShaderListIndex!RTModelInfo), // general
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
-		TypeSeqStruct!(WavefrontModel), // add
-		TypeSeqStruct!(), // remove
+		TypeSeqStruct!(WavefrontModel, RTModelInfo), // add
+		TypeSeqStruct!(RTModelInfo, ShaderListIndex!RTModelInfo), // remove
 		TypeSeqStruct!(),
         ECSConfig(false, false)
 	) models;
