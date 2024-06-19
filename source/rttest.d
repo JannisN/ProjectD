@@ -18,10 +18,10 @@ struct TestApp(ECS) {
 	void initialize(ref ECS ecs) {
 		this.ecs = &ecs;
 		initVulkan();
-		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 		initWindow();
-		char[10] fval;
+
 		import core.stdc.stdio;
+		char[10] fval;
 		snprintf(fval.ptr, 10, "%f", 0f);
 		timeCounter = dynEcs.add().entityId;
         dynEcs.addComponent!Text(timeCounter);
@@ -34,12 +34,36 @@ struct TestApp(ECS) {
 		pos[2] = -10.0;
 		rot[0] = 0.0;
 		rot[1] = 0.0;
+
+		enum string cubeCode = import("cube.wobj");
+		enum string sphereCode = import("sphere.wobj");
+		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
+		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
+
+		cmdBuffer.begin();
+		updateModels(cmdBuffer);
+		if (rt) {
+			tlas.build(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
+		}
+		cmdBuffer.end();
+		writeln("Update models result: ", queue.submit(cmdBuffer, fence));
+		writeln("Fence wait result: ", fence.wait());
+		cmdBuffer.reset();
+		fence.reset();
+		
+		Drawable drawable;
+		drawable.pos = Tensor!(float, 3)(0, -5, 0);
+		drawable.scale = Tensor!(float, 3)(5, 5, 5);
+		drawable.rot = Tensor!(float, 3)(0, 0, 0);
+		drawable.rgb = Tensor!(float, 3)(0.5, 1.0, 0.5);
+		drawable.modelId = cast(uint)cubeModel;
+		objects.add().add!Drawable(drawable);
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
 		if (event.action == MouseButtonAction.press) {
-			char[20] fval;
 			import core.stdc.stdio;
+			char[20] fval;
 			snprintf(fval.ptr, 20, "Die Zeit ist:\n%f", passedTime);
             dynEcs.getComponent!Text(timeCounter).text = String(fval);
             dynEcs.getComponent!Text(timeCounter).x = -1;
@@ -48,7 +72,6 @@ struct TestApp(ECS) {
 			rtTime++;
 
 			import std.math.trigonometry;
-
 			Drawable drawable;
 			drawable.pos = Tensor!(float, 3)(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime));
 			drawable.scale = Tensor!(float, 3)(1, 1, 1);
@@ -494,30 +517,8 @@ struct TestApp(ECS) {
 			tlas = Tlas(device, memoryAllocator);
 			tlas.create(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length);
 		}
-		
-		enum string cubeCode = import("cube.wobj");
-		enum string sphereCode = import("sphere.wobj");
-		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
-		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
 
-		cmdBuffer.begin();
-		updateModels(cmdBuffer);
-		if (rt) {
-			tlas.build(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
-		}
-		cmdBuffer.end();
-		writeln("Update models result: ", queue.submit(cmdBuffer, fence));
-		writeln("Fence wait result: ", fence.wait());
-		cmdBuffer.reset();
-		fence.reset();
-
-		Drawable drawable;
-		drawable.pos = Tensor!(float, 3)(0, -5, 0);
-		drawable.scale = Tensor!(float, 3)(5, 5, 5);
-		drawable.rot = Tensor!(float, 3)(0, 0, 0);
-		drawable.rgb = Tensor!(float, 3)(0.5, 1.0, 0.5);
-		drawable.modelId = cast(uint)cubeModel;
-		objects.add().add!Drawable(drawable);
+		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
