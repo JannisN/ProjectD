@@ -32,10 +32,10 @@ struct TestApp(ECS) {
         dynEcs.getComponent!Text(timeCounter).x = -1;
         dynEcs.getComponent!Text(timeCounter).y = -1;
         dynEcs.getComponent!Text(timeCounter).scale = 1;
-		dynEcs.add().add!Circle(Circle(
+		/*dynEcs.add().add!Circle(Circle(
 			4, 4, 0.3,
 			1, 0, 0
-		));
+		));*/
 		pos[0] = -2.0;
 		pos[1] = 2.0;
 		pos[2] = -10.0;
@@ -53,9 +53,9 @@ struct TestApp(ECS) {
             dynEcs.getComponent!Text(timeCounter).x = -1;
             dynEcs.getComponent!Text(timeCounter).y = -1;
             dynEcs.getComponent!Text(timeCounter).scale = 1;
-			foreach (id; dynEcs.getComponentEntityIds!(Circle)()) {
+			/*foreach (id; dynEcs.getComponentEntityIds!(Circle)()) {
 				dynEcs.remove(id);
-			}
+			}*/
 			rtTime++;
 
 			import std.math.trigonometry;
@@ -83,7 +83,7 @@ struct TestApp(ECS) {
 			drawable.modelId = cast(uint)sphereModel;
 			objects.add().add!Drawable(drawable);
 
-			sphereEcs.add().add!Sphere(Sphere(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime), 1.0));
+			//sphereEcs.add().add!Sphere(Sphere(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime), 1.0));
 			//sphereEcs.add().add!Cube(Cube(0.0, 0.0, 0.0, 1.0));
 
 			/*cmdBuffer.begin();
@@ -220,7 +220,7 @@ struct TestApp(ECS) {
 
 		// model sollte AdressBuffers struktur enthalten nicht den buffer
 		// der buffer muss eine shaderlist sein und enthält adressbuffers von allen models
-		AddressBuffers[1] addressBuffers;
+		/*AddressBuffers[1] addressBuffers;
 		addressBuffers[0].vertices = vertexBufferAddress;
 		addressBuffers[0].indices = indexBufferAddress;
 		addressBuffers[0].normals = normalBufferAddress;
@@ -233,7 +233,7 @@ struct TestApp(ECS) {
 			byteptr[i] = (cast(byte*)addressBuffers.ptr)[i];
 		}
 		memory.flush(array(mappedMemoryRange(*memory, model.addressBuffer.allocatedMemory.allocation.offset, addressBuffers.length * AddressBuffers.sizeof)));
-		memory.unmap();
+		memory.unmap();*/
 
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles;
 		triangles.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
@@ -277,7 +277,7 @@ struct TestApp(ECS) {
 
 		return model;
 	}
-	void createTlas2() {
+	/*void createTlas2() {
 		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
 		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 		instancesData.arrayOfPointers = VK_FALSE;
@@ -408,8 +408,8 @@ struct TestApp(ECS) {
 
 		// komisch dass rangeInfo ein pointer ist... muss dieser vlt länger existieren?
 		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], array(&rangeInfo));
-	}
-	void initAccelStructure() {
+	}*/
+	/*void initAccelStructure() {
 		enum string wavefrontCode = import("cube.wobj");
 		WavefrontModel wavefrontModel = WavefrontModel(wavefrontCode);
 
@@ -477,7 +477,7 @@ struct TestApp(ECS) {
 		writeln("result: ", fence.wait());
 		cmdBuffer.reset();
 		fence.reset();
-	}
+	}*/
 	struct RtPipeline {
 		Shader raygenShader;
 		Shader missShader;
@@ -500,7 +500,7 @@ struct TestApp(ECS) {
 		uint groupSizeAligned;
 		uint addressOffset;
 	}
-	void initRtPipeline() {
+	/*void initRtPipeline() {
 		enum string raygenCode = import("raygen.spv");
 		enum string missCode = import("miss.spv");
 		enum string closesthitCode = import("closesthit.spv");
@@ -648,18 +648,6 @@ struct TestApp(ECS) {
 		);
 		rtPipeline.descriptorSet = rtPipeline.descriptorPool.allocateSet(rtPipeline.descriptorSetLayout);
 
-		/*PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR = cast(PFN_vkCreateRayTracingPipelinesKHR)(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
-
-		VkRayTracingPipelineCreateInfoKHR rtpci;
-		rtpci.sType = VkStructureType.VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
-		rtpci.stageCount = 3;
-		rtpci.pStages = pssci.ptr;
-		rtpci.groupCount = 3;
-		rtpci.pGroups = rtsgci.ptr;
-		rtpci.maxPipelineRayRecursionDepth = 1;
-		rtpci.layout = rtPipeline.pipelineLayout;
-
-		writeln("test: ", pfnCreateRayTracingPipelinesKHR(device.device, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE, 1, &rtpci, null, &rtPipeline.rtPipeline));*/
 		rtPipeline.rtPipeline = device.createRayTracingPipeline(pssci, rtsgci, 1, rtPipeline.pipelineLayout, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE);
 
 		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
@@ -678,8 +666,6 @@ struct TestApp(ECS) {
 		rtPipeline.recordSize = rtPipeline.groupSizeAligned;
 		Vector!byte shaderHandleStorage = Vector!byte(sbtSize);
 
-		/*PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR = cast(PFN_vkGetRayTracingShaderGroupHandlesKHR)(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
-		writeln("test: ", pfnGetRayTracingShaderGroupHandlesKHR(device.device, rtPipeline.rtPipeline, 0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr));*/
 		rtPipeline.rtPipeline.getShaderGroupHandles(0, groupCount, sbtSize, cast(void*)shaderHandleStorage.ptr);
 
 		VkMemoryAllocateFlagsInfo flagsInfo;
@@ -728,7 +714,7 @@ struct TestApp(ECS) {
 		}
 		memory.flush(array(mappedMemoryRange(*memory, rtPipeline.sbHit.allocatedMemory.allocation.offset, 2 * rtPipeline.groupSizeAligned)));
 		memory.unmap();
-	}
+	}*/
 	void initRtPipelineNew() {
 		enum string raygenCode = import("raygen.spv");
 		enum string missCode = import("miss.spv");
@@ -988,10 +974,10 @@ struct TestApp(ECS) {
 		enum string fragmentSource = import("frag.spv");
 		vertexShader = device.createShader(vertexSource);
 		fragmentShader = device.createShader(fragmentSource);
-		enum string vertexSourceNoRT = import("rasterVert.spv");
+		/*enum string vertexSourceNoRT = import("rasterVert.spv");
 		enum string fragmentSourceNoRT = import("rasterFrag.spv");
 		rasterizerPackage.vertexShader = device.createShader(vertexSourceNoRT);
-		rasterizerPackage.fragmentShader = device.createShader(fragmentSourceNoRT);
+		rasterizerPackage.fragmentShader = device.createShader(fragmentSourceNoRT);*/
 		enum string vertexSourceNoRT2 = import("rasterVert2.spv");
 		enum string fragmentSourceNoRT2 = import("rasterFrag2.spv");
 		rasterizer.vertexShader = device.createShader(vertexSourceNoRT2);
@@ -1004,12 +990,12 @@ struct TestApp(ECS) {
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[1]);
 		writeln(instance.physicalDevices[0].properties.limits.maxComputeWorkGroupSize[2]);
 
-		circleShaderList = ShaderList!(Circle, false)(device, memoryAllocator, 16);
+		//circleShaderList = ShaderList!(Circle, false)(device, memoryAllocator, 16);
 
 		VkMemoryAllocateFlagsInfo flagsInfo;
 		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-		if (rt) {
+		/*if (rt) {
 			instanceShaderList = ShaderList!(VkAccelerationStructureInstanceKHR, false)(device, memoryAllocator, 16, 0, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, null, &flagsInfo);
 			initRtPipeline();
 		}
@@ -1027,7 +1013,7 @@ struct TestApp(ECS) {
 			fence.reset();
 			initAccelStructure();
 		}
-		sphereEcs.add().add!Cube(Cube(0.0, -5.0, 0.0, 5.0));
+		sphereEcs.add().add!Cube(Cube(0.0, -5.0, 0.0, 5.0));*/
 
 		drawables = ShaderList!(Drawable, false)(device, memoryAllocator, 16);
 		if (rt) {
@@ -1303,7 +1289,7 @@ struct TestApp(ECS) {
 			)
 		);
 
-		enum string sphereCode = import("sphere.wobj");
+		/*enum string sphereCode = import("sphere.wobj");
 		WavefrontModel wavefrontModel = WavefrontModel(sphereCode);
 
 		float[] vertices = wavefrontModel.vertices;
@@ -1318,13 +1304,10 @@ struct TestApp(ECS) {
 			normalsOrdered[indices[i] * 3] = normals[e * 3];
 			normalsOrdered[indices[i] * 3 + 1] = normals[e * 3 + 1];
 			normalsOrdered[indices[i] * 3 + 2] = normals[e * 3 + 2];
-			/*normalsOrdered[i * 3] = normals[e * 3];
-			normalsOrdered[i * 3 + 1] = normals[e * 3 + 1];
-			normalsOrdered[i * 3 + 2] = normals[e * 3 + 2];*/
 		}
 
 		sphereVertexCount = cast(uint)vertices.length / 3;
-		sphereIndexCount = cast(uint)indices.length;
+		sphereIndexCount = cast(uint)indices.length;*/
 
 		// provisorisch ---------
 		/*sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof * 4, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
@@ -1352,7 +1335,7 @@ struct TestApp(ECS) {
 		sphereVertexCount = cast(uint)indices.length;*/
 		// ------------
 
-		sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
+		/*sphereVertexBuffer = AllocatedResource!Buffer(device.createBuffer(0, vertices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 		memoryAllocator.allocate(sphereVertexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 		sphereVertexIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, indices.length * float.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT));
 		memoryAllocator.allocate(sphereVertexIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -1414,9 +1397,6 @@ struct TestApp(ECS) {
 			cubeNormalsOrdered[normalIndices[i] * 3] = normals[e * 3];
 			cubeNormalsOrdered[normalIndices[i] * 3 + 1] = normals[e * 3 + 1];
 			cubeNormalsOrdered[normalIndices[i] * 3 + 2] = normals[e * 3 + 2];
-			/*normalsOrdered[i * 3] = normals[e * 3];
-			normalsOrdered[i * 3 + 1] = normals[e * 3 + 1];
-			normalsOrdered[i * 3 + 2] = normals[e * 3 + 2];*/
 		}
 
 		cubeVertexCount = cast(uint)vertices.length / 3;
@@ -1430,19 +1410,10 @@ struct TestApp(ECS) {
 
 		memory = &cast(Memory) cubeVertexBuffer.allocatedMemory.allocatorList.memory;
 		floatptr = cast(float*) memory.map(cubeVertexBuffer.allocatedMemory.allocation.offset, cubeVerticesLength * float.sizeof);
-		/*foreach (j, float f; cubeVerticesLength) {
-			floatptr[j] = f;
-		}*/
 		for (uint j = 0; j < indices.length; j++) {
 			floatptr[3 * j] = vertices[3 * indices[j]];
 			floatptr[3 * j + 1] = vertices[3 * indices[j] + 1];
 			floatptr[3 * j + 2] = vertices[3 * indices[j] + 2];
-			/*floatptr[9 * j * 3] = vertices[3 * indices[j + 1]];
-			floatptr[9 * j + 4] = vertices[3 * indices[j] + 1];
-			floatptr[9 * j + 5] = vertices[3 * indices[j] + 2];
-			floatptr[9 * j + 6] = vertices[3 * indices[j]];
-			floatptr[9 * j + 7] = vertices[3 * indices[j] + 1];
-			floatptr[9 * j + 8] = vertices[3 * indices[j] + 2];*/
 		}
 		memory.flush(array(mappedMemoryRange(*memory, cubeVertexBuffer.allocatedMemory.allocation.offset, cubeVerticesLength * float.sizeof)));
 		memory.unmap();
@@ -1464,25 +1435,11 @@ struct TestApp(ECS) {
 
 		memory = &cast(Memory) cubeNormalBuffer.allocatedMemory.allocatorList.memory;
 		floatptr = cast(float*) memory.map(cubeNormalBuffer.allocatedMemory.allocation.offset, cubeVerticesLength * float.sizeof);
-		/*foreach (j, float f; normals) {
-			floatptr[j] = f;
-		}*/
 		for (uint j = 0; j < indices.length; j++) {
 			floatptr[3 * j] = normals[3 * normalIndices[j]];
 			floatptr[3 * j + 1] = normals[3 * normalIndices[j] + 1];
 			floatptr[3 * j + 2] = normals[3 * normalIndices[j] + 2];
-			/*floatptr[9 * j * 3] = vertices[3 * indices[j + 1]];
-			floatptr[9 * j + 4] = vertices[3 * indices[j] + 1];
-			floatptr[9 * j + 5] = vertices[3 * indices[j] + 2];
-			floatptr[9 * j + 6] = vertices[3 * indices[j]];
-			floatptr[9 * j + 7] = vertices[3 * indices[j] + 1];
-			floatptr[9 * j + 8] = vertices[3 * indices[j] + 2];*/
 		}
-		/*for (uint i = 0; i < indices.length; i++) {
-			writeln(floatptr[3 * indices[i]]);
-			writeln(floatptr[3 * indices[i] + 1]);
-			writeln(floatptr[3 * indices[i] + 2]);
-		}*/
 		memory.flush(array(mappedMemoryRange(*memory, cubeNormalBuffer.allocatedMemory.allocation.offset, cubeVerticesLength * float.sizeof)));
 		memory.unmap();
 
@@ -1492,7 +1449,7 @@ struct TestApp(ECS) {
 			intptr[j] = f;
 		}
 		memory.flush(array(mappedMemoryRange(*memory, cubeNormalIndexBuffer.allocatedMemory.allocation.offset, normalIndices.length * uint.sizeof)));
-		memory.unmap();
+		memory.unmap();*/
 
 		/*cubeIndexBuffer = AllocatedResource!Buffer(device.createBuffer(0, 2 * normalIndices.length * uint.sizeof, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 		memoryAllocator.allocate(cubeIndexBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -1509,12 +1466,12 @@ struct TestApp(ECS) {
 		memory.flush(array(mappedMemoryRange(*memory, cubeNormalIndexBuffer.allocatedMemory.allocation.offset, 2 * normalIndices.length * uint.sizeof)));
 		memory.unmap();*/
 	}
-	struct CircleImplStruct {
+	/*struct CircleImplStruct {
 		DescriptorSetLayout descriptorSetLayout;
 		DescriptorPool descriptorPool;
 		DescriptorSet descriptorSet;
 		AllocatedResource!Buffer buffer;
-	}
+	}*/
 	void createComputeShader() {
 		enum string computeSource = import("blur.spv");
 		computeShader = Shader(device, computeSource);
@@ -1691,7 +1648,7 @@ struct TestApp(ECS) {
 		graphicsDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 		pipelineLayoutGraphics = device.createPipelineLayout(array(graphicsDescriptorSetLayout), []);
 
-		{
+		/*{
 			rasterizerPackage.descriptorSetLayout = device.createDescriptorSetLayout(array(
 				VkDescriptorSetLayoutBinding(
 					0,
@@ -1726,7 +1683,7 @@ struct TestApp(ECS) {
 			cubeDescriptorSet = rasterizerPackage.descriptorPool.allocateSet(rasterizerPackage.descriptorSetLayout);
 			cubeDescriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			cubeDescriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, cubeShaderList.gpuBuffer));
-		}
+		}*/
 		{
 			rasterizer.descriptorSetLayout = device.createDescriptorSetLayout(array(
 				/*VkDescriptorSetLayoutBinding(
@@ -1943,7 +1900,7 @@ struct TestApp(ECS) {
 		}
 		
 		// no RT
-		{
+		/*{
 			auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, rasterizerPackage.vertexShader, "main", [], 0, null);
 			auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, rasterizerPackage.fragmentShader, "main", [], 0, null);
 			auto vertexInputStateCreateInfo = vertexInputState(
@@ -2011,7 +1968,7 @@ struct TestApp(ECS) {
 				depthStencil,
 				rasterizerPackage.pipelineLayout
 			);
-		}
+		}*/
 		{
 			auto vertStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, rasterizer.vertexShader, "main", [], 0, null);
 			auto fragStage = shaderStageInfo(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, rasterizer.fragmentShader, "main", [], 0, null);
@@ -2236,13 +2193,13 @@ struct TestApp(ECS) {
 		}
 
         // problem: getComponents sollte virtualcomponent zurückgeben wegen updates
-		foreach (id; dynEcs.getComponentEntityIds!Circle()) {
+		/*foreach (id; dynEcs.getComponentEntityIds!Circle()) {
 			import std.math.trigonometry;
 			circlePos += dt * circleVel + dt * dt / 2.0 * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
 			circleVel += dt * (10.0 + circlePos * 10.0 * sin(10.0 * passedTime));
 			//writeln(circlePos);
             dynEcs.getComponent!Circle(id).x = 5 + 0.1 * circlePos;//+ sin(10.0 * passedTime);
-		}
+		}*/
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
 		if (swapchain.result.result != VkResult.VK_SUCCESS) {
 			fence.wait();
@@ -2284,7 +2241,7 @@ struct TestApp(ECS) {
 			memoryCpu.unmap();
 			cmdBuffer.copyBuffer(cast(Buffer)cpuBuffer.resource, 0, cast(Buffer)gpuBuffer.resource, 0, dataSize);
 		}
-		circleShaderList.update2(dynEcs, cmdBuffer);
+		//circleShaderList.update2(dynEcs, cmdBuffer);
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
@@ -2293,7 +2250,7 @@ struct TestApp(ECS) {
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
 
-		if (sphereEcs.getAddUpdateList!Sphere().length > 0 || sphereEcs.getRemoveUpdateList!Sphere().length > 0) {
+		/*if (sphereEcs.getAddUpdateList!Sphere().length > 0 || sphereEcs.getRemoveUpdateList!Sphere().length > 0) {
 			cmdBuffer.begin();
 			sphereShaderList.update2(sphereEcs, cmdBuffer, false);
 			cmdBuffer.end();
@@ -2308,7 +2265,7 @@ struct TestApp(ECS) {
 			queue.submit(cmdBuffer, fence);
 			fence.wait();
 			fence.reset();
-		}
+		}*/
 		if (objects.getAddUpdateList!Drawable().length > 0 || objects.getRemoveUpdateList!Drawable().length > 0) {
 			cmdBuffer.begin();
 			drawables.update2(objects, cmdBuffer, false);
@@ -2318,7 +2275,7 @@ struct TestApp(ECS) {
 			fence.reset();
 		}
 		if (rt) {
-			foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
+			/*foreach (i; sphereEcs.getAddUpdateList!Sphere()) {
 				auto entity = sphereEcs.getEntity(i);
 				Sphere sphere = entity.get!Sphere();
 				VkTransformMatrixKHR transformMatrix2;
@@ -2353,7 +2310,7 @@ struct TestApp(ECS) {
 				testInstance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 				testInstance.accelerationStructureReference = rtCube.blasBuffer.getDeviceAddress();
 				sphereEcs.addComponent!VkAccelerationStructureInstanceKHR(i, testInstance);
-			}
+			}*/
 			foreach (i; objects.getAddUpdateList!Drawable()) {
 				auto entity = objects.getEntity(i);
 				Drawable drawable = entity.get!Drawable();
@@ -2379,10 +2336,10 @@ struct TestApp(ECS) {
 			}
 		}
 		objects.clearAddUpdateList!Drawable();
-		sphereEcs.clearAddUpdateList!Sphere();
-		sphereEcs.clearAddUpdateList!Cube();
+		/*sphereEcs.clearAddUpdateList!Sphere();
+		sphereEcs.clearAddUpdateList!Cube();*/
 		if (rt) {
-			foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
+			/*foreach (i; sphereEcs.getGeneralUpdateList!(ShaderListIndex!Sphere)()) {
 				auto entity = sphereEcs.getEntity(i);
 				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Sphere)().index;
 			}
@@ -2401,7 +2358,7 @@ struct TestApp(ECS) {
 				if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || sphereEcs.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 					recreateTlas2();
 				}
-			}
+			}*/
 
 			foreach (i; objects.getGeneralUpdateList!(ShaderListIndex!Drawable)()) {
 				auto entity = objects.getEntity(i);
@@ -2436,21 +2393,11 @@ struct TestApp(ECS) {
 		cmdBuffer.begin();
 		if (rt) {
 
-		if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
+		/*if (sphereEcs.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			buildTlas2();
-			/*cmdBuffer.end();
-			queue.submit(cmdBuffer, fence);
-			fence.wait();
-			fence.reset();
-			cmdBuffer.begin();*/
 		} else if (sphereEcs.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			updateTlas2();
-			/*cmdBuffer.end();
-			queue.submit(cmdBuffer, fence);
-			fence.wait();
-			fence.reset();
-			cmdBuffer.begin();*/
-		}
+		}*/
 		if (objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 			tlasNew.build(asInstances.gpuBuffer.getDeviceAddress(), asInstances.length, cmdBuffer);
 		} else if (objects.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
@@ -2459,9 +2406,9 @@ struct TestApp(ECS) {
 		objects.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
 		objects.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
 		objects.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();
-		sphereEcs.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
+		/*sphereEcs.clearAddUpdateList!VkAccelerationStructureInstanceKHR();
 		sphereEcs.clearGeneralUpdateList!VkAccelerationStructureInstanceKHR();
-		sphereEcs.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();
+		sphereEcs.clearRemoveUpdateList!VkAccelerationStructureInstanceKHR();*/
 		//cmdBuffer.buildAccelerationStructures((&accelStruct.buildInfo2)[0..1], (&accelStruct.rangeInfoPtr2)[0..1]);
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -3054,22 +3001,22 @@ struct TestApp(ECS) {
 			CpuLocal!Buffer,
 			GpuLocal!Buffer,
 			Text,
-			Circle,
-            ShaderListIndex!Circle
+			//Circle,
+            //ShaderListIndex!Circle
 		),
-		TypeSeqStruct!(Text, Circle), // general
+		TypeSeqStruct!(Text/*, Circle*/), // general
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
 		TypeSeqStruct!(),
-		TypeSeqStruct!(Text, Circle), // add
-		TypeSeqStruct!(/*Text*/Circle, ShaderListIndex!Circle), // remove
+		TypeSeqStruct!(Text/*, Circle*/), // add
+		TypeSeqStruct!(/*Circle, ShaderListIndex!Circle*/), // remove
 		TypeSeqStruct!(),
         ECSConfig(true, true)
 	) dynEcs;
 	size_t timeCounter;
 	
-	CircleImplStruct circleImplStruct;
-	ShaderList!(Circle, false) circleShaderList;
+	/*CircleImplStruct circleImplStruct;
+	ShaderList!(Circle, false) circleShaderList;*/
 
 	RtPipeline rtPipeline;
 
@@ -3094,7 +3041,7 @@ struct TestApp(ECS) {
 	float[2] rot;
 	int rtTime;
 
-	DynamicECS!(
+	/*DynamicECS!(
         PartialVec,//Vector
 		TypeSeqStruct!(
 			Sphere,
@@ -3136,7 +3083,7 @@ struct TestApp(ECS) {
 	AllocatedResource!Buffer cubeIndexBuffer;
 	uint cubeVertexCount;
 	uint cubeIndexCount;
-	uint cubeNormalCount;
+	uint cubeNormalCount;*/
 
 	struct GraphicsPackage {
 		Shader vertexShader;
@@ -3147,8 +3094,8 @@ struct TestApp(ECS) {
 		DescriptorPool descriptorPool;
 		DescriptorSet descriptorSet;
 	}
-	GraphicsPackage rasterizerPackage;
-	DescriptorSet cubeDescriptorSet;
+	/*GraphicsPackage rasterizerPackage;
+	DescriptorSet cubeDescriptorSet;*/
 	bool rt;
 
 	GraphicsPackage rasterizer;
@@ -3183,9 +3130,9 @@ struct TestApp(ECS) {
 	) models;
 	ShaderList!(RTModelInfo, false) rtModelInfos;
 
-	RTPolygonModel rtCube;
+	/*RTPolygonModel rtCube;
 	RTProceduralModel rtSphere;
-	Tlas tlas;
+	Tlas tlas;*/
 	
 	DynamicECS!(
         PartialVec,//Vector
@@ -3393,7 +3340,7 @@ struct RTPolygonModel {
 	AllocatedResource!Buffer normalBuffer;
 	AllocatedResource!Buffer normalIndexBuffer;
 	//addressBuffer muss dann entfernt werden am schluss
-	AllocatedResource!Buffer addressBuffer;
+	//AllocatedResource!Buffer addressBuffer;
 	AllocatedResource!Buffer blasBuffer;
 	AccelerationStructure blas;
 	VkAccelerationStructureGeometryKHR geometry;
@@ -3418,11 +3365,11 @@ struct Drawable {
 	uint modelId;
 }
 
-struct Circle {
+/*struct Circle {
 	float x, y;
 	float radius;
 	float r, g, b;
-}
+}*/
 
 struct Text {
 	String text;
@@ -3430,7 +3377,7 @@ struct Text {
 	float scale;
 }
 
-struct Sphere {
+/*struct Sphere {
 	float x, y, z;
 	float radius;
 }
@@ -3438,7 +3385,7 @@ struct Sphere {
 struct Cube {
 	float x, y, z;
 	float size;
-}
+}*/
 
 struct TestController(Args...) {
 	struct CloseReceiver(ECS) {
