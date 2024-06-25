@@ -55,7 +55,7 @@ struct TestApp(ECS) {
 		drawable.pos = Tensor!(float, 3)(0, -5, 0);
 		drawable.scale = Tensor!(float, 3)(5, 5, 5);
 		drawable.rot = Tensor!(float, 3)(0, 0, 0);
-		drawable.rgb = Tensor!(float, 3)(0.5, 1.0, 0.5);
+		drawable.rgb = Tensor!(float, 3)(0.9, 0.8, 0.6);
 		drawable.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
 	}
@@ -76,7 +76,7 @@ struct TestApp(ECS) {
 			drawable.pos = Tensor!(float, 3)(2.0 * sin(passedTime), 1.0, 2.0 * cos(passedTime));
 			drawable.scale = Tensor!(float, 3)(1, 1, 1);
 			drawable.rot = Tensor!(float, 3)(0, 0, 0);
-			drawable.rgb = Tensor!(float, 3)(1.0, 0.5, 1.0);
+			drawable.rgb = Tensor!(float, 3)(0.0, 1.0, 1.0);
 			drawable.modelId = cast(uint)sphereModel;
 			objects.add().add!Drawable(drawable);
 		}
