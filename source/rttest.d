@@ -1420,6 +1420,12 @@ struct TestApp(ECS) {
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(265)) {
 			rot[0] += -2.0 * dt;
 		}
+		
+		if (objects.getComponentEntityIds!Drawable().length >= 2) {
+			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
+			// virtual component funktion hinzufügen für pos(0) = 0.0f zb, bzw für opCall
+			entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
+		}
 
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
 		if (swapchain.result.result != VkResult.VK_SUCCESS) {
@@ -1471,7 +1477,7 @@ struct TestApp(ECS) {
 		dynEcs.clearAddUpdateList!Text();
 		dynEcs.clearGeneralUpdateList!Text();
 
-		if (objects.getAddUpdateList!Drawable().length > 0 || objects.getRemoveUpdateList!Drawable().length > 0) {
+		if (objects.getAddUpdateList!Drawable().length > 0 || objects.getRemoveUpdateList!Drawable().length > 0 || objects.getGeneralUpdateList!Drawable().length > 0) {
 			cmdBuffer.begin();
 			drawables.update2(objects, cmdBuffer, false);
 			cmdBuffer.end();
@@ -1484,11 +1490,11 @@ struct TestApp(ECS) {
 				auto entity = objects.getEntity(i);
 				Drawable drawable = entity.get!Drawable();
 				VkTransformMatrixKHR transformMatrix;
-				transformMatrix.matrix = [
-					[drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)],
-					[0.0f, drawable.scale(1), 0.0f, drawable.pos(1)],
-					[0.0f, 0.0f, drawable.scale(2), drawable.pos(2)],
-				];
+				transformMatrix.matrix = array(
+					array(drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)),
+					array(0.0f, drawable.scale(1), 0.0f, drawable.pos(1)),
+					array(0.0f, 0.0f, drawable.scale(2), drawable.pos(2)),
+				);
 				VkAccelerationStructureInstanceKHR instance;
 				instance.transform = transformMatrix;
 				instance.instanceCustomIndex = entity.get!(ShaderListIndex!Drawable)().index;
@@ -1502,6 +1508,15 @@ struct TestApp(ECS) {
 				}
 				instance.flags = VkGeometryInstanceFlagBitsKHR.VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 				objects.addComponent!VkAccelerationStructureInstanceKHR(i, instance);
+			}
+			foreach (i; objects.getGeneralUpdateList!Drawable()) {
+				auto entity = objects.getEntity(i);
+				Drawable drawable = entity.get!Drawable();
+				objects.getComponent!VkAccelerationStructureInstanceKHR(i).transform.matrix = array(
+					array(drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)),
+					array(0.0f, drawable.scale(1), 0.0f, drawable.pos(1)),
+					array(0.0f, 0.0f, drawable.scale(2), drawable.pos(2)),
+				);
 			}
 		}
 		objects.clearAddUpdateList!Drawable();
