@@ -1771,3 +1771,13 @@ template ApplyTypeSeq(alias Func, Args...) {
 auto seqToArray(Args...)() {
 	return array(Args);
 }
+
+template contains(alias T, Args...) {
+	alias found = TypeSeq!(false);
+	static foreach (args; Args) {
+		static if (args == T) {
+			found = TypeSeq!(true);
+		}
+	}
+	enum bool contains = (found == TypeSeq!(true));
+}

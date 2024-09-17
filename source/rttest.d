@@ -2344,8 +2344,21 @@ struct GpuLocal(Resource) {
 	@disable this(ref return scope CpuLocal!Resource rhs);
 }
 
+ref int tint(ref int i) {
+	return i;
+}
+
+struct tStruct {
+	int ret() immutable {
+		return 1;
+	}
+}
+
 version(unittest) {} else {
 	void main() {
+		pragma(msg, contains!("ref", __traits(getFunctionAttributes, Tensor!(int, 3).opCall!int)));
+		pragma(msg, contains!("immutable", __traits(getFunctionAttributes, tStruct.ret)));
+
 		TestController!(
 			Info!(GlfwVulkanWindow, DefaultDataStructure),
 			Info!(TestApp, DefaultDataStructure),
