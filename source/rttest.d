@@ -2349,15 +2349,45 @@ ref int tint(ref int i) {
 }
 
 struct tStruct {
-	int ret() immutable {
+	int ret() const {
 		return 1;
+	}
+	template opDispatch(string member2) {
+		auto opDispatch(Args...)(lazy Args args) {
+			writeln("3 ", args[0]);
+		}
+		@property auto opDispatch() {
+			writeln("1");
+			return 1;
+		}
+		/*@property auto opDispatch(T)(lazy T t) {
+			writeln("2");
+			return t;
+		}*/
+	}
+}
+
+struct s2 {
+	int i;
+	void j() {
+		writeln("bla");
 	}
 }
 
 version(unittest) {} else {
 	void main() {
 		pragma(msg, contains!("ref", __traits(getFunctionAttributes, Tensor!(int, 3).opCall!int)));
-		pragma(msg, contains!("immutable", __traits(getFunctionAttributes, tStruct.ret)));
+		pragma(msg, contains!("const", __traits(getFunctionAttributes, tStruct.ret)));
+
+		tStruct t;
+		t.bla;
+		t.bla = 1;
+		t.bla(1);
+		t.bla(mixin("1"));
+		pragma(msg, __traits(getOverloads, s2, "i"));
+		pragma(msg, __traits(getOverloads, s2, "j"));
+		/*s2 s;
+		s.i(10);*/
 
 		TestController!(
 			Info!(GlfwVulkanWindow, DefaultDataStructure),

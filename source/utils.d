@@ -456,14 +456,14 @@ struct Vector(T) if (!is(T == class)) {
 	T* ptr() @property {
 		return t.ptr;
 	}
-	size_t size() @property {
+	size_t size() const @property {
 		return t.length;
 	}
 	size_t size(size_t newSize) @property {
 		resize(newSize);
 		return t.length;
 	}
-	size_t length() @property {
+	size_t length() const @property {
 		return t.length;
 	}
 	size_t length(size_t newSize) @property {

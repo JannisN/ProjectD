@@ -117,6 +117,7 @@ struct VirtualComponent(ECS, Component) {
 	ref Component getComponent() {
         return virtualEntity.getForced!Component();
 	}
+    // umstellen auf nicht ref
     alias getComponent this;
     template opDispatch(string member) {
         @property auto opDispatch() {
@@ -176,36 +177,55 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
         return this;
     }
 	template opDispatch(string member2) {
-		@property auto ref opDispatch() {
-            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2,
-                        TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
-                        TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent);
+        static if (__traits(getOverloads, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")"), member2).length > 0) {
+            pragma(msg, "func ", member2);
+            static if(contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")." ~ member2)))) {
+                static if(contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")." ~ member2)))) {
+
+                } else {
+                    @property auto opDispatch() {
+                        return mixin("virtualComponent.getComponent()." ~ member ~ "." ~ member2);
+                    }
+                }
             } else {
-                return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent);
+                @property auto opDispatch() {
+                    static_assert(false, "function not const");
+                }
             }
-		}
-		@property auto ref opDispatch(T)(lazy T t) {
-            static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2,
-                        TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
-                        TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent) = t);
-            } else {
-                return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent) = t);
+        } else {
+            pragma(msg, "var ", member2);
+            @property auto ref opDispatch() {
+                static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return VirtualMember!(ECS, Component, member ~ "." ~ member2,
+                            TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                            TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                    return VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent);
+                } else {
+                    return VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent);
+                }
             }
-		}
+            @property auto ref opDispatch(T)(lazy T t) {
+                static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member ~ "." ~ member2,
+                            TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                            TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, TypeSeqStruct!(StaticSpecificIndicesMultiple.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member ~ "." ~ member2, TypeSeqStruct!(StaticSpecificIndices.TypeSeq, findTypes!(TypeSeqStruct!(Component, member ~ "." ~ member2), ECS.TemplateSpecificUpdates.TypeSeq)[0]), StaticSpecificIndicesMultiple)(virtualComponent) = t);
+                } else {
+                    return (VirtualMember!(ECS, Component, member ~ "." ~ member2, StaticSpecificIndices, StaticSpecificIndicesMultiple)(virtualComponent) = t);
+                }
+            }
+        }
 	}
 	@property ref auto getMember() {
         mixin("return virtualComponent.getComponent()." ~ member ~ ";");
 	}
+    // umstellen auf nicht ref
     alias getMember this;
 }
 
