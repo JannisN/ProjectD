@@ -120,35 +120,88 @@ struct VirtualComponent(ECS, Component) {
 	ref Component getComponentForced() {
         return virtualEntity.getForced!Component();
 	}
-    // umstellen auf nicht ref
     alias getComponentConst this;
     template opDispatch(string member) {
-        @property auto opDispatch() {
-            auto virtualComponent = &this;
-            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member,
-                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
-                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
-            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
-            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent));
+        static if ((__traits(getOverloads, mixin("typeof(getComponentForced())"), member).length > 0 && __traits(compiles, __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))) || __traits(isTemplate, mixin("typeof(getComponentForced()." ~ member ~ ")")) /*&& __traits(compiles, __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))*/) {
+            pragma(msg, "func ", member);
+            /*static if(contains!("const", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))) {
+                static if(contains!("ref", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))) {
+                    @property auto ref opDispatch(Args...)(lazy Args args) {
+                        return VirtualReference!(ECS, Component, TypeSeq!(), TypeSeq!(), typeof(mixin("getComponentForced()." ~ member ~ argsToTemplate!(Args.length, "Args", "args"))))(
+                            &this, &mixin("getComponentForced()." ~ member ~ argsToTemplate!(Args.length, "Args", "args"))
+                        );
+                    }
+                } else {
+                    @property auto opDispatch(Args...)(lazy Args args) {
+                        return mixin("getComponentForced()." ~ member ~ argsToTemplate!(Args.length, "Args", "args"));
+                    }
+                }
             } else {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent));
+                pragma(msg, "Function not const");
+            }*/
+            static if (__traits(compiles, __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))) {
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")"))) &&
+                    contains!("ref", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))
+                ) {
+                    @property auto ref opDispatch() {
+                        return VirtualReference!(ECS, Component, TypeSeq!(), TypeSeq!(), typeof(mixin("getComponentForced()." ~ member ~ "()")))(
+                            &this, &mixin("getComponentForced()." ~ member)
+                        );
+                    }
+                }
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("typeof(.getComponentForced()." ~ member ~ ")"))) &&
+                    !contains!("ref", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ ")")))
+                ) {
+                    @property auto opDispatch() {
+                        return mixin("getComponentForced()." ~ member);
+                    }
+                }
             }
-        }
-        @property auto opDispatch(T)(lazy T t) {
-            auto virtualComponent = &this;
-            static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member,
-                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
-                        TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
-            } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent) = t);
-            } else {
-                return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent) = t);
+            @property auto ref opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("typeof(getComponentForced()." ~ member ~ ")"))
+            && contains!("const", __traits(getFunctionAttributes, mixin("typeof(getComponentForced())." ~ member ~ "!Args")))
+            && contains!("ref", __traits(getFunctionAttributes, mixin("typeof(getComponentForced())." ~ member ~ "!Args")))) {
+                return VirtualReference!(ECS, Component, TypeSeq!(), TypeSeq!(), typeof(mixin("getComponentForced()." ~ member ~ "!Args(args)")))(
+                    &this, &mixin("getComponentForced()." ~ member ~ "." ~ member2 ~ "!Args(args)")
+                );
+            }
+            @property auto opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("typeof(getComponentForced()." ~ member ~ ")"))
+            && contains!("const", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ "!Args")))
+            && !contains!("ref", __traits(getFunctionAttributes, mixin("typeof(getComponentForced()." ~ member ~ "!Args")))) {
+                return mixin("getComponentForced()." ~ member ~ "!Args(args)");
+            }
+        } else {
+            pragma(msg, "var ", member);
+            @property auto opDispatch() {
+                auto virtualComponent = &this;
+                static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member,
+                            TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                            TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
+                } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent));
+                } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent));
+                } else {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent));
+                }
+            }
+            @property auto opDispatch(T)(lazy T t) {
+                auto virtualComponent = &this;
+                static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0 && findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member,
+                            TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]),
+                            TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdatesMultiple.TypeSeq)[0]))(virtualComponent) = t);
+                } else static if (findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq).length > 0) {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(findTypes!(TypeSeqStruct!(Component, member), ECS.TemplateSpecificUpdates.TypeSeq)[0]), TypeSeqStruct!())(virtualComponent) = t);
+                } else {
+                    return (VirtualMember!(ECS, Component, member, TypeSeqStruct!(), TypeSeqStruct!())(virtualComponent) = t);
+                }
             }
         }
     }
@@ -156,6 +209,9 @@ struct VirtualComponent(ECS, Component) {
 
 struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, StaticSpecificIndicesMultiple) {
     VirtualComponent!(ECS, Component)* virtualComponent;
+    this(VirtualComponent!(ECS, Component)* virtualComponent) {
+        this.virtualComponent = virtualComponent;
+    }
     auto ref opAssign(T)(lazy T t) {
         //virtualComponent.getComponent().member = t;
         mixin("virtualComponent.getComponentForced()." ~ member ~ "= t;");
@@ -180,18 +236,41 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
         return this;
     }
 	template opDispatch(string member2) {
-        static if (__traits(getOverloads, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")"), member2).length > 0 || __traits(isTemplate, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))) {
+        static if ((__traits(getOverloads, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")"), member2).length > 0 && __traits(compiles, __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) || __traits(isTemplate, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))) {
             pragma(msg, "func ", member2);
-            static if(contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) {
-                static if(contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) {
-
-                } else {
-                    @property auto opDispatch(Args...)(lazy Args args) {
-                        return mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ argsToTemplate!(Args.length, "Args", "args"));
+            static if (__traits(compiles, __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) {
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))) &&
+                    contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))
+                ) {
+                    @property auto ref opDispatch() {
+                        return VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ "()")))(
+                            virtualComponent, &mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2)
+                        );
                     }
                 }
-            } else {
-                pragma(msg, "Function not const");
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))) &&
+                    !contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))
+                ) {
+                    @property auto opDispatch() {
+                        return mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2);
+                    }
+                }
+            }
+            @property auto ref opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))
+            && contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2 ~ "!Args")))
+            && contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2 ~ "!Args")))) {
+                return VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ "!Args(args)")))(
+                    virtualComponent, &mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ "!Args(args)")
+                );
+            }
+            @property auto opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))
+            && contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2 ~ "!Args")))
+            && !contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2 ~ "!Args")))) {
+                return mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ "!Args(args)");
             }
         } else {
             pragma(msg, "var ", member2);
@@ -223,6 +302,15 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
             }
         }
 	}
+    //template opCall(Args...) {
+        /*ref auto opCall(Args...)(lazy Args args) if (__traits(compiles, this.opDispatch!("opCall")(args))) {
+            return this.opDispatch!("opCall")(args);
+        }*/
+    //}
+	/*ref auto opCall(Args...)(lazy Args args) {
+        //return this.opCall!Args(args);
+        return this.opDispatch!("opCall")(args);
+    }*/
 	@property auto getMemberConst() {
         mixin("return virtualComponent.getComponentForced()." ~ member ~ ";");
 	}
@@ -230,6 +318,91 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
         mixin("return virtualComponent.getComponentForced()." ~ member ~ ";");
 	}
     alias getMemberConst this;
+}
+
+struct VirtualReference(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, T) {
+    VirtualComponent!(ECS, Component)* virtualComponent;
+    T* value;
+    auto ref opAssign(lazy T t) {
+        *value = t;
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
+            if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
+                size_t updateId = virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualComponent.virtualEntity.entityId);
+                virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] = updateId;
+            }
+        }
+        static if (findTypes!(Component, ECS.TemplateGeneralUpdatesMultiple.TypeSeq).length > 0) {
+            virtualComponent.virtualEntity.ecs.getGeneralUpdateListMultiple!Component().add(virtualComponent.virtualEntity.entityId);
+        }
+        static foreach (size_t i; StaticSpecificIndices.TypeSeq) {
+            if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticSpecificUpdates[i] == size_t.max) {
+                size_t updateId = virtualComponent.virtualEntity.ecs.specificUpdates[i].addId(virtualComponent.virtualEntity.entityId);
+                virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticSpecificUpdates[i] = updateId;
+            }
+        }
+        static foreach (size_t i; StaticSpecificIndicesMultiple.TypeSeq) {
+            virtualComponent.virtualEntity.ecs.specificUpdatesMultiple[i].add(virtualComponent.virtualEntity.entityId);
+        }
+        return this;
+    }
+	template opDispatch(string member) {
+        static if ((__traits(getOverloads, T, member).length > 0 && __traits(compiles, __traits(getFunctionAttributes, mixin("T." ~ member)))) || __traits(isTemplate, mixin("T." ~ member))) {
+            pragma(msg, "func ", member);
+            static if (__traits(compiles, __traits(getFunctionAttributes, mixin("T." ~ member)))) {
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("T." ~ member))) &&
+                    contains!("ref", __traits(getFunctionAttributes, mixin("T." ~ member)))
+                ) {
+                    @property auto ref opDispatch() {
+                        return VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("value." ~ member ~ "()")))(
+                            virtualComponent, &mixin("value." ~ member ~ "()")
+                        );
+                    }
+                }
+                static if (
+                    contains!("const", __traits(getFunctionAttributes, mixin("T." ~ member))) &&
+                    !contains!("ref", __traits(getFunctionAttributes, mixin("T." ~ member)))
+                ) {
+                    @property auto opDispatch() {
+                        return mixin("value." ~ member ~ "()");
+                    }
+                }
+            }
+            @property auto ref opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("T." ~ member))
+            && contains!("const", __traits(getFunctionAttributes, mixin("T." ~ member ~ "!Args")))
+            && contains!("ref", __traits(getFunctionAttributes, mixin("T." ~ member ~ "!Args")))) {
+                return VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("value." ~ member ~ "!Args(args)")))(
+                    virtualComponent, &mixin("value." ~ member ~ "!Args(args)")
+                );
+            }
+            @property auto opDispatch(Args...)(lazy Args args) if (Args.length > 0
+            && __traits(isTemplate, mixin("T." ~ member))
+            && contains!("const", __traits(getFunctionAttributes, mixin("T." ~ member ~ "!Args")))
+            && !contains!("ref", __traits(getFunctionAttributes, mixin("T." ~ member ~ "!Args")))) {
+                return mixin("value." ~ member ~ "!Args(args)");
+            }
+        } else {
+            pragma(msg, "var ", member);
+            @property auto ref opDispatch() {
+                return VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("value." ~ member)))(
+                    virtualComponent, &mixin("value." ~ member)
+                );
+            }
+            @property auto ref opDispatch(T)(lazy T t) {
+                return (VirtualReference!(ECS, Component, StaticSpecificIndices, StaticSpecificIndicesMultiple, typeof(mixin("value." ~ member)))(
+                    virtualComponent, &mixin("value." ~ member)
+                ) = t);
+            }
+        }
+	}
+	@property auto getConst() {
+        return *value;
+	}
+	@property ref auto getForced() {
+        return *value;
+	}
+    alias getConst this;
 }
 
 struct IteratedComponent(ECS, Component) {

@@ -1424,7 +1424,9 @@ struct TestApp(ECS) {
 		if (objects.getComponentEntityIds!Drawable().length >= 2) {
 			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
 			// virtual component funktion hinzufügen für pos(0) = 0.0f zb, bzw für opCall
-			entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
+			//entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
+			entity.get!Drawable().pos.at(0) = sin(passedTime);
+			//entity.get!Drawable().pos.opDispatch!"at"(0) = sin(passedTime);
 		}
 
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
@@ -1453,6 +1455,7 @@ struct TestApp(ECS) {
             dynEcs.addComponent!(CpuLocal!Buffer)(i);
 			auto gpuBuffer = &dynEcs.getComponent!(GpuLocal!Buffer)(i);
 			auto cpuBuffer = &dynEcs.getComponent!(CpuLocal!Buffer)(i);
+			//textRef.text.opDispatch!"length";
 			size_t dataSize = 24 * float.sizeof * textRef.text.length;
 			gpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
 			cpuBuffer.resource = (AllocatedResource!Buffer(device.createBuffer(0, dataSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT)));
@@ -1526,6 +1529,7 @@ struct TestApp(ECS) {
 			foreach (i; objects.getGeneralUpdateList!(ShaderListIndex!Drawable)()) {
 				auto entity = objects.getEntity(i);
 				entity.get!VkAccelerationStructureInstanceKHR().instanceCustomIndex = entity.get!(ShaderListIndex!Drawable)().index;
+				int bla = entity.get!VkAccelerationStructureInstanceKHR().opDispatch!"instanceCustomIndex";
 			}
 			if (objects.getGeneralUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getAddUpdateList!VkAccelerationStructureInstanceKHR().length > 0 || objects.getRemoveUpdateList!VkAccelerationStructureInstanceKHR().length > 0) {
 				cmdBuffer.begin();

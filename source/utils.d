@@ -1782,7 +1782,7 @@ template contains(alias T, Args...) {
 	enum bool contains = (found == TypeSeq!(true));
 }
 
-template argsToTemplate(size_t length, string nameType, string nameParams) {
+/*template argsToTemplate(size_t length, string nameType, string nameParams) {
 	static if (length == 0) {
 		enum string argsToTemplate = "()";
 	} else {
@@ -1797,4 +1797,4 @@ template argsToTemplate(size_t length, string nameType, string nameParams) {
 		s = TypeSeq!(s[0] ~ nameType ~ ")");
 		enum string = s[0];
 	}
-}
+}*/
