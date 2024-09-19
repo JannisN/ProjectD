@@ -102,7 +102,7 @@ struct VirtualComponent(ECS, Component) {
         // erstmal so lassen... man kann sonst einfach manuell zuerst entfernen und wieder hinzufügen
         //virtualEntity.remove!Component;
         //virtualEntity.add!Component(component);
-        getComponent() = component;
+        getComponentForced() = component;
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
             if (virtualEntity.ecs.entities[virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
                 size_t updateId = virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualEntity.entityId);
@@ -114,11 +114,14 @@ struct VirtualComponent(ECS, Component) {
         }
         return this;
     }
-	ref Component getComponent() {
+	Component getComponentConst() {
+        return virtualEntity.getForced!Component();
+	}
+	ref Component getComponentForced() {
         return virtualEntity.getForced!Component();
 	}
     // umstellen auf nicht ref
-    alias getComponent this;
+    alias getComponentConst this;
     template opDispatch(string member) {
         @property auto opDispatch() {
             auto virtualComponent = &this;
@@ -155,7 +158,7 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
     VirtualComponent!(ECS, Component)* virtualComponent;
     auto ref opAssign(T)(lazy T t) {
         //virtualComponent.getComponent().member = t;
-        mixin("virtualComponent.getComponent()." ~ member ~ "= t;");
+        mixin("virtualComponent.getComponentForced()." ~ member ~ "= t;");
         static if (findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq).length > 0) {
             if (virtualComponent.virtualEntity.ecs.entities[virtualComponent.virtualEntity.entityId].staticGeneralUpdates[findTypes!(Component, ECS.TemplateGeneralUpdates.TypeSeq)[0]] == size_t.max) {
                 size_t updateId = virtualComponent.virtualEntity.ecs.getGeneralUpdateList!Component().addId(virtualComponent.virtualEntity.entityId);
@@ -177,20 +180,18 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
         return this;
     }
 	template opDispatch(string member2) {
-        static if (__traits(getOverloads, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")"), member2).length > 0) {
+        static if (__traits(getOverloads, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")"), member2).length > 0 || __traits(isTemplate, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2))) {
             pragma(msg, "func ", member2);
-            static if(contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")." ~ member2)))) {
-                static if(contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponent()." ~ member ~ ")." ~ member2)))) {
+            static if(contains!("const", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) {
+                static if(contains!("ref", __traits(getFunctionAttributes, mixin("typeof(virtualComponent.getComponentForced()." ~ member ~ ")." ~ member2)))) {
 
                 } else {
-                    @property auto opDispatch() {
-                        return mixin("virtualComponent.getComponent()." ~ member ~ "." ~ member2);
+                    @property auto opDispatch(Args...)(lazy Args args) {
+                        return mixin("virtualComponent.getComponentForced()." ~ member ~ "." ~ member2 ~ argsToTemplate!(Args.length, "Args", "args"));
                     }
                 }
             } else {
-                @property auto opDispatch() {
-                    static_assert(false, "function not const");
-                }
+                pragma(msg, "Function not const");
             }
         } else {
             pragma(msg, "var ", member2);
@@ -222,11 +223,13 @@ struct VirtualMember(ECS, Component, string member, StaticSpecificIndices, Stati
             }
         }
 	}
-	@property ref auto getMember() {
-        mixin("return virtualComponent.getComponent()." ~ member ~ ";");
+	@property auto getMemberConst() {
+        mixin("return virtualComponent.getComponentForced()." ~ member ~ ";");
 	}
-    // umstellen auf nicht ref
-    alias getMember this;
+	@property ref auto getMemberForced() {
+        mixin("return virtualComponent.getComponentForced()." ~ member ~ ";");
+	}
+    alias getMemberConst this;
 }
 
 struct IteratedComponent(ECS, Component) {
