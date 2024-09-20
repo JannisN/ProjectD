@@ -25,6 +25,7 @@ struct TestApp(ECS) {
 		snprintf(fval.ptr, 10, "%f", 0f);
 		timeCounter = dynEcs.add().entityId;
         dynEcs.addComponent!Text(timeCounter);
+		dynEcs.getComponent!Text(timeCounter).opDispatch!"text";
         dynEcs.getComponent!Text(timeCounter).text = String(fval);
         dynEcs.getComponent!Text(timeCounter).x = -1;
         dynEcs.getComponent!Text(timeCounter).y = -1;
@@ -1423,10 +1424,8 @@ struct TestApp(ECS) {
 		
 		if (objects.getComponentEntityIds!Drawable().length >= 2) {
 			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
-			// virtual component funktion hinzufügen für pos(0) = 0.0f zb, bzw für opCall
 			//entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
-			entity.get!Drawable().pos.at(0) = sin(passedTime);
-			//entity.get!Drawable().pos.opDispatch!"at"(0) = sin(passedTime);
+			entity.get!Drawable().pos[0] = sin(passedTime);
 		}
 
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
@@ -1494,9 +1493,9 @@ struct TestApp(ECS) {
 				Drawable drawable = entity.get!Drawable();
 				VkTransformMatrixKHR transformMatrix;
 				transformMatrix.matrix = array(
-					array(drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)),
-					array(0.0f, drawable.scale(1), 0.0f, drawable.pos(1)),
-					array(0.0f, 0.0f, drawable.scale(2), drawable.pos(2)),
+					array(drawable.scale[0], 0.0f, 0.0f, drawable.pos[0]),
+					array(0.0f, drawable.scale[1], 0.0f, drawable.pos[1]),
+					array(0.0f, 0.0f, drawable.scale[2], drawable.pos[2]),
 				);
 				VkAccelerationStructureInstanceKHR instance;
 				instance.transform = transformMatrix;
@@ -1516,9 +1515,9 @@ struct TestApp(ECS) {
 				auto entity = objects.getEntity(i);
 				Drawable drawable = entity.get!Drawable();
 				objects.getComponent!VkAccelerationStructureInstanceKHR(i).transform.matrix = array(
-					array(drawable.scale(0), 0.0f, 0.0f, drawable.pos(0)),
-					array(0.0f, drawable.scale(1), 0.0f, drawable.pos(1)),
-					array(0.0f, 0.0f, drawable.scale(2), drawable.pos(2)),
+					array(drawable.scale[0], 0.0f, 0.0f, drawable.pos[0]),
+					array(0.0f, drawable.scale[1], 0.0f, drawable.pos[1]),
+					array(0.0f, 0.0f, drawable.scale[2], drawable.pos[2]),
 				);
 			}
 		}
@@ -2380,19 +2379,6 @@ struct s2 {
 
 version(unittest) {} else {
 	void main() {
-		pragma(msg, contains!("ref", __traits(getFunctionAttributes, Tensor!(int, 3).opCall!int)));
-		pragma(msg, contains!("const", __traits(getFunctionAttributes, tStruct.ret)));
-
-		tStruct t;
-		t.bla;
-		t.bla = 1;
-		t.bla(1);
-		t.bla(mixin("1"));
-		pragma(msg, __traits(getOverloads, s2, "i"));
-		pragma(msg, __traits(getOverloads, s2, "j"));
-		/*s2 s;
-		s.i(10);*/
-
 		TestController!(
 			Info!(GlfwVulkanWindow, DefaultDataStructure),
 			Info!(TestApp, DefaultDataStructure),

@@ -1781,20 +1781,3 @@ template contains(alias T, Args...) {
 	}
 	enum bool contains = (found == TypeSeq!(true));
 }
-
-/*template argsToTemplate(size_t length, string nameType, string nameParams) {
-	static if (length == 0) {
-		enum string argsToTemplate = "()";
-	} else {
-		alias s = TypeSeq!("!(");
-		static foreach(i; 0 .. length) {
-			s = TypeSeq!(s[0] ~ nameType ~ "[" ~ i ~ "],");
-		}
-		s = TypeSeq!(s[0] ~ nameType ~ ")(");
-		static foreach(i; 0 .. length) {
-			s = TypeSeq!(s[0] ~ nameParams ~ "[" ~ i ~ "],");
-		}
-		s = TypeSeq!(s[0] ~ nameType ~ ")");
-		enum string = s[0];
-	}
-}*/
