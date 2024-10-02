@@ -2,6 +2,7 @@
 
 struct Drawable {
     float posX, posY, posZ;
+    float dposX, dposY, dposZ;
     float scaleX, scaleY, scaleZ;
     float rotX, rotY, rotZ;
     float r, g, b;

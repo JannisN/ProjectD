@@ -27,6 +27,7 @@ layout (set = 0, binding = 2) buffer modelList_t {
 
 struct Drawable {
     float posX, posY, posZ;
+    float dposX, dposY, dposZ;
     float scaleX, scaleY, scaleZ;
     float rotX, rotY, rotZ;
     float r, g, b;
