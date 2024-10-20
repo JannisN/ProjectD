@@ -1,3 +1,4 @@
+//glslangValidator --target-env vulkan1.3 rasterFrag2.frag -o rasterFrag2.spv
 #version 460 core
 
 struct Drawable {
@@ -16,8 +17,39 @@ layout (location = 3) in float rotXout;
 layout (location = 4) in float rotYout;
 layout (location = 5) flat in Drawable drawable;
 
+layout (push_constant) uniform mypc_t {
+	vec3 pos;
+    float rotX, rotY;
+    float screenRatio;
+    float width, height;
+} mypc;
+
 void main() {
+    mat3 rotX = mat3(
+        cos(mypc.rotX), 0, sin(mypc.rotX),
+        0, 1, 0,
+        -sin(mypc.rotX), 0, cos(mypc.rotX)
+    );
+    mat3 rotY = mat3(
+        1, 0, 0,
+        0, cos(mypc.rotY), sin(mypc.rotY),
+        0, -sin(mypc.rotY), cos(mypc.rotY)
+    );
+    mat3 rotXinv = mat3(
+        cos(-mypc.rotX), 0, sin(-mypc.rotX),
+        0, 1, 0,
+        -sin(-mypc.rotX), 0, cos(-mypc.rotX)
+    );
+    mat3 rotYinv = mat3(
+        1, 0, 0,
+        0, cos(-mypc.rotY), sin(-mypc.rotY),
+        0, -sin(-mypc.rotY), cos(-mypc.rotY)
+    );
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0);
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.dposX, drawable.dposY, drawable.dposZ), 1.0);
-	o_color = vec4(vec3(drawable.dposX * 0.5 + 0.5, drawable.dposY * 0.5 + 0.5, drawable.dposZ * 0.5 + 0.5), 1.0);
+	//o_color = vec4(vec3(1.0 / gl_FragCoord.w, 0.0, 0), 1.0);
+    vec3 pos = vec3((gl_FragCoord.x / float(mypc.width) * 2 - 1) / gl_FragCoord.w / 2.0 / mypc.screenRatio, (gl_FragCoord.y / float(mypc.height) * 2 - 1) / gl_FragCoord.w / -2.0, 1.0 / gl_FragCoord.w);
+    pos = rotX * rotY * pos + mypc.pos;
+	o_color = vec4(vec3(pos.x + drawable.dposX, pos.y + drawable.dposY, pos.z + drawable.dposZ), 1.0);
+	//o_color = vec4(vec3(drawable.dposX * 0.5 + 0.5, drawable.dposY * 0.5 + 0.5, drawable.dposZ * 0.5 + 0.5), 1.0);
 }

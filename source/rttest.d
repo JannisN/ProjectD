@@ -949,7 +949,7 @@ struct TestApp(ECS) {
 			rasterizer.descriptorSet = rasterizer.descriptorPool.allocateSet(rasterizer.descriptorSetLayout);
 			//rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer));
-			rasterizer.pipelineLayout = device.createPipelineLayout(array(rasterizer.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6)));
+			rasterizer.pipelineLayout = device.createPipelineLayout(array(rasterizer.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 8)));
 		}
 
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -1845,17 +1845,19 @@ struct TestApp(ECS) {
 					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 				))
 			);
-			float[6] rtPushConstants;
+			float[8] rtPushConstants;
 			rtPushConstants[0] = pos[0];
 			rtPushConstants[1] = pos[1];
 			rtPushConstants[2] = pos[2];
 			rtPushConstants[3] = rot[1];
 			rtPushConstants[4] = rot[0];
 			rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
+			rtPushConstants[6] = capabilities.currentExtent.width;
+			rtPushConstants[7] = capabilities.currentExtent.height;
 
 			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
-			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, float.sizeof * 6, rtPushConstants.ptr);
+			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 8, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
