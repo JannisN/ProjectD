@@ -49,7 +49,14 @@ void main() {
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.dposX, drawable.dposY, drawable.dposZ), 1.0);
 	//o_color = vec4(vec3(1.0 / gl_FragCoord.w, 0.0, 0), 1.0);
     vec3 pos = vec3((gl_FragCoord.x / float(mypc.width) * 2 - 1) / gl_FragCoord.w / 2.0 / mypc.screenRatio, (gl_FragCoord.y / float(mypc.height) * 2 - 1) / gl_FragCoord.w / -2.0, 1.0 / gl_FragCoord.w);
-    pos = rotX * rotY * pos + mypc.pos;
-	o_color = vec4(vec3(pos.x + drawable.dposX, pos.y + drawable.dposY, pos.z + drawable.dposZ), 1.0);
+    pos = rotX * rotY * pos + mypc.pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    vec3 finalPos = rotYinv * rotXinv * (pos - mypc.pos);
+	finalPos.x *= mypc.screenRatio * 2.0;
+	finalPos.y *= -2.0;
+    finalPos.x /= finalPos.z;
+    finalPos.y /= finalPos.z;
+    vec2 oldCoords = finalPos.xy;
+	o_color = vec4(0.5 + 0.5 * sin(100 * oldCoords.x), 0.5 + 0.5 * sin(100 * oldCoords.y), 0.0, 1.0);
+	//o_color = vec4(finalPos.xy, 0.0, 1.0);
 	//o_color = vec4(vec3(drawable.dposX * 0.5 + 0.5, drawable.dposY * 0.5 + 0.5, drawable.dposZ * 0.5 + 0.5), 1.0);
 }
