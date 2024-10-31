@@ -934,7 +934,14 @@ struct TestApp(ECS) {
 					1,
 					VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT,
 					null
-				)
+				),
+				VkDescriptorSetLayoutBinding(
+					1,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),
 			));
 			rasterizer.descriptorPool = device.createDescriptorPool(0, 1, array(
 				/*VkDescriptorPoolSize(
@@ -944,7 +951,11 @@ struct TestApp(ECS) {
 				VkDescriptorPoolSize(
 					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 					1
-				)
+				),
+				VkDescriptorPoolSize(
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1
+				),
 			));
 			rasterizer.descriptorSet = rasterizer.descriptorPool.allocateSet(rasterizer.descriptorSetLayout);
 			//rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
@@ -1427,8 +1438,9 @@ struct TestApp(ECS) {
 		if (objects.getComponentEntityIds!Drawable().length >= 2) {
 			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
 			//entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
+			// nachher noch umstellen dass shader dt bekommt
+			entity.get!Drawable().dpos[0] = (sin(passedTime) - entity.get!Drawable().pos[0])/* / dt*/;
 			entity.get!Drawable().pos[0] = sin(passedTime);
-			entity.get!Drawable().dpos[0] = cos(passedTime);
 		}
 
 		uint imageIndex = swapchain.aquireNextImage(/*semaphore*/null, fence);
@@ -1832,6 +1844,20 @@ struct TestApp(ECS) {
 		clear.depthStencil = VkClearDepthStencilValue(0.0, 0);
 
 		if (!rt) {
+			if (lastImageIndex != imageIndex)
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0, [], [],
+				array(imageMemoryBarrier(
+					0,
+					VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					swapchain.images[lastImageIndex],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				))
+			);
 			cmdBuffer.pipelineBarrier(
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1855,6 +1881,18 @@ struct TestApp(ECS) {
 			rtPushConstants[6] = capabilities.currentExtent.width;
 			rtPushConstants[7] = capabilities.currentExtent.height;
 
+			/*rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
+				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
+				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtModelInfos.gpuBuffer),
+				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
+			));*/
+			if (lastImageIndex != imageIndex)
+			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			
+			
 			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
 			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 8, rtPushConstants.ptr);
@@ -1904,6 +1942,7 @@ struct TestApp(ECS) {
 		);
 		cmdBuffer.end();
 		
+		lastImageIndex = imageIndex;
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		fence.reset();
@@ -2064,6 +2103,7 @@ struct TestApp(ECS) {
 	Tlas tlas;
 	size_t cubeModel;
 	size_t sphereModel;
+	uint lastImageIndex;
 }
 
 struct Tlas {

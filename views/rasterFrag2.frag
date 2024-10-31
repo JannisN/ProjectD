@@ -16,6 +16,7 @@ layout (location = 2) in vec3 normalOut;
 layout (location = 3) in float rotXout;
 layout (location = 4) in float rotYout;
 layout (location = 5) flat in Drawable drawable;
+layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer;
 
 layout (push_constant) uniform mypc_t {
 	vec3 pos;
@@ -56,7 +57,16 @@ void main() {
     finalPos.x /= finalPos.z;
     finalPos.y /= finalPos.z;
     vec2 oldCoords = finalPos.xy;
-	o_color = vec4(0.5 + 0.5 * sin(100 * oldCoords.x), 0.5 + 0.5 * sin(100 * oldCoords.y), 0.0, 1.0);
+    oldCoords.x = oldCoords.x * 0.5 + 0.5;
+    oldCoords.y = oldCoords.y * 0.5 + 0.5;
+    ivec2 oldCoordsInt = ivec2(oldCoords.x * mypc.width, oldCoords.y * mypc.height);
+    vec4 oldPixel = imageLoad(texelBuffer, oldCoordsInt);
+    oldPixel.a = 1.0;
+    o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(0.1), 1.0) + vec4(vec3(0.9), 1.0) * oldPixel;
+    //o_color = vec4(0.0, 1.0, 1.0, 1.0) * 0.5 + 0.5 * imageLoad(texelBuffer, oldCoordsInt);
+    //o_color = 0.9 * o_color + 0.1 * imageLoad(texelBuffer, oldCoordsInt);
+	//o_color = vec4(0.5 + 0.5 * sin(100 * oldCoords.x), 0.5 + 0.5 * sin(100 * oldCoords.y), 0.0, 1.0);
+	//o_color = vec4(oldCoords.x, oldCoords.y, 0.0, 1.0);
 	//o_color = vec4(finalPos.xy, 0.0, 1.0);
 	//o_color = vec4(vec3(drawable.dposX * 0.5 + 0.5, drawable.dposY * 0.5 + 0.5, drawable.dposZ * 0.5 + 0.5), 1.0);
 }
