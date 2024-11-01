@@ -25,6 +25,52 @@ layout (push_constant) uniform mypc_t {
     float width, height;
 } mypc;
 
+float smoothOut(float new, float old) {
+    if (abs(new - old) < 1.0 / 25.0) {
+        if (abs(new - old) * 255.0 < 1.1) {
+            return new;
+        } else {
+            return 0.5 * new + 0.5 * old;
+        }
+    } else {
+        return 0.1 * new + 0.9 * old;
+    }
+}
+
+// noch interpolation verbessern zwischen new/old und 0.5/0.5
+float smoothOut(float new, float old, float strength) {
+    if (abs(new - old) * (1.0 - strength) < 1.0 / 255.0) {
+        if (abs(new - old) * 255.0 < 1.1) {
+            return new;
+        } else {
+            return 0.5 * new + 0.5 * old;
+        }
+    } else {
+        return (1.0 - strength) * new + strength * old;
+    }
+}
+
+float smoothOut(float new, float old, float strength, float diff) {
+    if (diff * (1.0 - strength) < 1.0 / 255.0) {
+        if (diff * 255.0 < 1.1) {
+            return new;
+        } else {
+            return 0.5 * new + 0.5 * old;
+        }
+    } else {
+        return (1.0 - strength) * new + strength * old;
+    }
+}
+
+vec3 smoothOut(vec3 new, vec3 old, float strength) {
+    float diff = max(max(abs(new.r - old.r), abs(new.g - old.g)), abs(new.b - old.b));
+    return vec3(
+        smoothOut(new.r, old.r, strength, diff),
+        smoothOut(new.g, old.g, strength, diff),
+        smoothOut(new.b, old.b, strength, diff)
+    );
+}
+
 void main() {
     mat3 rotX = mat3(
         cos(mypc.rotX), 0, sin(mypc.rotX),
@@ -60,9 +106,23 @@ void main() {
     oldCoords.x = oldCoords.x * 0.5 + 0.5;
     oldCoords.y = oldCoords.y * 0.5 + 0.5;
     ivec2 oldCoordsInt = ivec2(oldCoords.x * mypc.width, oldCoords.y * mypc.height);
-    vec4 oldPixel = imageLoad(texelBuffer, oldCoordsInt);
-    oldPixel.a = 1.0;
-    o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(0.1), 1.0) + vec4(vec3(0.9), 1.0) * oldPixel;
+    vec3 oldPixel = imageLoad(texelBuffer, oldCoordsInt).rgb;
+    //oldPixel.a = 1.0;
+    //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
+    //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
+    vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
+    o_color = vec4(smoothOut(object, oldPixel, 0.9), 1.0);
+    /*o_color = vec4(
+        smoothOut(object.r, oldPixel.r, 0.9),
+        smoothOut(object.g, oldPixel.g, 0.9),
+        smoothOut(object.b, oldPixel.b, 0.9),
+        1.0
+    );*/
+    /*o_color = vec4(
+        round(((drawable.r * 255) * 1.5 + (oldPixel.r * 255) * 7) / 8.0) / 255.0,
+        round(((drawable.g * 255) * 1.5 + (oldPixel.g * 255) * 7) / 8.0) / 255.0,
+        round(((drawable.b * 255) * 1.5 + (oldPixel.b * 255) * 7) / 8.0) / 255.0,
+        1);*/
     //o_color = vec4(0.0, 1.0, 1.0, 1.0) * 0.5 + 0.5 * imageLoad(texelBuffer, oldCoordsInt);
     //o_color = 0.9 * o_color + 0.1 * imageLoad(texelBuffer, oldCoordsInt);
 	//o_color = vec4(0.5 + 0.5 * sin(100 * oldCoords.x), 0.5 + 0.5 * sin(100 * oldCoords.y), 0.0, 1.0);
