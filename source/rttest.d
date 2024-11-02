@@ -1950,6 +1950,11 @@ struct TestApp(ECS) {
 			aaCount++;
 			//sampleLoc.x = aaCount % 17 / 16.0 * sampleLocationRange[1];
 			//sampleLoc.y = (aaCount % (16 * 16 + 1) / 16.0 - cast(uint)(aaCount % (16 * 16 + 1) / 16.0)) * sampleLocationRange[1];
+			if (aaCount % 2 == 0) {
+				sampleLoc.x = (aaCount) % 17 / 16.0 * sampleLocationRange[1];
+			} else {
+				sampleLoc.y = (aaCount - 1) % 17 / 16.0 * sampleLocationRange[1];
+			}
 			sampleLoc.x = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
 			sampleLoc.y = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
 			//sampleLoc.x = (passedTime * 17.2183 - trunc(passedTime * 17.2183)) * sampleLocationRange[1];

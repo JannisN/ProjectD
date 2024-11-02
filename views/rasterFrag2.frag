@@ -28,8 +28,7 @@ layout (push_constant) uniform mypc_t {
 } mypc;
 
 // todo:
-// -sampler
-// -supersampling
+// -zweite textur für 16 bit farben
 // -speichern wie alt pixel sind, dass für neue strength kleiner wird
 
 float smoothOut(float new, float old) {
@@ -125,10 +124,10 @@ void main() {
     //ivec2 oldCoordsInt = ivec2(oldCoords.x * mypc.width, oldCoords.y * mypc.height);
     vec3 oldPixel = texture(texelBuffer, oldCoords).rgb;
     //oldPixel.a = 1.0;
-    //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * vec4(oldPixel, 1.0);
+    //o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 18.0), 1.0) + vec4(vec3(17.0 / 18.0), 1.0) * vec4(oldPixel, 1.0);
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
-    o_color = vec4(smoothOut(object, oldPixel, 0.95), 1.0);
+    o_color = vec4(smoothOut(object, oldPixel, 0.9), 1.0);
     //o_color = vec4(object, 1.0);
 	//o_color = vec4(200 * abs(oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * abs(oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
 
