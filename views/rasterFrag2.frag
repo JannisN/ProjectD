@@ -16,7 +16,7 @@ layout (location = 2) in vec3 normalOut;
 layout (location = 3) in float rotXout;
 layout (location = 4) in float rotYout;
 layout (location = 5) flat in Drawable drawable;
-layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer;
+layout (set = 0, binding = 1/*, rgba8*/) uniform sampler2D texelBuffer;
 
 layout (push_constant) uniform mypc_t {
 	vec3 pos;
@@ -30,6 +30,7 @@ layout (push_constant) uniform mypc_t {
 // todo:
 // -sampler
 // -supersampling
+// -speichern wie alt pixel sind, dass für neue strength kleiner wird
 
 float smoothOut(float new, float old) {
     if (abs(new - old) < 1.0 / 25.0) {
@@ -121,14 +122,15 @@ void main() {
     vec2 oldCoords = finalPos.xy;
     oldCoords.x = oldCoords.x * 0.5 + 0.5;
     oldCoords.y = oldCoords.y * 0.5 + 0.5;
-    ivec2 oldCoordsInt = ivec2(oldCoords.x * mypc.width, oldCoords.y * mypc.height);
-    vec3 oldPixel = imageLoad(texelBuffer, oldCoordsInt).rgb;
+    //ivec2 oldCoordsInt = ivec2(oldCoords.x * mypc.width, oldCoords.y * mypc.height);
+    vec3 oldPixel = texture(texelBuffer, oldCoords).rgb;
     //oldPixel.a = 1.0;
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * vec4(oldPixel, 1.0);
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
     o_color = vec4(smoothOut(object, oldPixel, 0.95), 1.0);
-	//o_color = vec4(100 * (oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * (oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
+    //o_color = vec4(object, 1.0);
+	//o_color = vec4(200 * abs(oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * abs(oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
 
     /*o_color = vec4(
         smoothOut(object.r, oldPixel.r, 0.9),

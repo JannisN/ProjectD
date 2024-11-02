@@ -12,6 +12,7 @@ import ecs2;
 import wavefront;
 import tensor;
 import std.mathspecial;
+import std.random;
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -60,6 +61,8 @@ struct TestApp(ECS) {
 		drawable.rgb = Tensor!(float, 3)(0.9, 0.8, 0.6);
 		drawable.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
+
+		//rnd = Random(42);
 	}
 	void receive(MouseButtonEvent event) {
 		writeln("event");
@@ -454,6 +457,15 @@ struct TestApp(ECS) {
 		rt = instance.physicalDevices[0].hasExtensions(array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"));
 		rt = false;
 
+		VkPhysicalDeviceSampleLocationsPropertiesEXT sampleProperties;
+		sampleProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT;
+		VkPhysicalDeviceProperties2 pdp2;
+		pdp2.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		pdp2.pNext = &sampleProperties;
+		instance.physicalDevices[0].getProperties(&pdp2);
+		sampleLocationRange[0] = sampleProperties.sampleLocationCoordinateRange[0];
+		sampleLocationRange[1] = sampleProperties.sampleLocationCoordinateRange[1];
+		
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
 		features.shaderInt64 = VK_TRUE;
@@ -480,7 +492,7 @@ struct TestApp(ECS) {
 		if (rt) {
 			device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline", "VK_KHR_ray_query", "VK_KHR_spirv_1_4", "VK_KHR_deferred_host_operations"), array(createQueue(0, 1)), features12, rayQueryFeatures, rayTracingPipelineFeatures, accelerationStructureFeatures, features13);
 		} else {
-			device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain"), array(createQueue(0, 1)));
+			device = Device(instance.physicalDevices[0], features, array("VK_LAYER_KHRONOS_validation"), array("VK_KHR_swapchain", "VK_EXT_sample_locations"), array(createQueue(0, 1)));
 		}
 		cmdPool = device.createCommandPool(0, VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 		cmdBuffer = cmdPool.allocateCommandBuffer(VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
@@ -522,6 +534,25 @@ struct TestApp(ECS) {
 		}
 
 		surface = (*ecs.createView!(GlfwVulkanWindow)[0])[0].createVulkanSurface(instance);
+
+		sampler = Sampler(
+			device,
+			VkFilter.VK_FILTER_LINEAR,
+			VkFilter.VK_FILTER_LINEAR,
+			VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			0.0,
+			false,
+			0.0,
+			false,
+			VkCompareOp.VK_COMPARE_OP_ALWAYS,
+			0.0,
+			0.0,
+			VkBorderColor.VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+			false
+		);
 	}
 	// muss noch umgestellt werden, memory von host zu device
 	void updateModels(ref CommandBuffer cmdBuffer) {
@@ -937,7 +968,7 @@ struct TestApp(ECS) {
 				),
 				VkDescriptorSetLayoutBinding(
 					1,
-					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					1,
 					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
 					null
@@ -953,7 +984,7 @@ struct TestApp(ECS) {
 					1
 				),
 				VkDescriptorPoolSize(
-					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 					1
 				),
 			));
@@ -976,7 +1007,7 @@ struct TestApp(ECS) {
 			VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 			capabilities.currentExtent,
 			1,
-			VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT,
+			VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT,
 			VkSharingMode.VK_SHARING_MODE_EXCLUSIVE,
 			[],
 			VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
@@ -987,7 +1018,7 @@ struct TestApp(ECS) {
 			true,
 			oldSwapchain
 		);
-		rasterDepthImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_D32_SFLOAT, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		rasterDepthImage = AllocatedResource!Image(device.createImage(VkImageCreateFlagBits.VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_D32_SFLOAT, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(rasterDepthImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		rasterDepthImageView = ImageView(
 			device,
@@ -1248,6 +1279,11 @@ struct TestApp(ECS) {
 				0, 0, 0, 1
 			);
 			auto multiSample = multisampleState(VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, false, 0, [], false, false);
+			VkPipelineSampleLocationsStateCreateInfoEXT locInfo;
+			locInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT;
+			locInfo.sampleLocationsEnable = true;
+			locInfo.sampleLocationsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT;
+			multiSample.pNext = &locInfo;
 			VkPipelineColorBlendAttachmentState blendAttachment;
 			blendAttachment.blendEnable = VK_TRUE;
 			blendAttachment.colorWriteMask = 0xf;
@@ -1271,6 +1307,8 @@ struct TestApp(ECS) {
 				1.0
 			);
 
+			auto dynamic = dynamicState(array(VkDynamicState.VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT));
+
 			rasterizer.pipeline = renderPass.createGraphicsPipeline(
 				vertStage,
 				fragStage,
@@ -1281,6 +1319,7 @@ struct TestApp(ECS) {
 				multiSample,
 				blend,
 				depthStencil,
+				dynamic,
 				rasterizer.pipelineLayout
 			);
 		}
@@ -1440,6 +1479,7 @@ struct TestApp(ECS) {
 			rot[0] += -2.0 * dt;
 		}
 		
+		//pos[0] = 10 * sin(passedTime);
 		if (objects.getComponentEntityIds!Drawable().length >= 2) {
 			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
 			//entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
@@ -1900,13 +1940,37 @@ struct TestApp(ECS) {
 				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
 			));*/
 			if (lastImageIndex != imageIndex)
-			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			//rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			
-			
+			VkSampleLocationEXT sampleLoc;
+			import std.random;
+			import std.math;
+			// aa noch nicht gut genug irgendwie?
+			aaCount++;
+			//sampleLoc.x = aaCount % 17 / 16.0 * sampleLocationRange[1];
+			//sampleLoc.y = (aaCount % (16 * 16 + 1) / 16.0 - cast(uint)(aaCount % (16 * 16 + 1) / 16.0)) * sampleLocationRange[1];
+			sampleLoc.x = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
+			sampleLoc.y = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
+			//sampleLoc.x = (passedTime * 17.2183 - trunc(passedTime * 17.2183)) * sampleLocationRange[1];
+			//writeln(sampleLoc.x, " ", sampleLoc.y);
+
+			//sampleLoc.x = cos(passedTime) * 0.4 + 0.4;
+			//sampleLoc.y = cos(passedTime) * 0.4 + 0.4;
+			VkSampleLocationsInfoEXT sampleLocations;
+			sampleLocations.sType = VkStructureType.VK_STRUCTURE_TYPE_SAMPLE_LOCATIONS_INFO_EXT;
+			sampleLocations.sampleLocationsPerPixel = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT;
+			sampleLocations.sampleLocationGridSize = VkExtent2D(1, 1);
+			sampleLocations.sampleLocationsCount = 1;
+			sampleLocations.pSampleLocations = &sampleLoc;
+
+			PFN_vkCmdSetSampleLocationsEXT pfnCmdSetSampleLocationsEXT = cast(PFN_vkCmdSetSampleLocationsEXT)(vkGetDeviceProcAddr(device, "vkCmdSetSampleLocationsEXT"));
+			pfnCmdSetSampleLocationsEXT(cmdBuffer, &sampleLocations);
 			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
 			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 13, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+			pfnCmdSetSampleLocationsEXT(cmdBuffer, &sampleLocations);
 
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
 			foreach (i; objects.getComponentEntityIds!Drawable()) {
@@ -2116,6 +2180,11 @@ struct TestApp(ECS) {
 	size_t cubeModel;
 	size_t sphereModel;
 	uint lastImageIndex;
+
+	Random rnd;
+	float[2] sampleLocationRange;
+	Sampler sampler;
+	uint aaCount;
 }
 
 struct Tlas {
