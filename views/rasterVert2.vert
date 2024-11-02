@@ -22,7 +22,9 @@ layout (push_constant) uniform mypc_t {
 	vec3 pos;
     float rotX, rotY;
     float screenRatio;
-    int width, height;
+    float width, height;
+	vec3 oldPos;
+    float oldRotX, oldRotY;
 } mypc;
 
 layout (set = 0, binding = 0) buffer drawableList_t {

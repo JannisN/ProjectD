@@ -960,7 +960,7 @@ struct TestApp(ECS) {
 			rasterizer.descriptorSet = rasterizer.descriptorPool.allocateSet(rasterizer.descriptorSetLayout);
 			//rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, fontImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer));
-			rasterizer.pipelineLayout = device.createPipelineLayout(array(rasterizer.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 8)));
+			rasterizer.pipelineLayout = device.createPipelineLayout(array(rasterizer.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 13)));
 		}
 
 		// man sollte vlt zuerst ein physical device finden mit surface support bevor man ein device erstellt
@@ -1398,6 +1398,11 @@ struct TestApp(ECS) {
 
 		rtTime++;
 		//rtTime %= 9;
+		oldPos[0] = pos[0];
+		oldPos[1] = pos[1];
+		oldPos[2] = pos[2];
+		oldRot[0] = rot[0];
+		oldRot[1] = rot[1];
 		import std.math.trigonometry;
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'W')) {
 			pos[2] += 2.0 * dt * cos(rot[1]);
@@ -1871,7 +1876,7 @@ struct TestApp(ECS) {
 					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 				))
 			);
-			float[8] rtPushConstants;
+			float[13] rtPushConstants;
 			rtPushConstants[0] = pos[0];
 			rtPushConstants[1] = pos[1];
 			rtPushConstants[2] = pos[2];
@@ -1880,6 +1885,11 @@ struct TestApp(ECS) {
 			rtPushConstants[5] = cast(float) capabilities.currentExtent.height / cast(float) capabilities.currentExtent.width;
 			rtPushConstants[6] = capabilities.currentExtent.width;
 			rtPushConstants[7] = capabilities.currentExtent.height;
+			rtPushConstants[8] = oldPos[0];
+			rtPushConstants[9] = oldPos[1];
+			rtPushConstants[10] = oldPos[2];
+			rtPushConstants[11] = oldRot[1];
+			rtPushConstants[12] = oldRot[0];
 
 			/*rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
 				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
@@ -1895,7 +1905,7 @@ struct TestApp(ECS) {
 			
 			cmdBuffer.bindPipeline(rasterizer.pipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
-			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 8, rtPushConstants.ptr);
+			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 13, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(renderPass, framebuffers[imageIndex], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(VkClearValue(VkClearColorValue([1.0, 1.0, 0.0, 1.0])), clear), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
@@ -2034,6 +2044,8 @@ struct TestApp(ECS) {
 
 	float[3] pos;
 	float[2] rot;
+	float[3] oldPos;
+	float[2] oldRot;
 	int rtTime;
 
 	struct GraphicsPackage {
