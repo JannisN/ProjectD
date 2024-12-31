@@ -27,7 +27,7 @@ layout (push_constant) uniform mypc_t {
     float oldRotX, oldRotY;
 } mypc;
 
-layout (set = 0, binding = 0) buffer drawableList_t {
+layout (set = 0, binding = 0) buffer readonly drawableList_t {
 	Drawable drawables[];
 } drawableList;
 

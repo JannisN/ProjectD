@@ -1002,7 +1002,7 @@ struct TestApp(ECS) {
 		swapchain.swapchain = null;
 		swapchain = device.createSwapchain(
 			surface,
-			2,
+			3,
 			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
 			VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 			capabilities.currentExtent,
@@ -1939,8 +1939,11 @@ struct TestApp(ECS) {
 				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
 			));*/
-			if (lastImageIndex != imageIndex)
-			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			if (lastImageIndex != imageIndex) {
+				rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			} else {
+			}
+
 			//rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			
 			VkSampleLocationEXT sampleLoc;
