@@ -1889,7 +1889,9 @@ struct TestApp(ECS) {
 		clear.depthStencil = VkClearDepthStencilValue(0.0, 0);
 
 		if (!rt) {
-			if (lastImageIndex != imageIndex)
+			if (lastImageIndex == imageIndex) {
+				lastImageIndex = imageIndex + 1;
+			}
 			cmdBuffer.pipelineBarrier(
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -1931,20 +1933,7 @@ struct TestApp(ECS) {
 			rtPushConstants[11] = oldRot[1];
 			rtPushConstants[12] = oldRot[0];
 
-			/*rtPipeline.descriptorSet.write(array!VkWriteDescriptorSet(
-				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, descriptorAccelStructInfo),
-				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, blurredImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, rtModelInfos.gpuBuffer),
-				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, drawables.gpuBuffer.t.buffer),
-			));*/
-			if (lastImageIndex != imageIndex) {
-				rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-			} else {
-			}
-
-			//rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			
 			VkSampleLocationEXT sampleLoc;
 			import std.random;
