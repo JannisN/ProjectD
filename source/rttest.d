@@ -829,7 +829,7 @@ struct TestApp(ECS) {
 		localWorkGroupSize[1] = size2D;
 		localWorkGroupSize[2] = 1;
 		writeln(localWorkGroupSize);
-		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
+		computePipeline = device.createComputePipeline(computeShader, "main", pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null);
 		descriptorPool = device.createDescriptorPool(0, 2, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1
@@ -868,7 +868,7 @@ struct TestApp(ECS) {
 			null
 		)));
 		blurPipeline.pipelineLayout = device.createPipelineLayout(array(blurPipeline.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 8)));
-		blurPipeline.computePipeline = device.createComputePipeline(blurPipeline.computeShader, "main", blurPipeline.pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null, null);
+		blurPipeline.computePipeline = device.createComputePipeline(blurPipeline.computeShader, "main", blurPipeline.pipelineLayout, array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)), 12, localWorkGroupSize.ptr, null);
 		blurPipeline.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			3
