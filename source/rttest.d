@@ -2182,6 +2182,13 @@ struct TestApp(ECS) {
 	float[2] sampleLocationRange;
 	Sampler sampler;
 	uint aaCount;
+
+	AllocatedResource!Image oldDepthImage;
+	ImageView oldDepthImageView;
+	AllocatedResource!Image[2] dPosImage;
+	ImageView[2] dPosImageView;
+	AllocatedResource!Image[2][2] doubleColorImage;
+	ImageView[2][2] doubleColorImageView;
 }
 
 struct Tlas {

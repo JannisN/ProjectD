@@ -57,7 +57,7 @@ float smoothOut(float new, float old, float strength) {
 }
 
 float smoothOut(float new, float old, float strength, float diff) {
-    if (diff * (1.0 - strength) < 1.0 / 255.0) {
+    /*if (diff * (1.0 - strength) < 1.0 / 255.0) {
         if (diff * 255.0 < 1.1) {
             return new;
         } else {
@@ -65,6 +65,15 @@ float smoothOut(float new, float old, float strength, float diff) {
         }
     } else {
         return (1.0 - strength) * new + strength * old;
+    }*/
+    if (diff * (1.0 - strength) < 0.1 / 255.0) {
+        strength = 0.5;
+    }
+    float ret = strength * old + (1.0 - strength) * new;
+    if (abs(ret - old) < 1.0 / 255.0) {
+        return ret + 1.0 / 255.0 * sign(ret - old);
+    } else {
+        return ret;
     }
 }
 
@@ -127,7 +136,7 @@ void main() {
     //o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 18.0), 1.0) + vec4(vec3(17.0 / 18.0), 1.0) * vec4(oldPixel, 1.0);
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
-    o_color = vec4(smoothOut(object, oldPixel, 0.9), 1.0);
+    o_color = vec4(smoothOut(object, oldPixel, 0.98), 1.0);
     //o_color = vec4(object, 1.0);
 	//o_color = vec4(200 * abs(oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * abs(oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
 
