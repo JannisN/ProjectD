@@ -17,6 +17,8 @@ layout (location = 3) in float rotXout;
 layout (location = 4) in float rotYout;
 layout (location = 5) flat in Drawable drawable;
 layout (set = 0, binding = 1/*, rgba8*/) uniform sampler2D texelBuffer;
+layout (set = 0, binding = 2, r32f/*, rgba8*/) uniform image2D dPos0;
+layout (set = 0, binding = 3, r32f/*, rgba8*/) uniform image2D dPos1;
 
 layout (push_constant) uniform mypc_t {
 	vec3 pos;
@@ -27,6 +29,17 @@ layout (push_constant) uniform mypc_t {
     float oldRotX, oldRotY;
 } mypc;
 
+vec4 packFloatToVec4i(const float value) {
+    const vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+    const vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+    vec4 res = fract(value * bitSh);
+    res -= res.xxyz * bitMsk;
+    return res;
+}
+float unpackFloatFromVec4i(const vec4 value) {
+    const vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+    return(dot(value, bitSh));
+}
 // todo:
 // -zweite textur für 16 bit farben
 // -speichern wie alt pixel sind, dass für neue strength kleiner wird
@@ -137,6 +150,8 @@ void main() {
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
     o_color = vec4(smoothOut(object, oldPixel, 0.98), 1.0);
+	imageStore(dPos0, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), packFloatToVec4i(oldCoords.x));
+	imageStore(dPos1, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), packFloatToVec4i(oldCoords.y));
     //o_color = vec4(object, 1.0);
 	//o_color = vec4(200 * abs(oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * abs(oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
 
