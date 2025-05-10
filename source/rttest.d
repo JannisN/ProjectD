@@ -875,6 +875,42 @@ struct TestApp(ECS) {
 			3
 		)));
 		blurPipeline.descriptorSet = blurPipeline.descriptorPool.allocateSet(blurPipeline.descriptorSetLayout);
+
+		imageAssembler.computeShader = Shader(device, import("assembler.spv"));
+		imageAssembler.descriptorSetLayout = device.createDescriptorSetLayout(array(VkDescriptorSetLayoutBinding(
+			0,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			1,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			2,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			3,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		)));
+		imageAssembler.pipelineLayout = device.createPipelineLayout(array(imageAssembler.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 8)));
+		imageAssembler.computePipeline = device.createComputePipeline(imageAssembler.computeShader, "main", imageAssembler.pipelineLayout,
+			array(VkSpecializationMapEntry(0, 0, 4), VkSpecializationMapEntry(1, 4, 4), VkSpecializationMapEntry(2, 8, 4)),
+			12, localWorkGroupSize.ptr, null);
+		imageAssembler.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			4
+		)));
+		imageAssembler.descriptorSet = imageAssembler.descriptorPool.allocateSet(imageAssembler.descriptorSetLayout);
 	}
 	void rebuildSwapchain() {
 		// müssen rasterizerpackages nicht explizit zerstört werden?
@@ -2071,6 +2107,111 @@ struct TestApp(ECS) {
 			}
 
 			cmdBuffer.endRenderPass();
+
+			/*cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, [], [],
+				array(
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						blurredImage,
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						normalImage,
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						depthImage,
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+				)
+			);*/
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, [], [],
+				array(
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						swapchain.images[imageIndex],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+				)
+			);
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, [], [],
+				array(
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						dPosImage[0],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						dPosImage[1],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+				)
+			);
+
+			imageAssembler.descriptorSet.write(array!VkWriteDescriptorSet(
+				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+			));
+			cmdBuffer.bindPipeline(imageAssembler.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
+			uint[8] pushConstants;
+			pushConstants[0] = 0;
+			pushConstants[1] = 0;
+			pushConstants[2] = capabilities.currentExtent.width;
+			pushConstants[3] = 0;
+			pushConstants[4] = capabilities.currentExtent.width / 3;
+			pushConstants[5] = capabilities.currentExtent.height / 3;
+			pushConstants[6] = rtTime % 3;
+			pushConstants[7] = 0;
+			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, imageAssembler.pipelineLayout, 0, array(imageAssembler.descriptorSet), []);
+			cmdBuffer.pushConstants(imageAssembler.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 8, pushConstants.ptr);
+			cmdBuffer.dispatch(capabilities.currentExtent.width, capabilities.currentExtent.height, 1);
+			cmdBuffer.pipelineBarrier(
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				0, [], [],
+				array(
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+						swapchain.images[imageIndex],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+				)
+			);
 		}
 
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);

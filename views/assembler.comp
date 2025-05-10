@@ -1,0 +1,71 @@
+/*
+glslangValidator -V ./views/assembler.comp -o ./views/assembler.spv
+*/
+#version 460
+
+layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
+
+layout (push_constant) uniform mypc_t {
+    int fromX, fromY;
+    int toX, toY;
+    int borderX, borderY;
+    int time;
+    int secondaryTime;
+} mypc;
+
+layout (set = 0, binding = 0, rgba8) uniform image2D swapchain;
+layout (set = 0, binding = 1, rgba8) uniform image2D dPos0;
+layout (set = 0, binding = 2, rgba8) uniform image2D dPos1;
+
+ivec4 packFloatToVec4i(const float value) {
+    const vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
+    const vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
+    vec4 res = fract(value * bitSh);
+    res -= res.xxyz * bitMsk;
+    return ivec4(res);
+}
+float unpackFloatFromVec4i(const ivec4 value) {
+    const vec4 bitSh = vec4(1.0/(256.0*256.0*256.0), 1.0/(256.0*256.0), 1.0/256.0, 1.0);
+    return float(dot(value, bitSh));
+}
+
+vec4 packFloat(float f) {
+    uint i = floatBitsToUint(f);
+    return vec4(
+        1.0 / 255.0 * (i >> 24),
+        1.0 / 255.0 * ((i >> 16) & 255),
+        1.0 / 255.0 * ((i >> 8) & 255),
+        1.0 / 255.0 * (i & 255)
+    );
+}
+float unpackFloat(vec4 v) {
+    return uintBitsToFloat(
+        uint(v.x * 255) << 24 +
+        uint(v.y * 255) << 16 +
+        uint(v.z * 255) << 8 +
+        uint(v.w * 255)
+    );
+}
+vec4 EncodeFloatRGBA( float v )
+{
+    vec4 kEncodeMul = vec4(1.0, 255.0, 65025.0, 16581375.0);
+    float kEncodeBit = 1.0/255.0;
+    vec4 enc = kEncodeMul * v;
+    enc = fract (enc);
+    enc -= enc.yzww * kEncodeBit;
+    return enc;
+}
+
+float DecodeFloatRGBA( vec4 enc )
+{
+    vec4 kDecodeDot = vec4(1.0, 1./255.0, 1./65025.0, 1./16581375.0);   
+    return dot( enc, kDecodeDot );
+}
+
+
+void main() {
+    float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+    float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+	imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(fract(255 * dp0), fract(255 * dp1), 0.0, 1.0));
+	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.001 * gl_GlobalInvocationID.x, 0.001 * gl_GlobalInvocationID.y, 0.0, 1.0));
+}
