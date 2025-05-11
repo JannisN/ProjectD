@@ -17,6 +17,12 @@ layout (set = 0, binding = 0, rgba8) uniform image2D swapchain;
 layout (set = 0, binding = 1, rgba8) uniform image2D dPos0;
 layout (set = 0, binding = 2, rgba8) uniform image2D dPos1;
 
+layout (set = 0, binding = 3) uniform sampler2D oldColor0;
+layout (set = 0, binding = 4) uniform sampler2D oldColor1;
+layout (set = 0, binding = 5, rgba8) uniform image2D newColor0;
+layout (set = 0, binding = 6, rgba8) uniform image2D newColor1;
+
+
 ivec4 packFloatToVec4i(const float value) {
     const vec4 bitSh = vec4(256.0*256.0*256.0, 256.0*256.0, 256.0, 1.0);
     const vec4 bitMsk = vec4(0.0, 1.0/256.0, 1.0/256.0, 1.0/256.0);
@@ -62,10 +68,23 @@ float DecodeFloatRGBA( vec4 enc )
     return dot( enc, kDecodeDot );
 }
 
-
 void main() {
     float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
     float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
-	imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(fract(255 * dp0), fract(255 * dp1), 0.0, 1.0));
-	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.001 * gl_GlobalInvocationID.x, 0.001 * gl_GlobalInvocationID.y, 0.0, 1.0));
+    vec2 oldPos = vec2(dp0, dp1);
+    //vec4 oldColor = texture(oldColor0, vec2(gl_GlobalInvocationID.x / 1000.0, gl_GlobalInvocationID.y / 1000.0));// + texture(oldColor1, oldPos) / 255.0;
+    //vec4 oldColor = texture(oldColor0, oldPos);// + texture(oldColor1, oldPos) / 255.0;
+
+    
+    //vec4 newColor = vec4(fract(gl_GlobalInvocationID.x / 3000.0), fract(gl_GlobalInvocationID.y / 3000.0), 0.0, 1.0);
+    //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColor = /*0.5 * oldColor + 0.5 **/ imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+	imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), newColor);
+	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(fract(newColor * 255.0)), 1.0));
+	imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 1.0, 1.0, 2.0) - newColor);
+	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldPos, 0.0, 1.0));
+	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(fract(255 * dp0), fract(255 * dp1), 0.0, 1.0));
+    
+    //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(newColor), 1.0));
 }

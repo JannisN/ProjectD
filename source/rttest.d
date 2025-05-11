@@ -74,7 +74,7 @@ struct TestApp(ECS) {
             dynEcs.getComponent!Text(timeCounter).x = -1;
             dynEcs.getComponent!Text(timeCounter).y = -1;
             dynEcs.getComponent!Text(timeCounter).scale = 1;
-			rtTime++;
+			//rtTime++;
 
 			import std.math.trigonometry;
 			Drawable drawable;
@@ -897,6 +897,24 @@ struct TestApp(ECS) {
 			null
 		), VkDescriptorSetLayoutBinding(
 			3,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			4,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			5,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			6,
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
@@ -908,7 +926,7 @@ struct TestApp(ECS) {
 			12, localWorkGroupSize.ptr, null);
 		imageAssembler.descriptorPool = device.createDescriptorPool(0, 1, array(VkDescriptorPoolSize(
 			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-			4
+			7
 		)));
 		imageAssembler.descriptorSet = imageAssembler.descriptorPool.allocateSet(imageAssembler.descriptorSetLayout);
 	}
@@ -936,6 +954,12 @@ struct TestApp(ECS) {
 		dPosImage[0].destroy();
 		dPosImageView[1].destroy();
 		dPosImage[1].destroy();
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 2; j++) {
+				doubleColorImage[i][j].destroy();
+				doubleColorImageView[i][j].destroy();
+			}
+		}
 
 		initWindow();
 	}
@@ -1451,6 +1475,31 @@ struct TestApp(ECS) {
 				1
 			)
 		);
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 2; j++) {
+				doubleColorImage[i][j] = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+				memoryAllocator.allocate(doubleColorImage[i][j], VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				doubleColorImageView[i][j] = ImageView(
+					device,
+					doubleColorImage[i][j],
+					VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+					VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+					VkComponentMapping(
+						VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+						VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+						VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+						VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+					),
+					VkImageSubresourceRange(
+						VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+						0,
+						1,
+						0,
+						1
+					)
+				);
+			}
+		}
 		dPosImage[0] = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(dPosImage[0], VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		dPosImageView[0] = ImageView(
@@ -1493,8 +1542,8 @@ struct TestApp(ECS) {
 				1
 			)
 		);
-		if (rt) {
 		cmdBuffer.begin();
+		if (rt) {
 		cmdBuffer.pipelineBarrier(
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -1527,11 +1576,51 @@ struct TestApp(ECS) {
 				),
 			)
 		);
+		}
+		cmdBuffer.pipelineBarrier(
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			0, [],
+			[],
+			array(
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					doubleColorImage[0][0],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					doubleColorImage[0][1],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					doubleColorImage[1][0],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					doubleColorImage[1][1],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+			)
+		);
 		cmdBuffer.end();
 		queue.submit(cmdBuffer, fence);
 		fence.wait();
 		fence.reset();
-		}
 	}
 	void update() {
 		auto dt = timer.update();
@@ -2108,37 +2197,6 @@ struct TestApp(ECS) {
 
 			cmdBuffer.endRenderPass();
 
-			/*cmdBuffer.pipelineBarrier(
-				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0, [], [],
-				array(
-					imageMemoryBarrier(
-						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						blurredImage,
-						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-					),
-					imageMemoryBarrier(
-						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						normalImage,
-						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-					),
-					imageMemoryBarrier(
-						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT | VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
-						depthImage,
-						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
-					),
-				)
-			);*/
 			cmdBuffer.pipelineBarrier(
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -2178,12 +2236,17 @@ struct TestApp(ECS) {
 				)
 			);
 
+			
 			imageAssembler.descriptorSet.write(array!VkWriteDescriptorSet(
 				WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 				WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 				WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
-				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[rtTime % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[rtTime % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[(rtTime + 1) % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
+				WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[(rtTime + 1) % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL),
 			));
+			
 			cmdBuffer.bindPipeline(imageAssembler.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
 			uint[8] pushConstants;
 			pushConstants[0] = 0;
