@@ -72,18 +72,45 @@ void main() {
     float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
     float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
     vec2 oldPos = vec2(dp0, dp1);
+    //oldPos = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
     //vec4 oldColor = texture(oldColor0, vec2(gl_GlobalInvocationID.x / 1000.0, gl_GlobalInvocationID.y / 1000.0));// + texture(oldColor1, oldPos) / 255.0;
     //vec4 oldColor = texture(oldColor0, oldPos);// + texture(oldColor1, oldPos) / 255.0;
+    vec4 oldColor;
+    if (oldPos == vec2(0, 0)) {
+        for (int i = -1; i < 2; i++) {
+            for (int j = -1; j < 2; j++) {
+                float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
+                float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
+                if (dp0 != 0.0 && dp1 != 0.0) {
+                    oldPos = vec2(dp0 - i / float(mypc.toX), dp1 - j / float(mypc.toY));
+                    break;
+                }
+            }
+        }
+    }
+    oldColor = vec4(texture(oldColor0, oldPos).rgb, 1.0);// + texture(oldColor1, oldPos) / 255.0;
+    //oldColor = vec4(oldPos, 0.0, 1.0);
 
     
     //vec4 newColor = vec4(fract(gl_GlobalInvocationID.x / 3000.0), fract(gl_GlobalInvocationID.y / 3000.0), 0.0, 1.0);
     //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
-    vec4 newColor = /*0.5 * oldColor + 0.5 **/ imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    //vec4 newColor = 0.9 * oldColor + 0.1 * imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    //newColor = imageLoad(swapchain, ivec2(int(dp0 * mypc.toX), int(dp1 * mypc.toY)));
+
+    newColor = 0.98 * oldColor + 0.02 * newColor;// + texture(oldColor1, oldPos) / 255.0;
+    if (oldPos == vec2(0, 0)) newColor = vec4(1.0, 1.0, 1.0, 1.0);
+    /*if (oldPos == vec2(0, 0)) {
+        oldColor = newColor;
+    }*/
+    //newColor = vec4(oldPos, 0.0, 1.0);
 	imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), newColor);
-	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(fract(newColor * 255.0)), 1.0));
-	imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 1.0, 1.0, 2.0) - newColor);
+	//imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(fract(newColor * 255.0)), 1.0));
+	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 1.0, 1.0, 2.0) - newColor);
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldPos, 0.0, 1.0));
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(fract(255 * dp0), fract(255 * dp1), 0.0, 1.0));
+    //vec4 color2 = imageLoad(oldColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+	imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), newColor);
     
     //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(newColor), 1.0));
