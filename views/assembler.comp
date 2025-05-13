@@ -88,8 +88,10 @@ void main() {
             }
         }
     }
-    oldColor = vec4(ivec3(255 * texture(oldColor0, oldPos).rgb) / 255.0, 1.0);// + texture(oldColor1, oldPos) / 255.0;
-    oldColor += vec4(ivec3(255 * texture(oldColor1, oldPos).rgb) / 255.0 / 255.0, 0.0);
+    //oldColor = vec4(ivec3(255 * texture(oldColor0, oldPos).rgb) / 255.0, 1.0);// + texture(oldColor1, oldPos) / 255.0;
+    //oldColor += vec4(ivec3(255 * texture(oldColor1, oldPos).rgb) / 255.0 / 255.0, 0.0);
+    oldColor = texture(oldColor0, oldPos);// + texture(oldColor1, oldPos) / 255.0;
+    oldColor += texture(oldColor1, oldPos) / 255.0;
     //oldColor = vec4(oldPos, 0.0, 1.0);
     vec4 acurate = vec4(texture(oldColor1, oldPos).rgb, 1.0);
 
