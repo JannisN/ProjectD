@@ -13,6 +13,7 @@ import wavefront;
 import tensor;
 import std.mathspecial;
 import std.random;
+import core.internal.container.common;
 
 struct TestApp(ECS) {
 	ECS* ecs;
@@ -540,9 +541,9 @@ struct TestApp(ECS) {
 			VkFilter.VK_FILTER_LINEAR,
 			VkFilter.VK_FILTER_LINEAR,
 			VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR,
-			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
-			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			0.0,
 			false,
 			0.0,
@@ -919,6 +920,24 @@ struct TestApp(ECS) {
 			1,
 			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
 			null
+		), VkDescriptorSetLayoutBinding(
+			7,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			8,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
+		), VkDescriptorSetLayoutBinding(
+			9,
+			VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			1,
+			VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+			null
 		)));
 		imageAssembler.pipelineLayout = device.createPipelineLayout(array(imageAssembler.descriptorSetLayout), array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 0, uint.sizeof * 8)));
 		imageAssembler.computePipeline = device.createComputePipeline(imageAssembler.computeShader, "main", imageAssembler.pipelineLayout,
@@ -927,7 +946,7 @@ struct TestApp(ECS) {
 		imageAssembler.descriptorPool = device.createDescriptorPool(0, 1, array(
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				5
+				8
 			),
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -966,6 +985,12 @@ struct TestApp(ECS) {
 				doubleColorImageView[i][j].destroy();
 			}
 		}
+		oldDepthImageView[0].destroy();
+		oldDepthImageView[1].destroy();
+		oldDepthImage[0].destroy();
+		oldDepthImage[1].destroy();
+		depthGuessImageView.destroy();
+		depthGuessImage.destroy();
 
 		initWindow();
 	}
@@ -1058,6 +1083,27 @@ struct TestApp(ECS) {
 					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
 					null
 				),
+				VkDescriptorSetLayoutBinding(
+					4,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),
+				VkDescriptorSetLayoutBinding(
+					5,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),
+				VkDescriptorSetLayoutBinding(
+					6,
+					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+					1,
+					VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+					null
+				),
 			));
 			rasterizer.descriptorPool = device.createDescriptorPool(0, 1, array(
 				/*VkDescriptorPoolSize(
@@ -1074,7 +1120,7 @@ struct TestApp(ECS) {
 				),
 				VkDescriptorPoolSize(
 					VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-					2
+					5
 				),
 			));
 			rasterizer.descriptorSet = rasterizer.descriptorPool.allocateSet(rasterizer.descriptorSetLayout);
@@ -1506,6 +1552,50 @@ struct TestApp(ECS) {
 				);
 			}
 		}
+		for (int i = 0; i < 2; i++) {
+			oldDepthImage[i] = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+			memoryAllocator.allocate(oldDepthImage[i], VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			oldDepthImageView[i] = ImageView(
+				device,
+				oldDepthImage[i],
+				VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+				VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+				VkComponentMapping(
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+					VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+				),
+				VkImageSubresourceRange(
+					VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+					0,
+					1,
+					0,
+					1
+				)
+			);
+		}
+		depthGuessImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		memoryAllocator.allocate(depthGuessImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		depthGuessImageView = ImageView(
+			device,
+			depthGuessImage,
+			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
+			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+			VkComponentMapping(
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
+				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY
+			),
+			VkImageSubresourceRange(
+				VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT,
+				0,
+				1,
+				0,
+				1
+			)
+		);
 		dPosImage[0] = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(capabilities.currentExtent.width, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(dPosImage[0], VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		dPosImageView[0] = ImageView(
@@ -1619,6 +1709,30 @@ struct TestApp(ECS) {
 					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
 					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
 					doubleColorImage[1][1],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					oldDepthImage[0],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					oldDepthImage[1],
+					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+				),
+				imageMemoryBarrier(
+					0,
+					0,
+					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
+					VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+					depthGuessImage,
 					VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 				),
 			)
@@ -2151,6 +2265,9 @@ struct TestApp(ECS) {
 			rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			rasterizer.descriptorSet.write(WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthGuessImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			
 			VkSampleLocationEXT sampleLoc;
 			import std.random;
@@ -2239,6 +2356,30 @@ struct TestApp(ECS) {
 						dPosImage[1],
 						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
 					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						oldDepthImage[0],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						oldDepthImage[1],
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
+					imageMemoryBarrier(
+						VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT,
+						VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						VkImageLayout.VK_IMAGE_LAYOUT_GENERAL,
+						depthGuessImage,
+						VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)
+					),
 				)
 			);
 
@@ -2255,6 +2396,9 @@ struct TestApp(ECS) {
 				imageAssembler.descriptorSet.write(WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[rtTime % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 				imageAssembler.descriptorSet.write(WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[(rtTime + 1) % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 				imageAssembler.descriptorSet.write(WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[(rtTime + 1) % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+				imageAssembler.descriptorSet.write(WriteDescriptorSet(7, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+				imageAssembler.descriptorSet.write(WriteDescriptorSet(8, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+				imageAssembler.descriptorSet.write(WriteDescriptorSet(9, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthGuessImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			//));
 			
 			cmdBuffer.bindPipeline(imageAssembler.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -2290,7 +2434,8 @@ struct TestApp(ECS) {
 			);
 			cmdBuffer.clearColorImage(dPosImage[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(0), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 			cmdBuffer.clearColorImage(dPosImage[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(0), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
-			
+			cmdBuffer.clearColorImage(depthGuessImage, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(0), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
+			cmdBuffer.clearColorImage(oldDepthImage[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL, VkClearColorValue(0), array(VkImageSubresourceRange(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1)));
 		}
 
 		cmdBuffer.bindPipeline(graphicsPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -2489,8 +2634,10 @@ struct TestApp(ECS) {
 	Sampler sampler;
 	uint aaCount;
 
-	AllocatedResource!Image oldDepthImage;
-	ImageView oldDepthImageView;
+	AllocatedResource!Image[2] oldDepthImage;
+	ImageView[2] oldDepthImageView;
+	AllocatedResource!Image depthGuessImage;
+	ImageView depthGuessImageView;
 	AllocatedResource!Image[2] dPosImage;
 	ImageView[2] dPosImageView;
 	AllocatedResource!Image[2][2] doubleColorImage;
