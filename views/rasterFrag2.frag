@@ -190,6 +190,20 @@ void main() {
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
     //o_color = vec4(smoothOut(object, oldPixel, 0.98), 1.0);
     o_color = vec4(object, 1.0);
+    /*float oldX = oldCoords.x * 0.5 + 0.25;
+    float oldY = oldCoords.y * 0.5 + 0.25;
+    if (oldCoords.x < 0) {
+        oldX = 1 / 255.0;
+    }
+    if (oldCoords.x > 1) {
+        oldX = 254.0 / 255.0;
+    }
+    if (oldCoords.y < 0) {
+        oldY = 1 / 255.0;
+    }
+    if (oldCoords.y > 1) {
+        oldY = 254.0 / 255.0;
+    }*/
 	imageStore(dPos0, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(oldCoords.x));
 	imageStore(dPos1, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(oldCoords.y));
 	imageStore(currentDepth, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(atan(posNew.z) / 3.14159 + 0.5));
