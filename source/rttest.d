@@ -61,7 +61,16 @@ struct TestApp(ECS) {
 		drawable.rot = Tensor!(float, 3)(0, 0, 0);
 		drawable.rgb = Tensor!(float, 3)(0.9, 0.8, 0.6);
 		drawable.modelId = cast(uint)cubeModel;
+
+		Drawable drawable2;
+		drawable2.pos = Tensor!(float, 3)(0, 0, 15);
+		drawable2.dpos = Tensor!(float, 3)(0, 0, 0);
+		drawable2.scale = Tensor!(float, 3)(5, 5, 5);
+		drawable2.rot = Tensor!(float, 3)(0, 0, 0);
+		drawable2.rgb = Tensor!(float, 3)(0.8, 0.8, 0.8);
+		drawable2.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
+		//objects.add().add!Drawable(drawable2);
 
 		//rnd = Random(42);
 	}
