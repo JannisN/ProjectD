@@ -1210,7 +1210,51 @@ struct TestApp(ECS) {
 					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
 					VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED,
 					VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-				)
+				),
+				/*VkAttachmentDescription(
+					0,
+					VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+					VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				),
+				VkAttachmentDescription(
+					0,
+					VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+					VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				),
+				VkAttachmentDescription(
+					0,
+					VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+					VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				),
+				VkAttachmentDescription(
+					0,
+					VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+					VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_LOAD,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE,
+					VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+					VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				),*/
 			),
 			array(
 				subpassDescription(
@@ -1220,6 +1264,22 @@ struct TestApp(ECS) {
 							0,
 							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 						),
+						/*VkAttachmentReference(
+							2,
+							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						),
+						VkAttachmentReference(
+							3,
+							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						),
+						VkAttachmentReference(
+							4,
+							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						),
+						VkAttachmentReference(
+							5,
+							VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+						),*/
 					),
 					[],
 					&depthAttachmentRef,

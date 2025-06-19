@@ -12,6 +12,7 @@ struct Drawable {
     uint modelId;
 };
 
+layout (early_fragment_tests) in;
 layout (location = 0) out vec4 o_color;
 //layout (location = 2) in vec2 uvout;
 layout (location = 2) in vec3 normalOut;
