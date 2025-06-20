@@ -24,6 +24,7 @@ layout (set = 0, binding = 6, rgba8) uniform image2D newColor1;
 layout (set = 0, binding = 7, rgba8) uniform image2D currentDepth;
 layout (set = 0, binding = 8, rgba8) uniform image2D oldDepth;
 layout (set = 0, binding = 9, rgba8) uniform image2D guessDepth;
+layout (set = 0, binding = 10, rgba8) uniform image2D renderImage;
 
 
 ivec4 packFloatToVec4i(const float value) {
@@ -161,19 +162,20 @@ void main() {
     if (outOfBounds) {
         oldZ = guessZ + 100;
     }
+    //oldColor = texture(oldColor0, vec2(gl_GlobalInvocationID.x / float(width), gl_GlobalInvocationID.y / float(height)));
     //vec4 newColor = vec4(fract(gl_GlobalInvocationID.x / 3000.0), fract(gl_GlobalInvocationID.y / 3000.0), 0.0, 1.0);
     //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = 0.9 * oldColor + 0.1 * imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = vec4(1.0, 0.5, 1.0, 1.0);
-    vec4 newColor = imageLoad(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
-    vec4 newColorOutput = imageLoad(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColor = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColorOutput = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //newColor = imageLoad(swapchain, ivec2(int(dp0 * mypc.toX), int(dp1 * mypc.toY)));
 
-    /*if (abs(oldZ - guessZ) < 0.1) {
+    if (abs(oldZ - guessZ) < 0.1) {
         //if (oldPos.x > 0.0 && oldPos.y > 0.0 && oldPos.x < 1.0 && oldPos.y < 1.0) {
             newColor = 250.0 / 256.0 * oldColor + 6.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
         //}
-    }*/
+    }
 
     //newColor = 220.0 / 256.0 * oldColor + 35.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
     /*if (oldPos == vec2(0, 0)) {
@@ -186,6 +188,10 @@ void main() {
     //newColor = vec4(oldPos, 0.0, 1.0);
     newColor = round(newColor * 256 * 256) / 256.0 / 256.0;
 	imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(newColor * 255) / 255.0);
+    /*if (int(gl_GlobalInvocationID.x) < 100) {
+	    imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(0, 1, 0, 1));
+    }*/
+	//imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(0, 1, 0, 1));
 	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), /*round*/ivec4(fract(newColor * 255.0) * 255) / 255.0);
     // zum testen, darf keine rote/weisse linien geben
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ), 0.1 * oldZ, 0.1 * guessZ, 1.0));
@@ -193,14 +199,16 @@ void main() {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0, 0, 1.0));
         // abs ist kaputt???
 	
-    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 4, currentZ / 4.0, oldZ / 4.0, 1.0));
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 4, currentZ / 4.0, oldZ / 4.0, 1.0));
     
 
     } else {
-	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColorOutput));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(texture(oldColor0, vec2(gl_GlobalInvocationID.x / width, gl_GlobalInvocationID.y / height))));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(dp0, dp1, currentZ / 4.0, 1));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(texture(oldColor0, vec2(gl_GlobalInvocationID.x / float(width), gl_GlobalInvocationID.y / float(height)))));
+
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), newColor));
     //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(guessZ / 4.0, currentZ / 4.0, oldZ / 4.0, 1.0));
     //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
