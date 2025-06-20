@@ -165,14 +165,16 @@ void main() {
     //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = 0.9 * oldColor + 0.1 * imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = vec4(1.0, 0.5, 1.0, 1.0);
-    vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColor = imageLoad(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    vec4 newColorOutput = imageLoad(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //newColor = imageLoad(swapchain, ivec2(int(dp0 * mypc.toX), int(dp1 * mypc.toY)));
 
-    if (abs(oldZ - guessZ) < 0.1) {
+    /*if (abs(oldZ - guessZ) < 0.1) {
         //if (oldPos.x > 0.0 && oldPos.y > 0.0 && oldPos.x < 1.0 && oldPos.y < 1.0) {
             newColor = 250.0 / 256.0 * oldColor + 6.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
         //}
-    }
+    }*/
+
     //newColor = 220.0 / 256.0 * oldColor + 35.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
     /*if (oldPos == vec2(0, 0)) {
         newColor = vec4(1.0, 1.0, 1.0, 1.0);
@@ -197,8 +199,11 @@ void main() {
     } else {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColorOutput));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(texture(oldColor0, vec2(gl_GlobalInvocationID.x / width, gl_GlobalInvocationID.y / height))));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), newColor));
     //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(guessZ / 4.0, currentZ / 4.0, oldZ / 4.0, 1.0));
-    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
+    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.1 * oldZ, 0.0 * guessZ, 1.0));
 	/*imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), 
         vec4(1 / 10.0 * tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))))))), 0.0, 0.0, 1.0)

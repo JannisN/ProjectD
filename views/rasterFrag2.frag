@@ -14,11 +14,15 @@ struct Drawable {
 
 layout (early_fragment_tests) in;
 layout (location = 0) out vec4 o_color;
+layout (location = 1) out vec4 o_dPos0;
+layout (location = 2) out vec4 o_dPos1;
+layout (location = 3) out vec4 o_currentDepth;
+layout (location = 4) out vec4 o_guessDepth;
 //layout (location = 2) in vec2 uvout;
-layout (location = 2) in vec3 normalOut;
-layout (location = 3) in float rotXout;
-layout (location = 4) in float rotYout;
-layout (location = 5) flat in Drawable drawable;
+layout (location = 5) in vec3 normalOut;
+layout (location = 6) in float rotXout;
+layout (location = 7) in float rotYout;
+layout (location = 8) flat in Drawable drawable;
 layout (set = 0, binding = 1/*, rgba8*/) uniform sampler2D texelBuffer;
 layout (set = 0, binding = 2, rgba8) uniform image2D dPos0;
 layout (set = 0, binding = 3, rgba8) uniform image2D dPos1;
@@ -205,10 +209,16 @@ void main() {
     if (oldCoords.y > 1) {
         oldY = 254.0 / 255.0;
     }*/
+    /*
 	imageStore(dPos0, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(oldCoords.x));
 	imageStore(dPos1, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(oldCoords.y));
 	imageStore(currentDepth, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(atan(posNew.z) / 3.14159 + 0.5));
 	imageStore(guessDepth, ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y)), EncodeFloatRGBA(atan(finalPos.z) / 3.14159 + 0.5));
+    */
+    o_dPos0 = EncodeFloatRGBA(oldCoords.x);
+    o_dPos1 = EncodeFloatRGBA(oldCoords.y);
+    o_currentDepth = EncodeFloatRGBA(atan(posNew.z) / 3.14159 + 0.5);
+    o_guessDepth = EncodeFloatRGBA(atan(finalPos.z) / 3.14159 + 0.5);
     //o_color = vec4(object, 1.0);
 	//o_color = vec4(200 * abs(oldCoords.x - gl_FragCoord.x / float(mypc.width)), 100 * abs(oldCoords.y - gl_FragCoord.y / float(mypc.height)), 0.0, 1.0);
 
