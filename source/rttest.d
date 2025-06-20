@@ -70,7 +70,7 @@ struct TestApp(ECS) {
 		drawable2.rgb = Tensor!(float, 3)(0.8, 0.8, 0.8);
 		drawable2.modelId = cast(uint)cubeModel;
 		objects.add().add!Drawable(drawable);
-		//objects.add().add!Drawable(drawable2);
+		objects.add().add!Drawable(drawable2);
 
 		//rnd = Random(42);
 	}
@@ -1603,10 +1603,24 @@ struct TestApp(ECS) {
 			blendAttachment.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
 			blendAttachment.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 			blendAttachment.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+
+			VkPipelineColorBlendAttachmentState blendAttachmentData;
+			blendAttachmentData.blendEnable = VK_TRUE;
+			blendAttachmentData.colorWriteMask = 0xf;
+			blendAttachmentData.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE;
+			blendAttachmentData.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ZERO;
+			blendAttachmentData.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE;
+			blendAttachmentData.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ZERO;
+			blendAttachmentData.colorBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			blendAttachmentData.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
+			/*
+			blendAttachmentData.srcColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachmentData.dstColorBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachmentData.colorBlendOp = VkBlendOp.VK_BLEND_FACTOR_ONE;*/
 			//blendAttachment.srcAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA;
 			//blendAttachment.dstAlphaBlendFactor = VkBlendFactor.VK_BLEND_FACTOR_DST_ALPHA;
 			//blendAttachment.alphaBlendOp = VkBlendOp.VK_BLEND_OP_ADD;
-			auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_OR, array(blendAttachment, blendAttachment, blendAttachment, blendAttachment, blendAttachment), [0.5, 0.5, 0.5, 0.5]);
+			auto blend = colorBlendState(false, VkLogicOp.VK_LOGIC_OP_COPY, array(blendAttachmentData, blendAttachmentData, blendAttachmentData, blendAttachmentData, blendAttachmentData), [0.0, 0.0, 0.0, 0.0]);
 
 			auto depthStencil = depthStencilState(
 				true,
@@ -2592,11 +2606,11 @@ struct TestApp(ECS) {
 			cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, rasterizer.pipelineLayout, 0, array(rasterizer.descriptorSet), []);
 			cmdBuffer.pushConstants(rasterizer.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, float.sizeof * 13, rtPushConstants.ptr);
 			cmdBuffer.beginRenderPass(rasterizer.renderPass, firstFramebuffer[(rtTime + 0) % 2], VkRect2D(VkOffset2D(0, 0), capabilities.currentExtent), array(
-				VkClearValue(VkClearColorValue([1.0, 0.0, 1.0, 1.0])), clear,
-				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 1.0])),
-				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 1.0])),
-				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 1.0])),
-				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 1.0])),
+				VkClearValue(VkClearColorValue([1.0, 1.0, 1.0, 1.0])), clear,
+				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 0.0])),
+				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 0.0])),
+				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 0.0])),
+				VkClearValue(VkClearColorValue([0.0, 0.0, 0.0, 0.0])),
 			), VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
 			pfnCmdSetSampleLocationsEXT(cmdBuffer, &sampleLocations);
 
