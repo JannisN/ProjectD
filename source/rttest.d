@@ -975,6 +975,8 @@ struct TestApp(ECS) {
 		vkDeviceWaitIdle(device.device);
 		swapchainViews.resize(0);
 		framebuffers.resize(0);
+		firstFramebuffer[0].destroy();
+		firstFramebuffer[1].destroy();
 		graphicsDescriptorSet.destroy();
 		graphicsDescriptorPool.destroy();
 		graphicsPipeline.destroy();
@@ -982,8 +984,6 @@ struct TestApp(ECS) {
 		rasterizer.renderPass.destroy();
 		pipelineLayoutGraphics.destroy();
 		graphicsDescriptorSetLayout.destroy();
-		firstFramebuffer[0].destroy();
-		firstFramebuffer[1].destroy();
 
 		blurredImageView.destroy();
 		blurredImage.destroy();
@@ -1011,6 +1011,8 @@ struct TestApp(ECS) {
 		depthGuessImage.destroy();
 		renderImageView.destroy();
 		renderImage.destroy();
+
+		swapchain.destroy();
 
 		initWindow();
 	}
@@ -2006,7 +2008,6 @@ struct TestApp(ECS) {
 		}
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)'D')) {
 			pos[2] += 2.0 * dt * sin(rot[1]);
-			pos[0] += 2.0 * dt * cos(rot[1]);
 		}
 		if ((*ecs.createView!(GlfwVulkanWindow)[0])[0].getKey(cast(int)' ')) {
 			pos[1] += 2.0 * dt;
