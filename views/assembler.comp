@@ -111,11 +111,14 @@ void main() {
     if (oldPosTexture == vec2(0, 0)) {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
+                // noch unsicher ob besser ohne oder mit if
+                if (i != j) {
                 float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 if (dp0 != 0.0 && dp1 != 0.0) {
                     oldPosTexture = vec2(dp0 - i / float(mypc.toX), dp1 - j / float(mypc.toY));
                     break;
+                }
                 }
             }
         }
@@ -149,11 +152,13 @@ void main() {
     //if (abs(oldZ - guessZ) > 0.1) {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
+                if (i != j) {
                 float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
                 if (abs(oldZnew - guessZ) < abs(oldZ - guessZ)) {
                 //if (abs(oldZnew - guessZ) < 0.1) {
                     oldZ = oldZnew;
                     //break;
+                }
                 }
             }
         }
