@@ -11,12 +11,12 @@ struct Drawable {
 
 layout (location = 0) in vec3 pos;
 layout (location = 1) in vec3 normal;
-layout (location = 5) out vec3 normalOut;
+layout (location = 6) out vec3 normalOut;
 //layout (location = 1) in vec2 uv;
 //layout (location = 2) out vec2 uvout;
-layout (location = 6) out float rotXout;
-layout (location = 7) out float rotYout;
-layout (location = 8) out Drawable drawableOut;
+layout (location = 7) out float rotXout;
+layout (location = 8) out float rotYout;
+layout (location = 9) out Drawable drawableOut;
 
 layout (push_constant) uniform mypc_t {
 	vec3 pos;
@@ -57,7 +57,7 @@ void main() {
 	//uvout = uv;
 	normalOut = normal;
 	normalOut.x *= 1.0;
-	normalOut.y *= -1.0;
+	normalOut.y *= 1.0;
 	Drawable drawable = drawableList.drawables[gl_InstanceIndex];
     drawableOut = drawable;
     //colour = vec3(drawable.scale.x);

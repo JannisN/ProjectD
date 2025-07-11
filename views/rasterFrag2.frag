@@ -18,11 +18,12 @@ layout (location = 1) out vec4 o_dPos0;
 layout (location = 2) out vec4 o_dPos1;
 layout (location = 3) out vec4 o_currentDepth;
 layout (location = 4) out vec4 o_guessDepth;
+layout (location = 5) out vec4 o_normals;
 //layout (location = 2) in vec2 uvout;
-layout (location = 5) in vec3 normalOut;
-layout (location = 6) in float rotXout;
-layout (location = 7) in float rotYout;
-layout (location = 8) flat in Drawable drawable;
+layout (location = 6) in vec3 normalOut;
+layout (location = 7) in float rotXout;
+layout (location = 8) in float rotYout;
+layout (location = 9) flat in Drawable drawable;
 layout (set = 0, binding = 1/*, rgba8*/) uniform sampler2D texelBuffer;
 layout (set = 0, binding = 2, rgba8) uniform image2D dPos0;
 layout (set = 0, binding = 3, rgba8) uniform image2D dPos1;
@@ -192,9 +193,10 @@ void main() {
     //oldPixel.a = 1.0;
     //o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.0 / 18.0), 1.0) + vec4(vec3(17.0 / 18.0), 1.0) * vec4(oldPixel, 1.0);
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
-    vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.75);
+    vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * -dot(normalize(vec3(1, -1, 1)), normalOut) + 0.75);
     //o_color = vec4(smoothOut(object, oldPixel, 0.98), 1.0);
     o_color = vec4(object, 1.0);
+    o_normals = vec4(((rotYinv * rotXinv * normalOut) + 1.0) / 2.0, 1.0);
     /*float oldX = oldCoords.x * 0.5 + 0.25;
     float oldY = oldCoords.y * 0.5 + 0.25;
     if (oldCoords.x < 0) {
