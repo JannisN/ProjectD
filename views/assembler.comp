@@ -25,7 +25,8 @@ layout (set = 0, binding = 7, rgba8) uniform image2D currentDepth;
 layout (set = 0, binding = 8, rgba8) uniform image2D oldDepth;
 layout (set = 0, binding = 9, rgba8) uniform image2D guessDepth;
 layout (set = 0, binding = 10, rgba8) uniform image2D renderImage;
-layout (set = 0, binding = 11, rgba8) uniform image2D normals;
+layout (set = 0, binding = 11, rgba8) uniform image2D currentNormal;
+layout (set = 0, binding = 12, rgba8) uniform image2D oldNormal;
 
 
 ivec4 packFloatToVec4i(const float value) {
@@ -108,6 +109,7 @@ void main() {
         round(height * dp1) / float(height)); 
     ivec2 oldPosInt = ivec2(round(width * dp0), round(height * dp1));
 
+
     //oldPos = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
     //vec4 oldColor = texture(oldColor0, vec2(gl_GlobalInvocationID.x / 1000.0, gl_GlobalInvocationID.y / 1000.0));// + texture(oldColor1, oldPos) / 255.0;
     //vec4 oldColor = texture(oldColor0, oldPos);// + texture(oldColor1, oldPos) / 255.0;
@@ -136,12 +138,15 @@ void main() {
     vec4 acurate = vec4(texture(oldColor1, oldPosTexture).rgb, 1.0);
 
     
+    vec3 oldN = imageLoad(oldNormal, oldPosInt).xyz * 2.0 - 1.0;
+
     float oldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt)))));
     /*if (oldPos == vec2(0, 0)) {
         oldZ = 1000;
     }*/
     float currentZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
     float guessZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(guessDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
+
         //vec4(1 / 10.0 * tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))))))), 0.0, 0.0, 1.0)
     /*if (oldPos == vec2(0, 0)) {
         oldZ = 100.0;
@@ -184,8 +189,11 @@ void main() {
     screenCoords.x = gl_GlobalInvocationID.x / float(width) * 2.0 - 1.0;
     screenCoords.y = gl_GlobalInvocationID.y / float(height) * 2.0 - 1.0;
     vec3 camNormal = normalize(vec3(screenCoords.x * 0.5 * float(width) / float(height), screenCoords.y * -0.5, 1.0));
-    vec4 normal = imageLoad(normals, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))) * 2.0 - 1.0;
+    vec4 normal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))) * 2.0 - 1.0;
     float angleFactor = -dot(normal.xyz, camNormal);
+    if (dot(normal.xyz, oldN) < 0.99) {
+        angleFactor = 1.0;
+    }
     // man muss ausserdem testen ob die normalen gleich sind
 
     if (abs(oldZ - guessZ) < 0.1 / angleFactor) {
