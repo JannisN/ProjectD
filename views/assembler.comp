@@ -169,6 +169,7 @@ void main() {
         guessZ = 10000.0;
     }
     //if (abs(oldZ - guessZ) > 0.1) {
+    ivec2 oldPosIntMoved = oldPosInt;
     float dist = 0.0;
         /*for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
@@ -179,6 +180,7 @@ void main() {
                 float f2 = -dot((normal.xyz + oldNnew) / 2, camNormal);
                 if (abs(oldZnew - guessZ) < abs(oldZ - guessZ)) {
                 //if (abs(oldZnew - guessZ) < 0.1) {
+                    oldPosIntMoved = oldPosInt + ivec2(i, j);
                     oldZ = oldZnew;
                     oldN = oldNnew;
                     dist = (i * i + j * j) / 2.0;
@@ -208,6 +210,9 @@ void main() {
 
     bool atBorderCurrent = false;
     bool atBorderOld = false;
+    vec2 alt;
+    int count;
+    bool neighbourDistant = false;
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 //if (i != j) {
@@ -223,24 +228,98 @@ void main() {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 //if (i != j) {
-                float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
-                vec3 oldNnew = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).xyz * 2.0 - 1.0;
+                float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntMoved + ivec2(i, j))))));
+                vec3 oldNnew = imageLoad(oldNormal, oldPosIntMoved + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(oldZnew - oldZ) * angleFactor >= 0.1 || dot(oldNnew, oldN) < 0.9) {
                     atBorderOld = true;
-                    break;
+                    count++;
+                    alt += vec2(i, j);
+                    //break;
+                }
+                if (abs(oldZnew - guessZ) * angleFactor >= 0.1) {
+                    neighbourDistant = true;
                 }
                 //}
             }
         }
     bool closeEnough = false;
-    if (atBorderCurrent/* && atBorderOld*/) {
-        closeEnough = true;
+    // man muss noch testen ob der rand der gleiche ist wie vorher
+    // das verursacht das verschmieren teilweise
+    if (atBorderCurrent && atBorderOld) {
+        /*for (int i = -1; i < 2; i++) {
+            for (int j = -1; j < 2; j++) {
+                //if (i != j) {
+                float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
+                //vec3 oldNnew = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).xyz * 2.0 - 1.0;
+                if (abs(oldZnew - guessZ) * angleFactor < 0.1) {
+    
+                    //break;
+                    closeEnough = true;
+                }
+            }
+        }*/
+        /*if (!atBorderOld && abs(oldZ - guessZ) * angleFactor >= 0.1) {
+            for (int i = -1; i < 2; i++) {
+                for (int j = -1; j < 2; j++) {
+                    float dp0Alt = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
+                    float dp1Alt = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)));
+                    ivec2 oldPosIntAlt = ivec2(round(width * dp0Alt), round(height * dp1Alt));
+
+                    float oldZAlt = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntAlt)))));
+                    float guessZAlt = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(guessDepth, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j))))));
+
+                    vec4 normalAlt = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x) + i, int(gl_GlobalInvocationID.y) + j)) * 2.0 - 1.0;
+                    float angleFactorAlt = -dot(normalAlt.xyz, camNormal);
+
+                    // noch testen ob normalen gleich genug
+
+                    if (abs(oldZAlt - guessZAlt) * angleFactorAlt < 0.1) {
+                        //oldColor = texture(oldColor0, vec2(dp0Alt, dp1Alt));
+                        //oldColor += texture(oldColor1, vec2(dp0Alt, dp1Alt)) / 255.0;
+                        closeEnough = true;
+                        // muss man zweimal break machen?
+                        break;
+                    }
+                }
+            }
+
+        } else {*/
+            closeEnough = true;
+        //}
     }
-    //if (!atBorderCurrent && !atBorderOld) {
+    if (atBorderCurrent && !atBorderOld) {
+        //if (abs(oldZ - guessZ) * angleFactor >= 0.1) {
+        //} else {
+            closeEnough = true;
+        //}
+    }
+    // das verursacht den grossteil der verschmierung
+    // immer noch
+    if (!atBorderCurrent && atBorderOld) {
+        // stellt sicher dass das objekt das gleiche ist
+        if (abs(oldZ - guessZ) < 0.1) {
+            vec2 from = oldPosTexture - vec2(gl_GlobalInvocationID.x / float(width), gl_GlobalInvocationID.y / float(height));
+            //if (dot(from, alt) >= 0.0) {
+            // verursacht die weissen spitzen in dem grauen würfel
+        vec2 altPosTexture = oldPosTexture - normalize(alt) * 1.5 * vec2(1.0 / float(width), 1.0 / float(height));
+        //float altZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt - ivec2(normalize(alt) * 1.5))))));
+        //if (abs(altZ - guessZ) < 0.1) {
+            oldColor = texture(oldColor0, altPosTexture);
+            oldColor += texture(oldColor1, altPosTexture) / 255.0;
+            closeEnough = true;
+            //}
+        //}
+        }
+
+    }
+    //verursacht auch verschmierung glaube ich
+    if (!atBorderCurrent && !atBorderOld) {
         if (abs(oldZ - guessZ) * angleFactor < 0.1) {
             closeEnough = true;
         }
-    //}
+    }
+
+    //closeEnough = abs(oldZ - guessZ) * angleFactor < 0.1;
 
     if (closeEnough) {
         //if (oldPos.x > 0.0 && oldPos.y > 0.0 && oldPos.x < 1.0 && oldPos.y < 1.0) {
