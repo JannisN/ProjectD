@@ -118,14 +118,14 @@ void main() {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 // noch unsicher ob besser ohne oder mit if
-                if (i != j) {
+                //if (i != j) {
                 float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 if (dp0 != 0.0 && dp1 != 0.0) {
                     oldPosTexture = vec2(dp0 - i / float(mypc.toX), dp1 - j / float(mypc.toY));
                     break;
                 }
-                }
+                //}
             }
         }
         //oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
@@ -244,7 +244,9 @@ void main() {
         }
     bool closeEnough = false;
     // man muss noch testen ob der rand der gleiche ist wie vorher
-    // das verursacht das verschmieren teilweise
+    // und schauen dass man den alten rand findet bei bewegungen:
+    // kann man das objekt im vordergrund nehmen, die alte position nehmen und den originalen pixel(ist ja ein nachbar) finden?
+    // weissse ecke müsste auch noch verschwinden
     if (atBorderCurrent && atBorderOld) {
         /*for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
@@ -291,10 +293,9 @@ void main() {
         //if (abs(oldZ - guessZ) * angleFactor >= 0.1) {
         //} else {
             closeEnough = true;
+            closeEnough = false;
         //}
     }
-    // das verursacht den grossteil der verschmierung
-    // immer noch
     if (!atBorderCurrent && atBorderOld) {
         // stellt sicher dass das objekt das gleiche ist
         if (abs(oldZ - guessZ) < 0.1) {
@@ -310,13 +311,14 @@ void main() {
             //}
         //}
         }
+            closeEnough = false;
 
     }
-    //verursacht auch verschmierung glaube ich
     if (!atBorderCurrent && !atBorderOld) {
         if (abs(oldZ - guessZ) * angleFactor < 0.1) {
             closeEnough = true;
         }
+            closeEnough = false;
     }
 
     //closeEnough = abs(oldZ - guessZ) * angleFactor < 0.1;
@@ -358,6 +360,7 @@ void main() {
     } else {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), normal);
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
