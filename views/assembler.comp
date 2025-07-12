@@ -159,13 +159,17 @@ void main() {
         guessZ = 10000.0;
     }
     //if (abs(oldZ - guessZ) > 0.1) {
+    float dist = 0.0;
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 if (i != j) {
                 float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
+                vec3 oldNnew = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(oldZnew - guessZ) < abs(oldZ - guessZ)) {
                 //if (abs(oldZnew - guessZ) < 0.1) {
                     oldZ = oldZnew;
+                    oldN = oldNnew;
+                    dist = (i * i + j * j) / 2.0;
                     //break;
                 }
                 }
@@ -191,7 +195,7 @@ void main() {
     vec3 camNormal = normalize(vec3(screenCoords.x * 0.5 * float(width) / float(height), screenCoords.y * -0.5, 1.0));
     vec4 normal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))) * 2.0 - 1.0;
     float angleFactor = -dot(normal.xyz, camNormal);
-    if (dot(normal.xyz, oldN) < 0.99) {
+    if (dot(normal.xyz, oldN) < 0.95) {
         angleFactor = 1.0;
     }
     // man muss ausserdem testen ob die normalen gleich sind
@@ -233,6 +237,7 @@ void main() {
     } else {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), normal);
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
 

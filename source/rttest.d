@@ -973,7 +973,7 @@ struct TestApp(ECS) {
 		imageAssembler.descriptorPool = device.createDescriptorPool(0, 1, array(
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-				10
+				11
 			),
 			VkDescriptorPoolSize(
 				VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
