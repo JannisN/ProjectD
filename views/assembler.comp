@@ -247,6 +247,7 @@ void main() {
     // und schauen dass man den alten rand findet bei bewegungen:
     // kann man das objekt im vordergrund nehmen, die alte position nehmen und den originalen pixel(ist ja ein nachbar) finden?
     // weissse ecke müsste auch noch verschwinden
+    // auch noch zu tun: alpha wert für anzahl samples, testen ob alter pixel nicht ausserhalb vom frame war(sampler sollte auch clamp to edge/border sein)
     if (atBorderCurrent && atBorderOld) {
         /*for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
