@@ -215,19 +215,19 @@ void main() {
     bool neighbourDistant = false;
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
-                //if (i != j) {
+                if (i != j) {
                 float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
                 vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.9) {
                     atBorderCurrent = true;
                     break;
                 }
-                //}
+                }
             }
         }
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
-                //if (i != j) {
+                if (i != j) {
                 float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntMoved + ivec2(i, j))))));
                 vec3 oldNnew = imageLoad(oldNormal, oldPosIntMoved + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(oldZnew - oldZ) * angleFactor >= 0.1 || dot(oldNnew, oldN) < 0.9) {
@@ -239,7 +239,7 @@ void main() {
                 if (abs(oldZnew - guessZ) * angleFactor >= 0.1) {
                     neighbourDistant = true;
                 }
-                //}
+                }
             }
         }
     bool closeEnough = false;
@@ -294,9 +294,10 @@ void main() {
         //if (abs(oldZ - guessZ) * angleFactor >= 0.1) {
         //} else {
             closeEnough = true;
-            closeEnough = false;
+            //closeEnough = false;
         //}
     }
+    /*
     if (!atBorderCurrent && atBorderOld) {
         // stellt sicher dass das objekt das gleiche ist
         if (abs(oldZ - guessZ) < 0.1) {
@@ -320,6 +321,16 @@ void main() {
             closeEnough = true;
         }
             closeEnough = false;
+    }
+    */
+
+    float r;
+    if (atBorderCurrent) {
+        r = 1.0;
+    }
+    float g;
+    if (atBorderOld) {
+        g = 1.0;
     }
 
     //closeEnough = abs(oldZ - guessZ) * angleFactor < 0.1;
@@ -350,13 +361,12 @@ void main() {
 	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), /*round*/ivec4(fract(newColor * 255.0) * 255) / 255.0);
     // zum testen, darf keine rote/weisse linien geben
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ), 0.1 * oldZ, 0.1 * guessZ, 1.0));
-    if (!closeEnough) {
+    if (closeEnough) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0, 0, 1.0));
         // abs ist kaputt???
 	
         //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 4, currentZ / 4.0, oldZ / 4.0, 1.0));
-        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
-    
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(r, g, 0.0, 1.0));
 
     } else {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
