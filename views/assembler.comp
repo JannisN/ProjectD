@@ -215,7 +215,7 @@ void main() {
     bool neighbourDistant = false;
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
-                if (i != j) {
+                if (abs(i) != abs(j)) {
                 float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
                 vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.9) {
@@ -227,7 +227,7 @@ void main() {
         }
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
-                if (i != j) {
+                if (abs(i) != abs(j)) {
                 float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntMoved + ivec2(i, j))))));
                 vec3 oldNnew = imageLoad(oldNormal, oldPosIntMoved + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(oldZnew - oldZ) * angleFactor >= 0.1 || dot(oldNnew, oldN) < 0.9) {
