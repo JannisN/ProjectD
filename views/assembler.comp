@@ -83,6 +83,35 @@ vec4 fromLinear(vec4 linearRGB)
     return vec4(mix(higher, lower, cutoff), linearRGB.a);
 }
 
+float aaDistance(vec3 old, vec3 l, vec3 t, vec3 m) {
+    vec3 lm = l - m;
+    vec3 tm = t - m;
+    float lmtm = dot(lm, tm);
+    float lm2 = dot(lm, lm);
+    float tm2 = dot(tm, tm);
+    float x = dot((-old + m) / lm2, -lm - tm * dot(lm, tm) / tm2)
+        / (1 - lmtm * lmtm / lm2 / tm2);
+    float y = -dot(tm, -old + l * x + (1 - x) * m) / tm2;
+    if (length(-old + m) < 0.001) {
+        x = 0.0;
+    }
+    if (length(tm) < 0.001) {
+        y = 0.0;
+    }
+    /*if (
+        length(lm) < 0.01 ||
+        length(tm) < 0.01 ||
+        lmtm < 0.01
+    ) {
+            return 0.0;
+    }*/
+    if (x >= 0 && y >= 0) {
+        return length(-old + l * x + t * y + (1 - x - y) * m);
+    } else {
+        return 1.0;
+    }
+}
+
 void main() {
     int width = mypc.toX - 1;
     int height = mypc.toY - 1;
@@ -220,7 +249,7 @@ void main() {
                 if (abs(i) != abs(j)) {
                 float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
                 vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
-                if (abs(zNew - currentZ) * angleFactor >= 0.03 || dot(currentN, nNew) < 0.95) {
+                if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.95) {
                     neighbourZ = zNew;
                     atBorderCurrent = true;
                     //break;
@@ -256,13 +285,98 @@ void main() {
                 //}
             }
         }
+    
+    vec3 oldColorRemainder = oldColor.rgb;
+    // umschreiben in 4x4 matrizen
+    /*float a0 = 0.25;
+    float a1 = 0.25;
+    float a2 = 0.25;
+    float a3 = 0.25;
+    vec3 u0 = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
+    vec3 u1 = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(2, 0)).rgb;
+    vec3 u2 = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -2)).rgb;
+    vec3 u3 = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 2)).rgb;
+    for (int i = 0; i < 2; i++) {
+        vec3 b = -2.0 * oldColor.rgb + 2.0 * (a0 * u0 + a1 * u1 + a2 * u2 + a3 * u3);
+        a0 = dot(b, u0) / dot(u0, u0);
+        a1 = dot(b, u1) / dot(u1, u1);
+        a2 = dot(b, u2) / dot(u2, u2);
+        a3 = dot(b, u3) / dot(u3, u3);
+    }
+    oldColorRemainder = oldColor.rgb - a0 * u0 - a1 * u1 - a2 * u2 - a3 * u3;*/
+    /*for (int i = 0; i < 2; i++) {
+        vec3 b = -2.0 * oldColor.rgb + 2.0 * (a0 * u0 + a1 * u1 + a2 * u2 + a3 * u3);
+        float c0 = dot(u0, b - a0 * u0);
+        float c1 = dot(u1, b - a1 * u1);
+        float c2 = dot(u2, b - a2 * u2);
+        float c3 = dot(u3, b - a2 * u3);
+        float d = 2.0;
+        a0 -= d * c0;
+        a1 -= d * c1;
+        a2 -= d * c2;
+        a3 -= d * c3;
+        float s = a0 + a1 + a2 + a3;
+        a0 /= s;
+        a1 /= s;
+        a2 /= s;
+        a3 /= s;
+    }
+    vec3 oldColorRemainder = oldColor.rgb - a0 * u0 - a1 * u1 - a2 * u2 - a3 * u3;*/
+    // erstmal mit 3*3 probieren, sonst 5*5
+    /*for (int i = -1; i < 2; i++) {
+        for (int j = -1; j < 2; j++) {
+            vec3 neighbourColor = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).rgb;
+            if (length(neighbourColor) > 0.01) {
+            float eps = dot(oldColorRemainder, neighbourColor) / dot(neighbourColor, neighbourColor);
+            if (-1.0 <= eps && eps <= 1.0) {
+                oldColorRemainder -= eps * neighbourColor;
+            }
+            }
+            //oldColorRemainder = oldColorRemainder - neighbourColor * dot(oldColorRemainder, neighbourColor);
+        }
+    }*/
+    //oldColorRemainder = vec3(0.91, 0.863, 0.761) - normalize(vec3(0.0, 0.745, 0.745)) * dot(vec3(0.91, 0.863, 0.761), normalize(vec3(0.0, 0.745, 0.745)));
     // spackt noch rum wegen der sache mit dem pixel an stelle 0, 0
     // noch herausfinden wie man das lösst mit den pixeln in einem drei dreieck schnitt
+    // kugel vibriert trotzdem noch im inneren, wieso?
+    vec3 aaTest;
     bool closeEnough = false;
-    if (atBorderCurrent) {
-        if (neighbourDistance * angleFactor < 0.1) {
+    if (atBorderCurrent || true) {
+        //float d = length(oldColor - newColor);
+        float d = 1.0;
+        vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
+        vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
+        vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
+        vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
+        vec3 m = newColor.rgb;
+        
+        // scheint keins von denen zu nehmen
+        float dn = aaDistance(oldColor.rgb, l, t, m);
+        aaTest.r = dn;
+        if (dn < d) {
+            d = dn;
+        }
+        dn = aaDistance(oldColor.rgb, t, r, m);
+        aaTest.g = dn;
+        if (dn < d) {
+            d = dn;
+        }
+        dn = aaDistance(oldColor.rgb, r, b, m);
+        aaTest.b = dn;
+        if (dn < d) {
+            d = dn;
+        }
+        dn = aaDistance(oldColor.rgb, b, l, m);
+        if (dn < d) {
+            d = dn;
+        }
+        if (d < 0.1) {
             closeEnough = true;
         }
+        oldColorRemainder = vec3(d);
+        /*if (neighbourDistance * angleFactor < 0.1) {
+            closeEnough = true;
+        }*/
         /*if (abs(oldZ - guessZ) < 0.1) {
             closeEnough = true;
         }*/
@@ -361,7 +475,7 @@ void main() {
 
     if (closeEnough) {
         //if (oldPos.x > 0.0 && oldPos.y > 0.0 && oldPos.x < 1.0 && oldPos.y < 1.0) {
-            newColor = 253.0 / 256.0 * oldColor + 3.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
+            newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
         //}
     } else {
         //newColor = vec4(1.0, 0.0, 0.0, 1.0);
@@ -385,18 +499,20 @@ void main() {
 	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), /*round*/ivec4(fract(newColor * 255.0) * 255) / 255.0);
     // zum testen, darf keine rote/weisse linien geben
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ), 0.1 * oldZ, 0.1 * guessZ, 1.0));
-    if (!atBorderCurrent && length(oldColor - newColor) > 0.1) {
+    if (length(oldColorRemainder) > 0.2) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0, 0, 1.0));
         // abs ist kaputt???
 	
         //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 4, currentZ / 4.0, oldZ / 4.0, 1.0));
-        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder, 1.0));
 
     } else {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaTest, 1.0));
+        //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(neighbourDistance * angleFactor * 10.0, 1.0, 1.0, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), normal);
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
