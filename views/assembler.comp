@@ -88,8 +88,9 @@ float aaDistance2(vec3 old, vec3 l, vec3 t) {
         return length(old - l);
     }
     float x = -dot(-l + t, old - t) / dot(-l + t, -l + t);
+    //return x;
     if (x >= 0 && 1 - x >= 0) {
-        return length(old - x * l - (1 + x) * t);
+        return length(old - x * l - (1 - x) * t);
     } else {
         return length(old - l);
     }
@@ -365,9 +366,11 @@ void main() {
     vec3 aaTest = vec3(0);
     //vec3 aaTest;
     bool closeEnough = false;
+    //closeEnough = true;
         float d = 1.0;
     
     // fehler in aaDistance beheben und evt. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
+    // wieso gibt es am rand probleme beim bewegen?
     if (atBorderCurrent || true) {
         //float d = length(oldColor - newColor);
         vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
@@ -375,6 +378,10 @@ void main() {
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
         vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
         vec3 m = newColor.rgb;
+        vec3 tl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, -1)).rgb;
+        vec3 tr = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, -1)).rgb;
+        vec3 bl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 1)).rgb;
+        vec3 br = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 1)).rgb;
         
         if (
             length(oldColor.rgb - m) < 0.05 ||
@@ -404,6 +411,32 @@ void main() {
             if (dn < d) {
                 d = dn;
             }
+            
+            /*dn = aaDistance2(oldColor.rgb, bl, m);
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, br, m);
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, tl, m);
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, tr, m);
+            if (dn < d) {
+                d = dn;
+            }
+            
+            dn = aaDistance2(oldColor.rgb, b, t);
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, r, l);
+            if (dn < d) {
+                d = dn;
+            }*/
         }
         if (d < 0.1) {
             closeEnough = true;
@@ -577,7 +610,7 @@ void main() {
         //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(save, 1.0));
         //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaTest * 10.0, 1.0));
         // gut um zu testen ob kanten vom ball geglättet werden
-        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder, 1.0));
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder * 1.0, 1.0));
 
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(neighbourDistance * angleFactor * 10.0, 1.0, 1.0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
