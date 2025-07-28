@@ -83,7 +83,28 @@ vec4 fromLinear(vec4 linearRGB)
     return vec4(mix(higher, lower, cutoff), linearRGB.a);
 }
 
+float aaDistance2(vec3 old, vec3 l, vec3 t) {
+    if (length(l - t) < 0.001) {
+        return length(old - l);
+    }
+    float x = -dot(-l + t, old - t) / dot(-l + t, -l + t);
+    if (x >= 0 && 1 - x >= 0) {
+        return length(old - x * l - (1 + x) * t);
+    } else {
+        return length(old - l);
+    }
+}
+
 float aaDistance(vec3 old, vec3 l, vec3 t, vec3 m) {
+    if (length(l - m) < 0.01) {
+        return aaDistance2(old, t, m);
+    }
+    if (length(t - m) < 0.01) {
+        return aaDistance2(old, l, m);
+    }
+    if (length(l - t) < 0.01) {
+        return aaDistance2(old, t, m);
+    }
     vec3 lm = l - m;
     vec3 tm = t - m;
     float lmtm = dot(lm, tm);
@@ -92,12 +113,12 @@ float aaDistance(vec3 old, vec3 l, vec3 t, vec3 m) {
     float x = dot((-old + m) / lm2, -lm - tm * dot(lm, tm) / tm2)
         / (1 - lmtm * lmtm / lm2 / tm2);
     float y = -dot(tm, -old + l * x + (1 - x) * m) / tm2;
-    if (length(-old + m) < 0.001) {
+    /*if (length(-old + m) < 0.001) {
         x = 0.0;
     }
     if (length(tm) < 0.001) {
         y = 0.0;
-    }
+    }*/
     /*if (
         length(lm) < 0.01 ||
         length(tm) < 0.01 ||
@@ -108,7 +129,7 @@ float aaDistance(vec3 old, vec3 l, vec3 t, vec3 m) {
     if (x >= 0 && y >= 0) {
         return length(-old + l * x + t * y + (1 - x - y) * m);
     } else {
-        return 1.0;
+        return length(-old + l);
     }
 }
 
@@ -286,7 +307,7 @@ void main() {
             }
         }
     
-    vec3 oldColorRemainder = oldColor.rgb;
+    vec3 oldColorRemainder = vec3(1);//oldColor.rgb;
     // umschreiben in 4x4 matrizen
     /*float a0 = 0.25;
     float a1 = 0.25;
@@ -339,18 +360,57 @@ void main() {
     // spackt noch rum wegen der sache mit dem pixel an stelle 0, 0
     // noch herausfinden wie man das lösst mit den pixeln in einem drei dreieck schnitt
     // kugel vibriert trotzdem noch im inneren, wieso?
-    vec3 aaTest;
+
+    // ganz komisch: aaTest muss initialisiert werden, sonst standardmässig blau, wtf?
+    vec3 aaTest = vec3(0);
+    //vec3 aaTest;
     bool closeEnough = false;
+        float d = 1.0;
+    
+    // fehler in aaDistance beheben und evt. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
     if (atBorderCurrent || true) {
         //float d = length(oldColor - newColor);
-        float d = 1.0;
         vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
         vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
         vec3 m = newColor.rgb;
         
+        if (
+            length(oldColor.rgb - m) < 0.05 ||
+            length(oldColor.rgb - t) < 0.05 ||
+            length(oldColor.rgb - b) < 0.05 ||
+            length(oldColor.rgb - l) < 0.05 ||
+            length(oldColor.rgb - r) < 0.05
+        ) {
+            d = 0.0;
+        } else {
+            float dn = aaDistance2(oldColor.rgb, l, t);
+            aaTest.r = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, t, r);
+            aaTest.g = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, r, b);
+            aaTest.b = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, b, l);
+            if (dn < d) {
+                d = dn;
+            }
+        }
+        if (d < 0.1) {
+            closeEnough = true;
+        }
+
         // scheint keins von denen zu nehmen
+        /*
         float dn = aaDistance(oldColor.rgb, l, t, m);
         aaTest.r = dn;
         if (dn < d) {
@@ -373,7 +433,11 @@ void main() {
         if (d < 0.1) {
             closeEnough = true;
         }
+        */
         oldColorRemainder = vec3(d);
+        if (d < -0.0001) {
+            oldColorRemainder = vec3(1.0, 0.0, 0.0);
+        }
         /*if (neighbourDistance * angleFactor < 0.1) {
             closeEnough = true;
         }*/
@@ -509,8 +573,12 @@ void main() {
     } else {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     }
-        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaTest, 1.0));
-        //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder, 1.0));
+        vec3 save = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 0)).rgb;
+        //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(save, 1.0));
+        //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaTest * 10.0, 1.0));
+        // gut um zu testen ob kanten vom ball geglättet werden
+        imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(oldColorRemainder, 1.0));
+
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(neighbourDistance * angleFactor * 10.0, 1.0, 1.0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
