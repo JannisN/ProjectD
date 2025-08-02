@@ -348,8 +348,27 @@ void main() {
     oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
+    // noch überprüfen ob die tiefen gleich sind
     int sampleCount = int(round(oldColor.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
+
+    float nOldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt)))));
+    float nGuessZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(guessDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
+    float zDiff = 99.0;
+
+    for (int i = -1; i < 2; i++) {
+        for (int j = -1; j < 2; j++) {
+            if (abs(i) != abs(j)) {
+                float newOldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntMoved + ivec2(i, j))))));
+                if (abs(newOldZ - nGuessZ) < zDiff) {
+                    zDiff = abs(newOldZ - nGuessZ);
+                }
+            }
+        }
+    }
+    if (zDiff > 1.0) {
+        //sampleCount = 0;
+    }
 
     float alphaTest = imageLoad(renderImage, bgBorderFound).a;
     if (alphaTest == 0.0) {
@@ -527,6 +546,8 @@ void main() {
         } else {
             if (!found) {
                 newCount = 1.0 / 255.0;
+            } else {
+                newCount = 1.0;
             }
         }
     }
@@ -566,7 +587,7 @@ void main() {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(neighbourDistance * angleFactor * 10.0, 1.0, 1.0, 1.0));
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
-	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, sampleCount / 255.0, 1.0));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, sampleCount / 255.0, 1.0));
     }
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
