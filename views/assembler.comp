@@ -376,19 +376,24 @@ void main() {
         found = false;
     }
         // glaube ich nicht mehr nötig
-        /*
-        float neighbourDistance = abs(oldZ - guessZ);
+        
+        //float neighbourDistance = abs(nOldZ - nGuessZ);
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 // if darf hier nicht benutzt werden, wegen den pixeln untern rechts die rumspacken(was ist der grund?)
-                //if (abs(i) != abs(j)) {
-                float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosIntMoved + ivec2(i, j))))));
-                vec3 oldNnew = imageLoad(oldNormal, oldPosIntMoved + ivec2(i, j)).xyz * 2.0 - 1.0;
-                if (abs(oldZnew - guessZ) < neighbourDistance) {
-                    neighbourDistance = abs(oldZnew - guessZ);
+                if (abs(i) != abs(j)) {
+                float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
+                vec3 oldNnew = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).xyz * 2.0 - 1.0;
+                if (abs((oldZnew - nGuessZ) * angleFactor) >= 0.1 || dot(currentN, oldNnew) < 0.95) {
+                    atBorderOld = true;
+                    break;
                 }
+                }
+                /*if (abs(oldZnew - nGuessZ) < neighbourDistance) {
+                    neighbourDistance = abs(oldZnew - nGuessZ);
+                }*/
             }
-        }*/
+        }
     
     vec3 oldColorRemainder = vec3(0);//oldColor.rgb;
     // ganz komisch: aaTest muss initialisiert werden, sonst standardmässig blau, wtf?
@@ -527,6 +532,9 @@ void main() {
     newCount = float(sampleCount) / 255.0;
     if (closeEnough) {
         if (adapted) {
+            /*if (!atBorderOld) {
+                sampleCount = 255;
+            }*/
             //newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
             if (sampleCount >= 256.0 / 3.0) {
                 newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
