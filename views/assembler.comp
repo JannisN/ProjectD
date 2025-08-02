@@ -348,8 +348,10 @@ void main() {
     oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
+
+    vec4 savedNormal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     // noch überprüfen ob die tiefen gleich sind
-    int sampleCount = int(round(oldColor.a * 255.0));
+    int sampleCount = int(round(savedNormal.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
 
     float nOldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt)))));
@@ -551,6 +553,7 @@ void main() {
             }
         }
     }
+	imageStore(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(savedNormal.rgb, newCount));
 
     //newColor = 220.0 / 256.0 * oldColor + 35.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
     /*if (oldPos == vec2(0, 0)) {
