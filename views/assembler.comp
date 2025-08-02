@@ -527,6 +527,10 @@ void main() {
     // gibt noch probleme mit dem hintergrund
     // found funktioniert noch nicht so gut am rand, aber scheint egal zu sein?
     const bool adapted = true;
+    bool fresh = false;
+    if (sampleCount == 0) {
+        fresh = true;
+    }
     sampleCount++;
     float newCount;
     newCount = float(sampleCount) / 255.0;
@@ -536,6 +540,9 @@ void main() {
                 sampleCount = 255;
             }*/
             //newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+            if (fresh) {
+                sampleCount++;
+            }
             if (sampleCount >= 256.0 / 3.0) {
                 newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
             } else {
@@ -549,14 +556,19 @@ void main() {
     } else {
         //newColor = vec4(1.0, 0.0, 0.0, 1.0);
         // und auch zurücksetzen falls alter pixel nicht gefunden, falls kein border
-        if (atBorderCurrent) {
+        if (atBorderCurrent/* || atBorderOld*/) {
             newCount = 1.0 / 255.0;
+            if (fresh) {
+                sampleCount++;
+            }
+            newCount = float(sampleCount) / 255.0;
         } else {
-            if (!found) {
+            /*if (!found) {
                 newCount = 1.0 / 255.0;
             } else {
                 newCount = 1.0;
-            }
+            }*/
+            newCount = 0.0;
         }
     }
 
