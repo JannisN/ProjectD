@@ -195,7 +195,11 @@ void main() {
     //o_color = vec4(/*(0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * a*/vec3(drawable.r, drawable.g, drawable.b), 1.0) * vec4(vec3(1.3 / 8.0), 1.0) + vec4(vec3(7.0 / 8.0), 1.0) * oldPixel;
     vec3 object = vec3(drawable.r, drawable.g, drawable.b) * (0.25 * -dot(normalize(vec3(1, -1, 1)), normalOut) + 0.75);
     //o_color = vec4(smoothOut(object, oldPixel, 0.98), 1.0);
-    o_color = vec4(object, 1.0);
+    if (oldCoords.x < 0.0 || oldCoords.x > 1.0 || oldCoords.y < 0.0 || oldCoords.y > 1.0) {
+        o_color = vec4(object, 0.0);
+    } else {
+        o_color = vec4(object, 1.0);
+    }
     o_normals = vec4(((rotYinv * rotXinv * normalOut) + 1.0) / 2.0, 1.0);
     /*float oldX = oldCoords.x * 0.5 + 0.25;
     float oldY = oldCoords.y * 0.5 + 0.25;

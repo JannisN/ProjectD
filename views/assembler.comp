@@ -167,7 +167,13 @@ void main() {
     //vec4 oldColor = texture(oldColor0, vec2(gl_GlobalInvocationID.x / 1000.0, gl_GlobalInvocationID.y / 1000.0));// + texture(oldColor1, oldPos) / 255.0;
     //vec4 oldColor = texture(oldColor0, oldPos);// + texture(oldColor1, oldPos) / 255.0;
     vec4 oldColor;
-    if (oldPosTexture == vec2(0, 0)) {
+    vec4 normal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))) * 2.0 - 1.0;
+    vec4 newColor = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
+    bool backgroundAtBorder = false;
+    bool isBackground = (oldPosTexture == vec2(0, 0));
+    float ctest = 0.0;
+    ivec2 bgBorderFound = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    if (isBackground/* && newColor.a == 0.0*/) {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 // noch unsicher ob besser ohne oder mit if
@@ -175,13 +181,22 @@ void main() {
                 float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 if (dp0 != 0.0 && dp1 != 0.0) {
+                    bgBorderFound = ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j));
                     oldPosTexture = vec2(dp0 - i / float(mypc.toX), dp1 - j / float(mypc.toY));
+                    backgroundAtBorder = true;
                     break;
                 }
                 }
             }
         }
         //oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
+    }
+    //newColor = imageLoad(renderImage, bgBorderFound);
+    if (!backgroundAtBorder && isBackground) {
+        oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
+        ctest = 1.0;
+    }
+    if (isBackground) {
     }
     //oldColor = vec4(ivec3(255 * texture(oldColor0, oldPos).rgb) / 255.0, 1.0);// + texture(oldColor1, oldPos) / 255.0;
     //oldColor += vec4(ivec3(255 * texture(oldColor1, oldPos).rgb) / 255.0 / 255.0, 0.0);
@@ -205,7 +220,6 @@ void main() {
     screenCoords.x = gl_GlobalInvocationID.x / float(width) * 2.0 - 1.0;
     screenCoords.y = gl_GlobalInvocationID.y / float(height) * 2.0 - 1.0;
     vec3 camNormal = normalize(vec3(screenCoords.x * 0.5 * float(width) / float(height), screenCoords.y * -0.5, 1.0));
-    vec4 normal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))) * 2.0 - 1.0;
     // man müsste auch auf die distanz achten, da objekte weit weg viel grössere unterschiede haben im z wert
     float angleFactor = -dot(normal.xyz, camNormal);
 
@@ -266,7 +280,6 @@ void main() {
     //vec4 newColor = imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = 0.9 * oldColor + 0.1 * imageLoad(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //vec4 newColor = vec4(1.0, 0.5, 1.0, 1.0);
-    vec4 newColor = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     vec4 newColorOutput = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     //newColor = imageLoad(swapchain, ivec2(int(dp0 * mypc.toX), int(dp1 * mypc.toY)));
 
@@ -332,10 +345,17 @@ void main() {
         );
     }
 
+    oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
     int sampleCount = int(round(oldColor.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
+
+    float alphaTest = imageLoad(renderImage, bgBorderFound).a;
+    if (alphaTest == 0.0) {
+        sampleCount = 0;
+        found = false;
+    }
         // glaube ich nicht mehr nötig
         /*
         float neighbourDistance = abs(oldZ - guessZ);
@@ -546,11 +566,14 @@ void main() {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(neighbourDistance * angleFactor * 10.0, 1.0, 1.0, 1.0));
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, sampleCount / 255.0, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, sampleCount / 255.0, 1.0));
     }
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
     }
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(ctest));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(alphaTest));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(normal.a));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), normal);
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
