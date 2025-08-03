@@ -177,7 +177,7 @@ void main() {
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 // noch unsicher ob besser ohne oder mit if
-                if (abs(i) != abs(j)) {
+                //if (abs(i) != abs(j)) {
                 float dp0 = DecodeFloatRGBA(imageLoad(dPos0, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 float dp1 = DecodeFloatRGBA(imageLoad(dPos1, ivec2(int(gl_GlobalInvocationID.x + i), int(gl_GlobalInvocationID.y + j))));
                 if (dp0 != 0.0 && dp1 != 0.0) {
@@ -186,14 +186,15 @@ void main() {
                     backgroundAtBorder = true;
                     break;
                 }
-                }
+                //}
             }
         }
         //oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
     }
     //newColor = imageLoad(renderImage, bgBorderFound);
     if (!backgroundAtBorder && isBackground) {
-        oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
+        oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX - 1), gl_GlobalInvocationID.y / float(mypc.toY - 1));
+        //oldPosTexture = vec2(dp0, dp1);
         ctest = 1.0;
     }
     if (isBackground) {
@@ -336,7 +337,6 @@ void main() {
             }
         }
 
-
     float ndp0 = DecodeFloatRGBA(imageLoad(dPos0, neighbour + ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
     float ndp1 = DecodeFloatRGBA(imageLoad(dPos1, neighbour + ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 
@@ -354,6 +354,7 @@ void main() {
     }
 
     oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
+    //oldPosTexture = vec2(dp0, dp1);
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
     int sampleCount = int(round(oldColor.a * 255.0));
@@ -491,6 +492,8 @@ void main() {
             }
             */
         }
+        // war vorher d < 0.1, behebt dass randproblem für nicht hintergrund
+        // überprüfung sollte aber besser werden
         if (d < 0.1) {
             closeEnough = true;
         }
@@ -530,6 +533,9 @@ void main() {
         /*if (abs(oldZ - guessZ) < 0.1) {
             closeEnough = true;
         }*/
+    }
+    if (isBackground && !backgroundAtBorder) {
+        closeEnough = true;
     }
     // kann man das objekt im vordergrund nehmen, die alte position nehmen und den originalen pixel(ist ja ein nachbar) finden?
     // weissse ecke müsste auch noch verschwinden
@@ -596,22 +602,24 @@ void main() {
             }
             newCount = float(sampleCount) / 255.0;
             //newCount = 1.0;
+            newCount = 0.0;
         } else {
+            newCount = 0.0;
             /*if (!found) {
                 newCount = 1.0 / 255.0;
             } else {
                 newCount = 1.0;
             }*/
-            if (!oldFound)
-                newCount = 0.0;
+            //if (!oldFound)
+                //newCount = 0.0;
+            //newCount = 1.0;
         }
-        newCount = 0.0;
     }
     if (atBorderCurrent) {
         //newCount = 1.0;
     }
 
-    newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+    //newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
 	imageStore(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(savedNormal.rgb, newCount));
 
     //newColor = 220.0 / 256.0 * oldColor + 35.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
@@ -629,7 +637,7 @@ void main() {
 	    imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(0, 1, 0, 1));
     }*/
 	//imageStore(newColor0, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), ivec4(0, 1, 0, 1));
-	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), /*round*/ivec4(fract(newColor * 255.0) * 255) / 255.0);
+	imageStore(newColor1, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), /*round*/vec4(ivec3(fract(newColor * 255.0) * 255) / 255.0, 0.0));
     // zum testen, darf keine rote/weisse linien geben
 	//imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ), 0.1 * oldZ, 0.1 * guessZ, 1.0));
     /*if (!closeEnough && atBorderCurrent) {
@@ -650,8 +658,9 @@ void main() {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, colortest, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(red, aaFound, 1.0, 1.0));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaFound));
     }
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
