@@ -356,13 +356,13 @@ void main() {
     oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
+    int sampleCount = int(round(oldColor.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
 
     vec4 savedNormal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     // noch überprüfen ob die tiefen gleich sind
     vec4 savedOldNormal = imageLoad(oldNormal, oldPosInt);
     float colortest = savedOldNormal.a;
-    int sampleCount = int(round(savedOldNormal.a * 255.0));
     /*for (int i = -1; i < 2; i++) {
         for (int j = -1; j < 2; j++) {
             //if (abs(i) != abs(j)) {
@@ -426,7 +426,7 @@ void main() {
         float d = 1.0;
     
     // evtl. für dreier intersection: aaDistance fixen und evtl. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
-    if (atBorderCurrent/* || true*/) {
+    if (atBorderCurrent || true) {
         vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
@@ -559,7 +559,13 @@ void main() {
     newCount = float(sampleCount) / 255.0;
     // ist closeEnough linie nicht dick genug?
     // scheint als müsste man den punkt mit höchsten alpha wert suchen
+    float aaFound = 0.0;
+    float red = 0.0;
+    if (atBorderCurrent) {
+        red = 1.0;
+    }
     if (closeEnough) {
+        aaFound = 1.0;
         if (adapted) {
             /*if (!atBorderOld) {
                 sampleCount = 255;
@@ -599,11 +605,13 @@ void main() {
             if (!oldFound)
                 newCount = 0.0;
         }
-        //newCount = 0.0;
+        newCount = 0.0;
     }
     if (atBorderCurrent) {
         //newCount = 1.0;
     }
+
+    newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
 	imageStore(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(savedNormal.rgb, newCount));
 
     //newColor = 220.0 / 256.0 * oldColor + 35.0 / 256.0 * newColor;// + texture(oldColor1, oldPos) / 255.0;
@@ -642,7 +650,8 @@ void main() {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, colortest, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, newCount, 1.0));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(red, aaFound, 1.0, 1.0));
     }
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
