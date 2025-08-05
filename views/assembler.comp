@@ -346,7 +346,7 @@ void main() {
     oldPosInt = ivec2(round(width * ndp0 - neighbour.x), round(height * ndp1 - neighbour.y));
     */
     //if (currentZ - neighbourZ > 0.11) {
-    if (currentZ > 0.0/* && currentZ < 1000.0*/) {
+    if (!isBackground && currentZ > 0.0/* && currentZ < 1000.0*/) {
         oldPosTexture = vec2(
             ndp0 - neighbour.x / float(width),
             ndp1 - neighbour.y / float(height)
@@ -357,12 +357,12 @@ void main() {
     //oldPosTexture = vec2(dp0, dp1);
 
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
-    int sampleCount = int(round(oldColor.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
 
     vec4 savedNormal = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)));
     // noch überprüfen ob die tiefen gleich sind
     vec4 savedOldNormal = imageLoad(oldNormal, oldPosInt);
+    int sampleCount = int(round(savedOldNormal.a * 255.0));
     float colortest = savedOldNormal.a;
     /*for (int i = -1; i < 2; i++) {
         for (int j = -1; j < 2; j++) {
@@ -375,7 +375,12 @@ void main() {
         }
     }*/
 
-    float nOldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt)))));
+    float nOldZ;
+    if (isBackground && backgroundAtBorder) {
+        nOldZ = oldZ;
+    } else {
+        nOldZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt)))));
+    }
     float nGuessZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(guessDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
     float zDiff = 99.0;
 
@@ -393,11 +398,11 @@ void main() {
         //sampleCount = 0;
     }
 
-    float alphaTest = imageLoad(renderImage, bgBorderFound).a;
+    /*float alphaTest = imageLoad(renderImage, bgBorderFound).a;
     if (alphaTest == 0.0) {
         sampleCount = 0;
         found = false;
-    }
+    }*/
         // glaube ich nicht mehr nötig
         
         //float neighbourDistance = abs(nOldZ - nGuessZ);
@@ -407,7 +412,7 @@ void main() {
                 if (abs(i) != abs(j)) {
                 float oldZnew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(oldDepth, oldPosInt + ivec2(i, j))))));
                 vec3 oldNnew = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).xyz * 2.0 - 1.0;
-                if (abs((oldZnew - nGuessZ) * angleFactor) >= 0.1 || dot(currentN, oldNnew) < 0.95) {
+                if (abs((oldZnew - nOldZ) * angleFactor) >= 0.1 || dot(currentN, oldNnew) < 0.95) {
                     atBorderOld = true;
                     break;
                 }
@@ -427,7 +432,7 @@ void main() {
         float d = 1.0;
     
     // evtl. für dreier intersection: aaDistance fixen und evtl. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
-    if (atBorderCurrent || true) {
+    if (atBorderCurrent/* || true*/) {
         vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
@@ -534,9 +539,9 @@ void main() {
             closeEnough = true;
         }*/
     }
-    if (isBackground && !backgroundAtBorder) {
+    /*if (isBackground && !backgroundAtBorder) {
         closeEnough = true;
-    }
+    }*/
     // kann man das objekt im vordergrund nehmen, die alte position nehmen und den originalen pixel(ist ja ein nachbar) finden?
     // weissse ecke müsste auch noch verschwinden
     // auch noch zu tun: alpha wert für anzahl samples, testen ob alter pixel nicht ausserhalb vom frame war(sampler sollte auch clamp to edge/border sein)
@@ -556,13 +561,13 @@ void main() {
     // found funktioniert noch nicht so gut am rand, aber scheint egal zu sein?
     const bool adapted = true;
     bool fresh = false;
-    if (sampleCount == 0) {
+    /*if (sampleCount == 0) {
         fresh = true;
         sampleCount++;
     }
-    sampleCount++;
-    float newCount;
-    newCount = float(sampleCount) / 255.0;
+    sampleCount++;*/
+    //float newCount;
+    //newCount = float(sampleCount) / 255.0;
     // ist closeEnough linie nicht dick genug?
     // scheint als müsste man den punkt mit höchsten alpha wert suchen
     float aaFound = 0.0;
@@ -573,10 +578,92 @@ void main() {
     if (atBorderCurrent && !closeEnough) {
         aaFound = 1.0;
     }
-    // scheint man müsste verdeckte flächen noch suchen, wie bei der nachbarsuche, nur evtl. grösser
+    r = 0.0;
+    g = 0.0;
+    float b = 0.0;
+    if (atBorderCurrent) {
+        r = 1.0;
+    }
+    if (atBorderOld) {
+        g = 1.0;
+    }
+    // das mit dem hintergrund und der ecke muss noch gefixt werden
+    // nächste schritte: weisse pixel übernehmen den gleichen alpha wert wo sie vorher nehmen(geht evtl nicht immer, wenn nicht müsste man bei den alten nachbarn suchen)
+    // magenta pixel müssen alpha wert von einem nachbarn im alten bild übernehmen 
+    float err = 0.0;
+    float eR = 0.0;
+    float eG = 0.0;
+    float eB = 0.0;
     if (closeEnough) {
+        b = 1.0;
         //aaFound = 1.0;
         if (adapted) {
+            if (atBorderOld) {
+                if (sampleCount > 0) {
+                    eR = 1.0;
+                    eG = 1.0;
+                    eB = 1.0;
+                    sampleCount++;
+                    if (sampleCount >= 256.0 / 3.0) {
+                        newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                    } else {
+                        float f = 1.0 / float(sampleCount);
+                        newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                        //newCount = float(sampleCount) / 255.0;
+                    }
+                } else {
+                    // fehler
+                    eR = 1.0;
+                    err = 1.0;
+                    sampleCount = 1;
+                    // bei nachbarn auf altem bild kopieren
+                    // den grössten wert nehmen? den kleinsten?
+                    for (int i = -1; i < 2; i++) {
+                        for (int j = -1; j < 2; j++) {
+                            if (abs(i) != abs(j)) {
+                                //float alpha = texture(currentNormal, oldPosTexture + vec2(float(i) / float(width), float(j) / float(height))).a;
+                                float alpha = imageLoad(oldNormal, oldPosIntMoved + ivec2(i, j)).a;
+                                int newSampleCount = int(round(alpha * 255.0));
+                                if (newSampleCount + 1> sampleCount) {
+                                    sampleCount = newSampleCount + 1;
+                                }
+                            }
+                        }
+                    }
+                    if (sampleCount >= 256.0 / 3.0) {
+                        newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                    } else {
+                        float f = 1.0 / float(sampleCount);
+                        newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                        //newCount = float(sampleCount) / 255.0;
+                    }
+                }
+            } else {
+                eG = 1.0;
+                sampleCount = 1;
+                // bei nachbarn auf altem bild kopieren
+                // den grössten wert nehmen? den kleinsten?
+                for (int i = -1; i < 2; i++) {
+                    for (int j = -1; j < 2; j++) {
+                        if (abs(i) != abs(j)) {
+                            //float alpha = texture(currentNormal, oldPosTexture + vec2(float(i) / float(width), float(j) / float(height))).a;
+                            float alpha = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).a;
+                            int newSampleCount = int(round(alpha * 255.0));
+                            if (newSampleCount + 1 > sampleCount) {
+                                sampleCount = newSampleCount + 1;
+                            }
+                        }
+                    }
+                }
+                if (sampleCount >= 256.0 / 3.0) {
+                    newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                } else {
+                    float f = 1.0 / float(sampleCount);
+                    newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                    //newCount = float(sampleCount) / 255.0;
+                }
+
+            }
             /*if (!atBorderOld) {
                 sampleCount = 255;
             }*/
@@ -584,7 +671,7 @@ void main() {
             /*if (fresh) {
                 sampleCount++;
             }*/
-            if (atBorderCurrent) {
+            /*if (atBorderCurrent) {
             if (sampleCount >= 256.0 / 3.0) {
                 newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
             } else {
@@ -592,21 +679,37 @@ void main() {
                 newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
                 //newCount = float(sampleCount) / 255.0;
             }
-            }
+            }*/
             //newCount = 0.5;
         } else {
             newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
         }
         //newCount = 1.0;
-    } else {
+    } else if (atBorderCurrent) {
+        eB = 1.0;
+        sampleCount = 1;
+                for (int i = -1; i < 2; i++) {
+                    for (int j = -1; j < 2; j++) {
+                        if (abs(i) != abs(j)) {
+                            //float alpha = texture(currentNormal, oldPosTexture + vec2(float(i) / float(width), float(j) / float(height))).a;
+                            float alpha = imageLoad(oldNormal, oldPosInt + ivec2(i, j)).a;
+                            int newSampleCount = int(round(alpha * 255.0));
+                            if (newSampleCount + 1 > sampleCount) {
+                                sampleCount = newSampleCount + 1;
+                            }
+                        }
+                    }
+                }
+                if (sampleCount >= 256.0 / 3.0) {
+                    newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                } else {
+                    float f = 1.0 / float(sampleCount);
+                    newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+                    //newCount = float(sampleCount) / 255.0;
+                }
         //newColor = vec4(1.0, 0.0, 0.0, 1.0);
         // und auch zurücksetzen falls alter pixel nicht gefunden, falls kein border
-        if (/*!atBorderCurrent && */atBorderOld) {
-            newCount = 0.0;
 
-        } else {
-            newCount = 0.0;
-        }
         /*if (atBorderCurrent && atBorderOld) {
             //newCount = 1.0 / 255.0;
             if (fresh) {
@@ -630,11 +733,15 @@ void main() {
             //newCount = 1.0;
             
         }*/
+    } else {
+        eR = 0.0;
+        eB = 0.0;
+        sampleCount = 0;
     }
     if (atBorderCurrent) {
         //newCount = 1.0;
     }
-
+    float newCount = float(sampleCount) / 255.0;
     //newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
 	imageStore(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(savedNormal.rgb, newCount));
 
@@ -674,7 +781,9 @@ void main() {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, colortest, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(r, g, b, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(eR, eG, eB, 1.0));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(err, red, newCount, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(red, aaFound, 1.0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaFound));
     }
