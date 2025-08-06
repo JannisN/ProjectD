@@ -2686,6 +2686,8 @@ struct TestApp(ECS) {
 			}
 			sampleLoc.x = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
 			sampleLoc.y = uniform(sampleLocationRange[0], sampleLocationRange[1], rnd);
+			//sampleLoc.x = 0;
+			//sampleLoc.y = 0;
 			//sampleLoc.x = (passedTime * 17.2183 - trunc(passedTime * 17.2183)) * sampleLocationRange[1];
 			//writeln(sampleLoc.x, " ", sampleLoc.y);
 
