@@ -216,6 +216,10 @@ void main() {
     }*/
     float currentZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
     float guessZ = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(guessDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)))))));
+    if (currentZ < 0.0001) {
+        currentZ = 10000.0;
+        guessZ = 10000.0;
+    }
 
     vec2 screenCoords;
     screenCoords.x = gl_GlobalInvocationID.x / float(width) * 2.0 - 1.0;
@@ -299,10 +303,15 @@ void main() {
     ivec2 neighbour = ivec2(0, 0);
     //bool nearBorder = false;
     bool oldFound = false;
+    float secondary = 1.0;
+    float primary = 1.0;
 
     if (abs(guessZ - oldZ) * angleFactor < 0.1) {
         oldFound = true;
     }
+    bool close = false;
+    bool nbFound = false;
+    //if (false)
         for (int i = -1; i < 2; i++) {
             for (int j = -1; j < 2; j++) {
                 /*{
@@ -319,15 +328,22 @@ void main() {
                 }*/
                 if (abs(i) != abs(j)) {
                 float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
+                if (zNew < 0.0001) {
+                    zNew = 10000.0;
+                }
                 vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.95) {
                     //found = true;
-                    if (zNew < neighbourZ && zNew > 0.0)
+                    if (zNew < neighbourZ && zNew > 0.0 && zNew < currentZ)
                     {
+                        //secondary = 0.0;
+                        primary = 0.0;
                         neighbour = ivec2(i, j);
                         neighbourZ = zNew;
+                        nbFound = true;
                     }
                     atBorderCurrent = true;
+                    close = true;
                     //break;
                 }
                 /*if (angleFactor > -dot(nNew, camNormal)) {
@@ -336,7 +352,32 @@ void main() {
                 }
             }
         }
+        if (!nbFound) {
 
+        for (int i = -3; i < 4; i++) {
+            for (int j = -3; j < 4; j++) {
+                if (i == 0 || j == 0) {
+                float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
+                if (zNew < 0.0001) {
+                    zNew = 10000.0;
+                }
+                vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
+                if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.95) {
+                    if (zNew < neighbourZ && zNew > 0.0 && zNew < currentZ)
+                    {
+                        secondary = 0.0;
+                        neighbour = ivec2(i, j);
+                        neighbourZ = zNew;
+                    }
+                    close = true;
+                    //atBorderCurrent = true;
+                }
+                }
+            }
+        }
+        }
+
+    //neighbour = ivec2(0, 0);
     float ndp0 = DecodeFloatRGBA(imageLoad(dPos0, neighbour + ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
     float ndp1 = DecodeFloatRGBA(imageLoad(dPos1, neighbour + ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y))));
 
@@ -346,16 +387,21 @@ void main() {
     oldPosInt = ivec2(round(width * ndp0 - neighbour.x), round(height * ndp1 - neighbour.y));
     */
     //if (currentZ - neighbourZ > 0.11) {
-    if (currentZ > 0.0/* && currentZ < 1000.0*/) {
+    // wenn nicht border
+    //if (false) {
+    // kann man glaube ich sehr reduzieren
+    if ((currentZ > 0.0 && currentZ < 1000.0) && neighbour != ivec2(0, 0) && !isBackground || atBorderCurrent) {
+        // noch bewegung vom aktuellen pixel miteinberechnen
         oldPosTexture = vec2(
             ndp0 - neighbour.x / float(width),
             ndp1 - neighbour.y / float(height)
         );
+        oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
     }
 
-    oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
     //oldPosTexture = vec2(dp0, dp1);
 
+    // wegen hintergrund: soll nur sample count aktualisieren, aber nicht die farbe
     oldColor = texture(oldColor0, oldPosTexture);// + texture(oldColor1, oldPos) / 255.0;
     int sampleCount = int(round(oldColor.a * 255.0));
     oldColor += texture(oldColor1, oldPosTexture) / 255.0;
@@ -428,10 +474,12 @@ void main() {
     
     // evtl. für dreier intersection: aaDistance fixen und evtl. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
     if (atBorderCurrent || true) {
-        vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
-        vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
-        vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
-        vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
+        // funktioniert besser mit 2 als 1
+        // aber trotzdem noch 1 testen?
+        vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -2)).rgb;
+        vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 2)).rgb;
+        vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
+        vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(2, 0)).rgb;
         vec3 m = newColor.rgb;
         /*
         vec3 tl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
@@ -678,15 +726,20 @@ void main() {
     if (true || atBorderCurrent) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, colortest, 1.0));
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(secondary, primary, 0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(red, aaFound, 1.0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaFound));
     }
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
     }
-	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(ctest));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(d, red, 0.0, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d - red), 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(alphaTest));
-	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(normal.a));
+        // hintergrund sollte richtiges currentZ haben
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(currentZ / 10.0, 1.0, 1.0, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(currentN, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(abs(oldZ - guessZ) * 10.0 * angleFactor, angleFactor, dist, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), normal);
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));

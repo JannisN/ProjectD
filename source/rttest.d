@@ -41,7 +41,7 @@ struct TestApp(ECS) {
 		enum string cubeCode = import("cube.wobj");
 		enum string sphereCode = import("sphere.wobj");
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
-		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
+		sphereModel = models.add().add!WavefrontModel(cubeCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
 
 		cmdBuffer.begin();
 		updateModels(cmdBuffer);
