@@ -475,7 +475,8 @@ void main() {
     // evtl. für dreier intersection: aaDistance fixen und evtl. ecken mit einberechnen(sollte nicht komplizierter sein als aaDistance da immer noch 2 variablen)
     if (atBorderCurrent || true) {
         // funktioniert besser mit 2 als 1
-        // aber trotzdem noch 1 testen?
+        // oder l, t etc. statt l, m für 2?
+        // aber trotzdem noch 1 testen!
         vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -2)).rgb;
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 2)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
@@ -542,6 +543,7 @@ void main() {
         }
         // war vorher d < 0.1, behebt dass randproblem für nicht hintergrund
         // überprüfung sollte aber besser werden
+        // kann man vlt auch auf 0.2 setzten
         if (d < 0.1) {
             closeEnough = true;
         }
@@ -734,7 +736,7 @@ void main() {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
     }
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(d, red, 0.0, 1.0));
-	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
+	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d - red), 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(alphaTest));
         // hintergrund sollte richtiges currentZ haben
