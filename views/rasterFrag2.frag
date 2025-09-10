@@ -174,6 +174,8 @@ void main() {
         0, cos(-mypc.oldRotY), sin(-mypc.oldRotY),
         0, -sin(-mypc.oldRotY), cos(-mypc.oldRotY)
     );
+    /*float width = mypc.width - 1;
+    float height = mypc.height - 1;*/
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.r, drawable.g, drawable.b), 1.0);
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.dposX, drawable.dposY, drawable.dposZ), 1.0);
 	//o_color = vec4(vec3(1.0 / gl_FragCoord.w, 0.0, 0), 1.0);

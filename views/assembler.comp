@@ -134,6 +134,14 @@ float aaDistance(vec3 old, vec3 l, vec3 t, vec3 m) {
     }
 }
 
+vec2 microCorrection(vec2 v, int width, int height) {
+    return vec2(
+        v.x - float(v.x - 1.0 / 2.0) / float(width),
+        v.y - float(v.y - 1.0 / 2.0) / float(height)
+        //gl_GlobalInvocationID.y / float(mypc.toY - 1) - 1 * float(gl_GlobalInvocationID.y - height / 2.0) / float(height) / float(height)
+    );
+}
+
 void main() {
     int width = mypc.toX - 1;
     int height = mypc.toY - 1;
@@ -149,6 +157,7 @@ void main() {
         onScreen = false;
     }*/
     vec2 oldPosTexture = vec2(dp0, dp1);
+    //vec2 oldPosTexture = microCorrection(vec2(dp0, dp1), width, height);
     bool outOfBounds = false;
     if (dp0 == 1.0 / 255.0 || dp0 == 254.0 / 255.0 || dp1 == 1.0 / 255.0 || dp1 == 254.0 / 255.0) {
         //outOfBounds = true;
@@ -161,6 +170,11 @@ void main() {
         round(width * dp0) / float(width), 
         round(height * dp1) / float(height)); 
     ivec2 oldPosInt = ivec2(round(width * dp0), round(height * dp1));
+        oldPosInt = ivec2(
+            round(width * (-1.0 / 2.0 / width + dp0) / float(width - 1) * float(width)), 
+            round(height * (-1.0 / 2.0 / height + dp1) / float(height - 1) * float(height)) 
+            //round(height * ndp1 - neighbour.y)
+        );
 
 
     //oldPos = vec2(gl_GlobalInvocationID.x / float(mypc.toX), gl_GlobalInvocationID.y / float(mypc.toY));
@@ -193,7 +207,11 @@ void main() {
     }
     //newColor = imageLoad(renderImage, bgBorderFound);
     if (!backgroundAtBorder && isBackground) {
-        oldPosTexture = vec2(gl_GlobalInvocationID.x / float(mypc.toX - 1), gl_GlobalInvocationID.y / float(mypc.toY - 1));
+        /*oldPosTexture = vec2(
+            gl_GlobalInvocationID.x / float(mypc.toX - 1) - 1 * float(gl_GlobalInvocationID.x - width / 2.0) / float(width) / float(width),
+            gl_GlobalInvocationID.y / float(mypc.toY - 1) - 1 * float(gl_GlobalInvocationID.y - height / 2.0) / float(height) / float(height)
+        );*/
+        oldPosTexture = microCorrection(vec2(gl_GlobalInvocationID.x / float(width), gl_GlobalInvocationID.y / float(height)), width, height);
         //oldPosTexture = vec2(dp0, dp1);
         ctest = 1.0;
     }
@@ -352,7 +370,9 @@ void main() {
                 }
             }
         }
-        if (!nbFound) {
+        // scheint nicht zu funktionieren, wieso nicht?
+        // vlt immer noch ein problem mit aa detection? oder nicht lang genug?
+        if (/*false &&*/ !nbFound) {
 
         for (int i = -3; i < 4; i++) {
             for (int j = -3; j < 4; j++) {
@@ -392,11 +412,19 @@ void main() {
     // kann man glaube ich sehr reduzieren
     if ((currentZ > 0.0 && currentZ < 1000.0) && neighbour != ivec2(0, 0) && !isBackground || atBorderCurrent) {
         // noch bewegung vom aktuellen pixel miteinberechnen
-        oldPosTexture = vec2(
+        /*oldPosTexture = vec2(
             ndp0 - neighbour.x / float(width),
             ndp1 - neighbour.y / float(height)
+        );*/
+        vec2 mc = microCorrection(vec2((gl_GlobalInvocationID.x + neighbour.x) / float(width), (gl_GlobalInvocationID.y + neighbour.y) / float(height)), width, height);
+        vec2 mc2 = microCorrection(vec2((gl_GlobalInvocationID.x) / float(width), (gl_GlobalInvocationID.y) / float(height)), width, height);
+        oldPosTexture = vec2(ndp0, ndp1) - (mc - mc2);
+        //auch anpassen
+        oldPosInt = ivec2(
+            round(width * (-1.0 / 2.0 / width + ndp0) / float(width - 1) * float(width) - neighbour.x), 
+            round(height * (-1.0 / 2.0 / height + ndp1) / float(height - 1) * float(height) - neighbour.y) 
+            //round(height * ndp1 - neighbour.y)
         );
-        oldPosInt = ivec2(round(width * ndp0), round(height * ndp1));
     }
 
     //oldPosTexture = vec2(dp0, dp1);
@@ -481,13 +509,17 @@ void main() {
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 2)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
         vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(2, 0)).rgb;
+        /*vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
+        vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
+        vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
+        vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;*/
         vec3 m = newColor.rgb;
-        /*
-        vec3 tl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-2, 0)).rgb;
-        vec3 tr = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(2, 0)).rgb;
-        vec3 bl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -2)).rgb;
-        vec3 br = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 2)).rgb;
-        */
+        
+        /*vec3 tl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, -1)).rgb;
+        vec3 tr = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, -1)).rgb;
+        vec3 bl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 1)).rgb;
+        vec3 br = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 1)).rgb;*/
+        
         
         if (
             length(oldColor.rgb - m) < 0.05 ||
@@ -517,6 +549,93 @@ void main() {
             if (dn < d) {
                 d = dn;
             }
+            if (true || d >= 0.1) {
+                /*vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
+                vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
+                vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
+                vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
+                float dn = aaDistance2(oldColor.rgb, l, r);
+                aaTest.r = dn;
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, t, b);
+                aaTest.g = dn;
+                if (dn < d) {
+                    d = dn;
+                }*/
+                /*vec3 tl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, -1)).rgb;
+                vec3 tr = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, -1)).rgb;
+                vec3 bl = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 1)).rgb;
+                vec3 br = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 1)).rgb;
+                float dn = aaDistance2(oldColor.rgb, tl, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, tr, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, bl, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, br, m);
+                if (dn < d) {
+                    d = dn;
+                }*/
+                /*dn = aaDistance2(oldColor.rgb, tl, br);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, tr, bl);
+                if (dn < d) {
+                    d = dn;
+                }*/
+                /*
+                vec3 t = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, -1)).rgb;
+                vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
+                vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
+                vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
+                float dn = aaDistance2(oldColor.rgb, l, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, t, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, r, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                dn = aaDistance2(oldColor.rgb, b, m);
+                if (dn < d) {
+                    d = dn;
+                }
+                */
+            }
+            /*
+            float dn = aaDistance2(oldColor.rgb, l, r);
+            aaTest.r = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, t, b);
+            aaTest.g = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, tl, br);
+            aaTest.b = dn;
+            if (dn < d) {
+                d = dn;
+            }
+            dn = aaDistance2(oldColor.rgb, tr, bl);
+            if (dn < d) {
+                d = dn;
+            }
+            */
 
             // oder:
             /*
@@ -604,7 +723,7 @@ void main() {
 
     // gibt noch probleme mit dem hintergrund
     // found funktioniert noch nicht so gut am rand, aber scheint egal zu sein?
-    const bool adapted = true;
+    const bool adapted = false;//true;
     bool fresh = false;
     if (sampleCount == 0) {
         fresh = true;
@@ -624,7 +743,7 @@ void main() {
         aaFound = 1.0;
     }
     // bei erscheinen von rand: wieso sampleCount so hoch?
-    if (closeEnough) {
+    if (closeEnough/* || true*/) {
         //aaFound = 1.0;
         if (adapted) {
             /*if (!atBorderOld) {
@@ -647,7 +766,8 @@ void main() {
             }
             //newCount = 0.5;
         } else {
-            newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+            //if (atBorderCurrent)
+                newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
         }
         //newCount = 1.0;
     } else {
@@ -727,7 +847,7 @@ void main() {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), fromLinear(newColor));
     if (true || atBorderCurrent) {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, colortest, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, red, newCount, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(newCount * (1.0 - secondary), red, newCount, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(secondary, primary, 0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(red, aaFound, 1.0, 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(aaFound));
@@ -735,8 +855,9 @@ void main() {
     if (!closeEnough && atBorderCurrent) {
 	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
     }
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
+
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(d, red, 0.0, 1.0));
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d - red), 1.0));
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(alphaTest));
         // hintergrund sollte richtiges currentZ haben
