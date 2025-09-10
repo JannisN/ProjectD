@@ -41,7 +41,7 @@ struct TestApp(ECS) {
 		enum string cubeCode = import("cube.wobj");
 		enum string sphereCode = import("sphere.wobj");
 		cubeModel = models.add().add!WavefrontModel(cubeCode).entityId;
-		sphereModel = models.add().add!WavefrontModel(cubeCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
+		sphereModel = models.add().add!WavefrontModel(sphereCode).add!ProceduralModel(0, array(-1.0f, -1.0f, -1.0f), array(1.0f, 1.0f, 1.0f)).entityId;
 
 		cmdBuffer.begin();
 		updateModels(cmdBuffer);
@@ -92,8 +92,8 @@ struct TestApp(ECS) {
 			drawable.dpos = Tensor!(float, 3)(0, 0, 0);
 			drawable.scale = Tensor!(float, 3)(1, 1, 1);
 			drawable.rot = Tensor!(float, 3)(0, 0, 0);
-			drawable.rgb = Tensor!(float, 3)(0.0, 0.0, 0.0);
-			//drawable.rgb = Tensor!(float, 3)(0.0, 1.0, 1.0);
+			//drawable.rgb = Tensor!(float, 3)(0.0, 0.0, 0.0);
+			drawable.rgb = Tensor!(float, 3)(0.0, 1.0, 1.0);
 			drawable.modelId = cast(uint)sphereModel;
 			objects.add().add!Drawable(drawable);
 		}

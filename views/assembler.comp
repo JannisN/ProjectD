@@ -348,7 +348,7 @@ void main() {
                         sampleCount = sc;
                     }
                 }*/
-                if (abs(i) != abs(j)) {
+                if (/*true || */abs(i) != abs(j)) {
                 float zNew = tan(3.14159 * (-0.5 + (DecodeFloatRGBA(imageLoad(currentDepth, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j))))));
                 if (zNew < 0.0001) {
                     zNew = 10000.0;
@@ -356,7 +356,7 @@ void main() {
                 vec3 nNew = imageLoad(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(i, j)).xyz * 2.0 - 1.0;
                 if (abs(zNew - currentZ) * angleFactor >= 0.1 || dot(currentN, nNew) < 0.95) {
                     //found = true;
-                    if (zNew + 0.1 < neighbourZ && zNew > 0.0 && zNew + 0.1 < currentZ)
+                    if (zNew + 0.1 < neighbourZ && zNew > 0.0 /*&& zNew + 0.1 < currentZ*/)
                     {
                         //secondary = 0.0;
                         primary = 0.0;
@@ -420,12 +420,13 @@ void main() {
     // wenn nicht border
     //if (false) {
     // kann man glaube ich sehr reduzieren
-    if ((currentZ > 0.0 && currentZ < 1000.0) && neighbour != ivec2(0, 0) && !isBackground || atBorderCurrent) {
+    //if ((currentZ > 0.0 && currentZ < 1000.0) && neighbour != ivec2(0, 0) && !isBackground || atBorderCurrent) {
+    if ((currentZ > 0.0 /*&& currentZ < 1000.0*/) && !isBackground) {
         // noch bewegung vom aktuellen pixel miteinberechnen
-        /*oldPosTexture = vec2(
+        oldPosTexture = vec2(
             ndp0 - neighbour.x / float(width),
             ndp1 - neighbour.y / float(height)
-        );*/
+        );
         vec2 mc = microCorrection(vec2((gl_GlobalInvocationID.x + neighbour.x) / float(width), (gl_GlobalInvocationID.y + neighbour.y) / float(height)), width, height);
         vec2 mc2 = microCorrection(vec2((gl_GlobalInvocationID.x) / float(width), (gl_GlobalInvocationID.y) / float(height)), width, height);
         // irgendwas ist da noch falsch
@@ -515,7 +516,7 @@ void main() {
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
         vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
-    if (atBorderCurrent || true) {
+    if (atBorderCurrent/* || true*/) {
         // funktioniert besser mit 2 als 1
         // oder l, t etc. statt l, m für 2?
         // aber trotzdem noch 1 testen!
@@ -673,7 +674,7 @@ void main() {
         // war vorher d < 0.1, behebt dass randproblem für nicht hintergrund
         // überprüfung sollte aber besser werden
         // kann man vlt auch auf 0.2 setzten
-        if (d < 0.1) {
+        if (d < 0.02) {
             closeEnough = true;
         }
 
@@ -714,7 +715,7 @@ void main() {
         }*/
     }
     if (isBackground && !backgroundAtBorder) {
-        closeEnough = true;
+        //closeEnough = true;
     }
     // kann man das objekt im vordergrund nehmen, die alte position nehmen und den originalen pixel(ist ja ein nachbar) finden?
     // weissse ecke müsste auch noch verschwinden
@@ -783,9 +784,9 @@ void main() {
                 //oldColor += texture(oldColor1, oldPosTexture) / 255.0;
 
             }
-            if (!isBackground)
-                sampleCount = int(round(reduced + min(sampleCount - reduced, max(0, 8 - reduced))));
-            if (/*true || */atBorderCurrent) {
+            //if (!isBackground)
+                //sampleCount = int(round(reduced + min(sampleCount - reduced, max(0, 8 - reduced))));
+            if (true || atBorderCurrent) {
             if (sampleCount >= 256.0 / 3.0) {
                 newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
             } else {
@@ -850,6 +851,9 @@ void main() {
         //newCount = 1.0;
     }
 
+    if (!closeEnough && atBorderCurrent) {
+        newColor.rgb = (r + l + t + b + newColor.rgb) / 5.0;
+    }
     //newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
 	imageStore(currentNormal, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(savedNormal.rgb, newCount));
 
@@ -899,7 +903,7 @@ void main() {
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(0.0, 0.0, 1.0, 1.0));
     }
     if (!closeEnough && atBorderCurrent) {
-	    imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
+	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(1.0, 0.0, 0.0, 1.0));
     }
 	    //imageStore(swapchain, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)), vec4(vec3(d * 10), 1.0));
         /*
