@@ -2111,8 +2111,8 @@ struct TestApp(ECS) {
 		}
 		
 		//pos[0] = 10 * sin(passedTime);
-		if (objects.getComponentEntityIds!Drawable().length >= 2) {
-			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[1]);
+		if (objects.getComponentEntityIds!Drawable().length >= 3) {
+			auto entity = objects.getEntity(objects.getComponentEntityIds!Drawable()[2]);
 			//entity.get!Drawable().pos = Tensor!(float, 3)(sin(passedTime), 1, cos(passedTime));
 			// nachher noch umstellen dass shader dt bekommt
 			entity.get!Drawable().dpos[0] = (sin(passedTime) - entity.get!Drawable().pos[0])/* / dt*/;
@@ -2689,6 +2689,8 @@ struct TestApp(ECS) {
 			//sampleLoc.x = (passedTime * 17.2183 - trunc(passedTime * 17.2183)) * sampleLocationRange[1];
 			//writeln(sampleLoc.x, " ", sampleLoc.y);
 
+			//sampleLoc.x = 0;
+			//sampleLoc.y = 0;
 			//sampleLoc.x = cos(passedTime) * 0.4 + 0.4;
 			//sampleLoc.y = cos(passedTime) * 0.4 + 0.4;
 			VkSampleLocationsInfoEXT sampleLocations;
