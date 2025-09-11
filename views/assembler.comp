@@ -11,6 +11,22 @@ glslangValidator -V ./views/assembler.comp -o ./views/assembler.spv
         auch anders implementieren, so dass die geschwindigkeit eine obergrenze für anzahl samples bestimmt
     - rotationen
     - für ganz später mal: per frame aa mit der methode wo der rand vom dreieck gespeichert wird
+
+    Todo für drawable/physical trennung:
+    - position, geschwindigkeit etc. in eine dritte struct. die daten im shader von mehreren listen zusammenfügen.
+      bei drawable lokale transformationen von model zulassen, auch bewegungen evtl.
+      wenn nur drawable vorhanden die tranformation vom nullpunkt ausführen.
+    - oder andere möglichkeit: drawable und physical haben eigene variablen, eine dritte struct hinzufügen
+      für benutzer um position, geschwindigkeit etc. selber anzupassen
+    - am schluss dann die ecs listen testen ob die sich wirklich lohnen von der performance her,
+      vlt kann man auch performance verbessern
+    
+    Ecs system: für physik, wo man objekte aus verschiedenen komponenten zusammensetzen kann etc
+        vlt anpassen dass ein entity mehrere components gleichzeitig haben kann und das es verknüpfungen gibt etc.
+        vlt aber auch nicht gut, sonst lieber andere listen benutzen und diese referenzieren, wie eine datenbank.
+        evtl ein ganzes datenbank system bauen?
+
+
 */
 
 #version 460
@@ -783,7 +799,7 @@ void main() {
             // noch änderung von z miteinberechnen
             //float moveSamples = abs(dp0 - (0.5 + gl_GlobalInvocationID.x) / float(width + 1)) + abs(dp1 - (0.5 + gl_GlobalInvocationID.y) / float(height + 1));
             float moveSamples = speed;
-            float reduced = sampleCount * max(0.0, 1.0 - moveSamples * 100);
+            float reduced = sampleCount * max(0.0, 1.0 - moveSamples * 1000);
             if (true || moveSamples > 0.0001) {
                 //newColor.rgb = (r + l + t + b + newColor.rgb) / 5.0;
                 /*
@@ -796,11 +812,12 @@ void main() {
                 //oldColor += texture(oldColor1, oldPosTexture) / 255.0;
 
             }
+            //sampleCount = int(round(min(sampleCount, 1 + max(0, 200 * (1 - moveSamples * 1000)))));
             //if (!isBackground)
-                //sampleCount = int(round(reduced + min(sampleCount - reduced, max(0, 8 - reduced))));
+                //sampleCount = int(round(reduced + min(sampleCount - reduced, max(0, 1 - reduced))));
             if (true || atBorderCurrent) {
-            if (sampleCount >= 256.0 / 3.0) {
-                newColor.rgb = 253.0 / 256.0 * oldColor.rgb + 3.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
+            if (sampleCount >= 256.0 / 6.0) {
+                newColor.rgb = 250.0 / 256.0 * oldColor.rgb + 6.0 / 256.0 * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
             } else {
                 float f = 1.0 / float(sampleCount);
                 newColor.rgb = (1.0 - f) * oldColor.rgb + f * newColor.rgb;// + texture(oldColor1, oldPos) / 255.0;
