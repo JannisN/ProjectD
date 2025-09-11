@@ -1,6 +1,18 @@
 /*
 glslangValidator -V ./views/assembler.comp -o ./views/assembler.spv
 */
+
+/*
+    Todo:
+    - diese klumpen am rand wegbekommen, scheint bei der version vom pc unten kein problem zu sein
+    - Aufräumen
+    - dort wo nicht enough war im letzen frame bei nachbarn(auch mit ecken) sampleCount zurücksetzen
+    - sample count richtig verringern während bewegung: nur bei sehr schnellen bewegungen ganz auf 1 zurücksetzen
+        auch anders implementieren, so dass die geschwindigkeit eine obergrenze für anzahl samples bestimmt
+    - rotationen
+    - für ganz später mal: per frame aa mit der methode wo der rand vom dreieck gespeichert wird
+*/
+
 #version 460
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;

@@ -92,9 +92,9 @@ struct TestApp(ECS) {
 			drawable.dpos = Tensor!(float, 3)(0, 0, 0);
 			drawable.scale = Tensor!(float, 3)(1, 1, 1);
 			drawable.rot = Tensor!(float, 3)(0, 0, 0);
-			//drawable.rgb = Tensor!(float, 3)(0.0, 0.0, 0.0);
-			drawable.rgb = Tensor!(float, 3)(0.0, 1.0, 1.0);
-			drawable.modelId = cast(uint)sphereModel;
+			drawable.rgb = Tensor!(float, 3)(0.0, 0.0, 0.0);
+			//drawable.rgb = Tensor!(float, 3)(0.0, 1.0, 1.0);
+			drawable.modelId = cast(uint)cubeModel;
 			objects.add().add!Drawable(drawable);
 		}
 	}
