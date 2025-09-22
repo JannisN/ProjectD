@@ -544,7 +544,8 @@ void main() {
         vec3 b = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(0, 1)).rgb;
         vec3 l = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(-1, 0)).rgb;
         vec3 r = imageLoad(renderImage, ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y)) + ivec2(1, 0)).rgb;
-    if (atBorderCurrent/* || true*/) {
+    // or true wegen raytracing, zum testen. sonst temporal sampling machen ohne aa(aber auch in diesem shader hier)
+    if (atBorderCurrent || true) {
         // funktioniert besser mit 2 als 1
         // oder l, t etc. statt l, m für 2?
         // aber trotzdem noch 1 testen!
