@@ -4,6 +4,7 @@ import vulkan;
 import glfw_vulkan_window;
 import utils;
 import vulkan_core;
+import vulkan_tools;
 import functions;
 import ecs;
 import png;
@@ -100,6 +101,7 @@ struct TestApp(ECS) {
 	}
 	void receive(WindowResizeEvent event) {
 	}
+	// eventuell in RTProceduralModel/RTPolygonModel berschieben
 	RTProceduralModel createProceduralBlas(float[3] min, float[3] max) {
 		RTProceduralModel model;
 
@@ -2875,8 +2877,8 @@ struct TestApp(ECS) {
 					),
 				)
 			);
-
-			
+		}
+		if (!rt) {
 			/*rasterizer.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, swapchainViews[lastImageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			rasterizer.descriptorSet.write(WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
@@ -3149,148 +3151,6 @@ struct TestApp(ECS) {
 	ImageView renderImageView;
 }
 
-struct Tlas {
-	AllocatedResource!Buffer tlasBuffer;
-	AccelerationStructure tlas;
-	AllocatedResource!Buffer scratchBuffer;
-	Device* device;
-	MemoryAllocator* memoryAllocator;
-	this(ref Device device, ref MemoryAllocator memoryAllocator) {
-		this.device = &device;
-		this.memoryAllocator = &memoryAllocator;
-	}
-	void create(VkDeviceAddress address, uint length) {
-		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
-		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-		instancesData.arrayOfPointers = VK_FALSE;
-		instancesData.data.deviceAddress = address;
-
-		VkAccelerationStructureGeometryKHR geometry;
-		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		geometry.geometry.instances = instancesData;
-
-		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
-		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-		buildInfo.geometryCount = 1;
-		buildInfo.pGeometries = &geometry;
-		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		buildInfo.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
-
-		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
-		rangeInfo.firstVertex = 0;
-		rangeInfo.primitiveCount = length;
-		rangeInfo.primitiveOffset = 0;
-		rangeInfo.transformOffset = 0;
-
-		VkAccelerationStructureBuildSizesInfoKHR sizeInfo = device.getAccelerationStructureBuildSizesKHR(
-			VkAccelerationStructureBuildTypeKHR.VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-			&buildInfo,
-			&rangeInfo.primitiveCount
-		);
-		tlasBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.accelerationStructureSize, VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR));
-		VkMemoryAllocateFlagsInfo flagsInfo;
-		flagsInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-		flagsInfo.flags = VkMemoryAllocateFlagBits.VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-		memoryAllocator.allocate(tlasBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-		tlas = device.createAccelerationStructure(buildInfo.type, sizeInfo.accelerationStructureSize, 0, tlasBuffer.buffer, 0);
-
-		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
-		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-		VkPhysicalDeviceProperties2 properties;
-		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-		properties.pNext = cast(void*) &accProperties;
-		device.physicalDevice.getProperties(&properties);
-		scratchBuffer = AllocatedResource!Buffer(device.createBuffer(0, sizeInfo.buildScratchSize + accProperties.minAccelerationStructureScratchOffsetAlignment, VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VkBufferUsageFlagBits.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT));
-		memoryAllocator.allocate(scratchBuffer, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, flagsInfo);
-	}
-	void recreate(VkDeviceAddress address, uint length) {
-		tlas.destroy();
-		tlasBuffer.destroy();
-		this.create(address, length);
-	}
-	void build(VkDeviceAddress address, uint length, ref CommandBuffer cmdBuffer) {
-		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
-		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-		instancesData.arrayOfPointers = VK_FALSE;
-		instancesData.data.deviceAddress = address;
-
-		VkAccelerationStructureGeometryKHR geometry;
-		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		geometry.geometry.instances = instancesData;
-
-		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
-		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-		buildInfo.geometryCount = 1;
-		buildInfo.pGeometries = &geometry;
-		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		buildInfo.srcAccelerationStructure = cast(VkAccelerationStructureKHR_T*)VK_NULL_HANDLE;
-		buildInfo.dstAccelerationStructure = tlas;
-
-		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
-		rangeInfo.firstVertex = 0;
-		rangeInfo.primitiveCount = length;
-		rangeInfo.primitiveOffset = 0;
-		rangeInfo.transformOffset = 0;
-
-		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
-		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-		VkPhysicalDeviceProperties2 properties;
-		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-		properties.pNext = cast(void*) &accProperties;
-		device.physicalDevice.getProperties(&properties);
-		VkDeviceAddress da = scratchBuffer.getDeviceAddress();
-		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
-		buildInfo.scratchData.deviceAddress = scratchBuffer.getDeviceAddress() + daOffset;
-
-		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], array(&rangeInfo));
-	}
-	void update(VkDeviceAddress address, uint length, ref CommandBuffer cmdBuffer) {
-		VkAccelerationStructureGeometryInstancesDataKHR instancesData;
-		instancesData.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-		instancesData.arrayOfPointers = VK_FALSE;
-		instancesData.data.deviceAddress = address;
-
-		VkAccelerationStructureGeometryKHR geometry;
-		geometry.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-		geometry.geometryType = VkGeometryTypeKHR.VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		geometry.geometry.instances = instancesData;
-
-		VkAccelerationStructureBuildGeometryInfoKHR buildInfo;
-		buildInfo.sType = VkStructureType.VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-		buildInfo.flags = VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VkBuildAccelerationStructureFlagBitsKHR.VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
-		buildInfo.geometryCount = 1;
-		buildInfo.pGeometries = &geometry;
-		buildInfo.mode = VkBuildAccelerationStructureModeKHR.VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-		buildInfo.type = VkAccelerationStructureTypeKHR.VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-		buildInfo.srcAccelerationStructure = tlas;
-		buildInfo.dstAccelerationStructure = tlas;
-
-		VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
-		rangeInfo.firstVertex = 0;
-		rangeInfo.primitiveCount = length;
-		rangeInfo.primitiveOffset = 0;
-		rangeInfo.transformOffset = 0;
-
-		VkPhysicalDeviceAccelerationStructurePropertiesKHR accProperties;
-		accProperties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-		VkPhysicalDeviceProperties2 properties;
-		properties.sType = VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-		properties.pNext = cast(void*) &accProperties;
-		device.physicalDevice.getProperties(&properties);
-		VkDeviceAddress da = scratchBuffer.getDeviceAddress();
-		size_t daOffset = (accProperties.minAccelerationStructureScratchOffsetAlignment - (da % accProperties.minAccelerationStructureScratchOffsetAlignment)) % accProperties.minAccelerationStructureScratchOffsetAlignment;
-		buildInfo.scratchData.deviceAddress = scratchBuffer.getDeviceAddress() + daOffset;
-
-		cmdBuffer.buildAccelerationStructures((&buildInfo)[0..1], array(&rangeInfo));
-	}
-}
-
 struct Aabb {
 	float[3] min;
 	float[3] max;
@@ -3433,36 +3293,6 @@ struct GpuLocal(Resource) {
 	AllocatedResource!Resource resource;
 	alias resource this;
 	@disable this(ref return scope CpuLocal!Resource rhs);
-}
-
-ref int tint(ref int i) {
-	return i;
-}
-
-struct tStruct {
-	int ret() const {
-		return 1;
-	}
-	template opDispatch(string member2) {
-		auto opDispatch(Args...)(lazy Args args) {
-			writeln("3 ", args[0]);
-		}
-		@property auto opDispatch() {
-			writeln("1");
-			return 1;
-		}
-		/*@property auto opDispatch(T)(lazy T t) {
-			writeln("2");
-			return t;
-		}*/
-	}
-}
-
-struct s2 {
-	int i;
-	void j() {
-		writeln("bla");
-	}
 }
 
 version(unittest) {} else {

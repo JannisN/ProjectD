@@ -4,6 +4,7 @@ import vulkan;
 import glfw_vulkan_window;
 import utils;
 import vulkan_core;
+import vulkan_tools;
 import functions;
 import ecs;
 import png;
