@@ -2885,18 +2885,18 @@ struct TestApp(ECS) {
 			*/
 			//imageAssembler.descriptorSet.write(array!VkWriteDescriptorSet(
 			imageAssembler.descriptorSet.write(WriteDescriptorSet(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, swapchainViews[imageIndex], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[(rtTime + 1) % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[(rtTime + 1) % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[rtTime % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[rtTime % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(7, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(8, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(9, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthGuessImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(10, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, renderImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(11, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalsImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
-				imageAssembler.descriptorSet.write(WriteDescriptorSet(12, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalsImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(2, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, dPosImageView[1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[(rtTime + 1) % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(4, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, sampler, doubleColorImageView[(rtTime + 1) % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(5, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[rtTime % 2][0], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(6, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, doubleColorImageView[rtTime % 2][1], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(7, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(8, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, oldDepthImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(9, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthGuessImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(10, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, renderImageView, VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(11, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalsImageView[rtTime % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
+			imageAssembler.descriptorSet.write(WriteDescriptorSet(12, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalsImageView[(rtTime + 1) % 2], VkImageLayout.VK_IMAGE_LAYOUT_GENERAL));
 			//));
 			
 			cmdBuffer.bindPipeline(imageAssembler.computePipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE);
