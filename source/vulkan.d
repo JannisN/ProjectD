@@ -2222,7 +2222,7 @@ struct GraphicsPipelineCreateInfo(Args...) {
 		info.pNext = null;
 		info.flags = flags;
 		info.stageCount = cast(uint) shaderStages.length;
-		info.pStages = shaderStages.ptr;
+		//info.pStages = shaderStages.ptr;
 		info.pVertexInputState = vertexInput;
 		info.pInputAssemblyState = inputAssembly;
 		info.pTessellationState = tessellation;
@@ -2238,9 +2238,13 @@ struct GraphicsPipelineCreateInfo(Args...) {
 		info.basePipelineHandle = basePipelineHandle;
 		info.basePipelineIndex = basePipelineIndex;
 	}
+	VkGraphicsPipelineCreateInfo* getInfo() @property {
+		info.pStages = shaderStages.ptr;
+		return &info;
+	}
 	VkPipelineShaderStageCreateInfo[countCompatibleTypes!(VkPipelineShaderStageCreateInfo, Args)] shaderStages;
 	VkGraphicsPipelineCreateInfo info;
-	alias info this;
+	alias getInfo this;
 }
 
 auto graphicsPipelineCreateInfo(Args...)(in Args args) {
@@ -2259,7 +2263,7 @@ struct GraphicsPipeline {
 		static if (findCompatibleTypes!(VkPipelineCache, Args).length > 0) {
 			cache = cast(VkPipelineCache) args[findCompatibleTypes!(VkPipelineCache, Args)[0]];
 		}
-		result = vkCreateGraphicsPipelines(renderPass.device.device, cache, 1, &info.info, null, &pipeline);
+		result = vkCreateGraphicsPipelines(renderPass.device.device, cache, 1, info, null, &pipeline);
 	}
 	@disable this(ref return scope GraphicsPipeline rhs);
 	~this() {

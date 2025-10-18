@@ -1700,13 +1700,13 @@ struct TestApp(ECS) {
 		if (capabilities.currentExtent.width % 3 != 0) {
 			extendedWidth++;
 		}
-		blurredImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_B8G8R8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
+		blurredImage = AllocatedResource!Image(device.createImage(0, VkImageType.VK_IMAGE_TYPE_2D, VkFormat.VK_FORMAT_R8G8B8A8_UNORM, VkExtent3D(extendedWidth, capabilities.currentExtent.height, 1), 1, 1, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, VkImageTiling.VK_IMAGE_TILING_OPTIMAL, VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_STORAGE_BIT, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED));
 		memoryAllocator.allocate(blurredImage, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		blurredImageView = ImageView(
 			device,
 			blurredImage,
 			VkImageViewType.VK_IMAGE_VIEW_TYPE_2D,
-			VkFormat.VK_FORMAT_B8G8R8A8_UNORM,
+			VkFormat.VK_FORMAT_R8G8B8A8_UNORM,
 			VkComponentMapping(
 				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
 				VkComponentSwizzle.VK_COMPONENT_SWIZZLE_IDENTITY,
