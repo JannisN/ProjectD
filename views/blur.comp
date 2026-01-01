@@ -1,4 +1,6 @@
-// glslangValidator -V blur.comp -o blur.spv
+/*
+glslangValidator -V views/blur.comp -o views/blur.spv
+*/
 
 // neue idee zum ausprobieren:
 // volle auflösung im ersten ray(und evt. zweiten ray bei direktem licht für scharfe schatten), dann mit callable shadern in halber auflösung
@@ -21,14 +23,15 @@
 // man könnte bei dem normalentests prüfen ob objekt flat oder smooth geshadet ist, um ecken zu erhalten
 
 #version 460
+#extension GL_EXT_shader_image_load_formatted : enable
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
 
 //layout (set = 0, binding = 0) uniform writeonly image2D texelBuffer;
-layout (set = 0, binding = 0, rgba8) uniform image2D texelBuffer;
-layout (set = 0, binding = 1, rgba8) uniform image2D texelBuffer2;
-layout (set = 0, binding = 2, rgba8) uniform image2D normalImage;
-layout (set = 0, binding = 3, rgba8) uniform image2D depthImage;
+layout (set = 0, binding = 0) uniform image2D texelBuffer;
+layout (set = 0, binding = 1) uniform image2D texelBuffer2;
+layout (set = 0, binding = 2) uniform image2D normalImage;
+layout (set = 0, binding = 3) uniform image2D depthImage;
 
 layout (push_constant) uniform mypc_t {
     int time;

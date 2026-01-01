@@ -2,6 +2,7 @@
 glslangValidator --target-env vulkan1.3 ./views/rasterFrag2.frag -o ./views/rasterFrag2.spv
 */
 #version 460
+#extension GL_EXT_shader_image_load_formatted : enable
 
 struct Drawable {
     float posX, posY, posZ;
@@ -24,12 +25,12 @@ layout (location = 6) in vec3 normalOut;
 layout (location = 7) in float rotXout;
 layout (location = 8) in float rotYout;
 layout (location = 9) flat in Drawable drawable;
-layout (set = 0, binding = 1/*, rgba8*/) uniform sampler2D texelBuffer;
-layout (set = 0, binding = 2, rgba8) uniform image2D dPos0;
-layout (set = 0, binding = 3, rgba8) uniform image2D dPos1;
-layout (set = 0, binding = 4, rgba8) uniform image2D currentDepth;
-layout (set = 0, binding = 5, rgba8) uniform image2D oldDepth;
-layout (set = 0, binding = 6, rgba8) uniform image2D guessDepth;
+layout (set = 0, binding = 1) uniform sampler2D texelBuffer;
+layout (set = 0, binding = 2) uniform image2D dPos0;
+layout (set = 0, binding = 3) uniform image2D dPos1;
+layout (set = 0, binding = 4) uniform image2D currentDepth;
+layout (set = 0, binding = 5) uniform image2D oldDepth;
+layout (set = 0, binding = 6) uniform image2D guessDepth;
 
 layout (push_constant) uniform mypc_t {
 	vec3 pos;

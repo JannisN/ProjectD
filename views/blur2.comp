@@ -1,4 +1,8 @@
+/*
+glslangValidator -V views/blur2.comp -o views/blur2.spv
+*/
 #version 460
+#extension GL_EXT_shader_image_load_formatted : enable
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
 
@@ -10,9 +14,9 @@ layout (push_constant) uniform mypc_t {
     int secondaryTime;
 } mypc;
 
-layout (set = 0, binding = 0, rgba8) uniform image2D blurredImage;
-layout (set = 0, binding = 1, rgba8) uniform image2D normalImage;
-layout (set = 0, binding = 2, rgba8) uniform image2D depthImage;
+layout (set = 0, binding = 0) uniform image2D blurredImage;
+layout (set = 0, binding = 1) uniform image2D normalImage;
+layout (set = 0, binding = 2) uniform image2D depthImage;
 
 float getExpectedDepth(float dh, float depth, vec3 normal, vec2 offset) {
     return dh * depth * (offset.x * normal.x + offset.y * normal.y) / normal.z + depth;

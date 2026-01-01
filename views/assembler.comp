@@ -30,6 +30,7 @@ glslangValidator -V ./views/assembler.comp -o ./views/assembler.spv
 */
 
 #version 460
+#extension GL_EXT_shader_image_load_formatted : enable
 
 layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
 
@@ -41,20 +42,20 @@ layout (push_constant) uniform mypc_t {
     int secondaryTime;
 } mypc;
 
-layout (set = 0, binding = 0, rgba8) uniform image2D swapchain;
-layout (set = 0, binding = 1, rgba8) uniform image2D dPos0;
-layout (set = 0, binding = 2, rgba8) uniform image2D dPos1;
+layout (set = 0, binding = 0) uniform image2D swapchain;
+layout (set = 0, binding = 1) uniform image2D dPos0;
+layout (set = 0, binding = 2) uniform image2D dPos1;
 
 layout (set = 0, binding = 3) uniform sampler2D oldColor0;
 layout (set = 0, binding = 4) uniform sampler2D oldColor1;
-layout (set = 0, binding = 5, rgba8) uniform image2D newColor0;
-layout (set = 0, binding = 6, rgba8) uniform image2D newColor1;
-layout (set = 0, binding = 7, rgba8) uniform image2D currentDepth;
-layout (set = 0, binding = 8, rgba8) uniform image2D oldDepth;
-layout (set = 0, binding = 9, rgba8) uniform image2D guessDepth;
-layout (set = 0, binding = 10, rgba8) uniform image2D renderImage;
-layout (set = 0, binding = 11, rgba8) uniform image2D currentNormal;
-layout (set = 0, binding = 12, rgba8) uniform image2D oldNormal;
+layout (set = 0, binding = 5) uniform image2D newColor0;
+layout (set = 0, binding = 6) uniform image2D newColor1;
+layout (set = 0, binding = 7) uniform image2D currentDepth;
+layout (set = 0, binding = 8) uniform image2D oldDepth;
+layout (set = 0, binding = 9) uniform image2D guessDepth;
+layout (set = 0, binding = 10) uniform image2D renderImage;
+layout (set = 0, binding = 11) uniform image2D currentNormal;
+layout (set = 0, binding = 12) uniform image2D oldNormal;
 
 
 ivec4 packFloatToVec4i(const float value) {
