@@ -479,6 +479,8 @@ struct TestApp(ECS) {
 		sampleLocationRange[0] = sampleProperties.sampleLocationCoordinateRange[0];
 		sampleLocationRange[1] = sampleProperties.sampleLocationCoordinateRange[1];
 		
+		// https://github.com/KhronosGroup/Vulkan-Samples/pull/1452/files
+		// https://github.com/KhronosGroup/Vulkan-Samples/pull/1443
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
 		features.shaderInt64 = VK_TRUE;
