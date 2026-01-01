@@ -483,6 +483,7 @@ struct TestApp(ECS) {
 		// https://github.com/KhronosGroup/Vulkan-Samples/pull/1443
 		VkPhysicalDeviceFeatures features;
 		features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
+		features.shaderStorageImageReadWithoutFormat = VK_TRUE;
 		features.shaderInt64 = VK_TRUE;
 		features.fragmentStoresAndAtomics = VK_TRUE; //???
 		VkPhysicalDeviceVulkan12Features features12;
