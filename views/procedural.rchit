@@ -13,6 +13,7 @@ struct RayPayload {
     vec3 normal;
     int hitType;
     vec3 radiance;
+    uint drawable;
 };
 
 struct AddressBuffers {
@@ -65,6 +66,7 @@ void main() {
         hitValue2.normal = normalize(worldPos - origin);
         hitValue2.hitType = 2;
         hitValue2.radiance = vec3(0);
+        hitValue2.drawable = gl_InstanceCustomIndexEXT;
         hitValue = hitValue2;
     }
 }

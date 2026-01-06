@@ -845,6 +845,12 @@ void main() {
         }
         //newCount = 1.0;
     } else {
+        // AKTUELL, zu verbessern: wird immer noch teilweise was übernommen bei schwarzem würfel falls sich eine neue seite zeigt,
+        // daher auch bei benachbarten pixeln newCount auf 0 setzen.
+        // dazu für jeden pixel schauen ob ein nachbar auf 0 ist, false ja dann newCount auf 1.0 / 255.0 setzen.
+        // und/oder vielleicht auch noch neue-alte farbdifferenz strenger machen (oder weniger streng aus anderen gründen?)
+        // gibt es sonst noch verbesserungen?
+
         //newColor = vec4(1.0, 0.0, 0.0, 1.0);
         // und auch zurücksetzen falls alter pixel nicht gefunden, falls kein border
         if (!atBorderCurrent && !atBorderOld) {

@@ -181,7 +181,9 @@ void main() {
 	//o_color = vec4((0.5 * dot(normalize(vec3(-1, -1, -1)), normalOut) + 0.5) * vec3(drawable.dposX, drawable.dposY, drawable.dposZ), 1.0);
 	//o_color = vec4(vec3(1.0 / gl_FragCoord.w, 0.0, 0), 1.0);
     vec3 pos = vec3((gl_FragCoord.x / float(mypc.width) * 2 - 1) / gl_FragCoord.w / 2.0 / mypc.screenRatio, (gl_FragCoord.y / float(mypc.height) * 2 - 1) / gl_FragCoord.w / -2.0, 1.0 / gl_FragCoord.w);
-    vec3 posNew = pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    // wieso - dpos?
+    //vec3 posNew = pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    vec3 posNew = pos;
     pos = rotX * rotY * pos + mypc.pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
     vec3 finalPos = oldRotYinv * oldRotXinv * (pos - mypc.oldPos);
 	finalPos.x *= mypc.screenRatio * 2.0;

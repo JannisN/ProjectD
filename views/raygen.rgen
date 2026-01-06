@@ -9,16 +9,21 @@
 // evt. bessere zufallswerte, erster blur sollte gleichmässiger sein
 // tiefenwerte evt. nichtlinear machen, um auf sehr kurze distanzen nicht zu verpixeln und auf grossen mehr samples zu haben
 
-layout (push_constant) uniform mypc_t {
+layout(push_constant) uniform mypc_t {
 	vec3 pos;
     float rotX, rotY;
     float time;
 } mypc;
+// noch oldPos nötig
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(set = 0, binding = 1) uniform image2D image;
 layout(set = 0, binding = 3) uniform image2D normalImage;
 layout(set = 0, binding = 4) uniform image2D depthImage;
+layout(set = 0, binding = 6) uniform image2D dPos0;
+layout(set = 0, binding = 7) uniform image2D dPos1;
+layout(set = 0, binding = 8) uniform image2D currentDepth;
+layout(set = 0, binding = 9) uniform image2D guessDepth;
 
 struct RayPayload {
     vec3 colour;
@@ -26,9 +31,22 @@ struct RayPayload {
     vec3 normal;
     int hitType;
     vec3 radiance;
+    uint drawable;
 };
 
 layout(location = 0) rayPayloadEXT RayPayload hitValue;
+
+struct Drawable {
+    float posX, posY, posZ;
+    float dposX, dposY, dposZ;
+    float scaleX, scaleY, scaleZ;
+    float rotX, rotY, rotZ;
+    float r, g, b;
+    uint modelId;
+};
+layout (set = 0, binding = 5) buffer drawableList_t {
+	Drawable drawables[];
+} drawableList;
 
 float noise3D(float x, float y, float z) {
     return fract(sin(x*112.9898 + y*179.233 + z*237.212) * 43758.5453);
@@ -100,6 +118,7 @@ void main() {
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, pos, tmin, dir, tmax, 0);
 
+    Drawable drawable = drawableList.drawables[hitValue.drawable];
     vec3 radiance = hitValue.radiance;//vec3(0);
     vec3 attenuation = vec3(1, 1, 1);
     bool miss = false;
@@ -120,6 +139,25 @@ void main() {
     float depth2 = (fract(depth * 255.0) * 255.0 - fract(depth * 255.0 * 255.0)) / 255.0;
     float depth3 = (fract(depth * 255.0 * 255.0));
     imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(depth1, depth2, depth3, 0));
+    
+    //vec3 pos = vec3((gl_FragCoord.x / float(mypc.width) * 2 - 1) / gl_FragCoord.w / 2.0 / mypc.screenRatio, (gl_FragCoord.y / float(mypc.height) * 2 - 1) / gl_FragCoord.w / -2.0, 1.0 / gl_FragCoord.w);
+    // für output 6 - 9
+    dir = rotX * rotY * vec3(0, 0, 1);
+    float z = dot(dir, hitValue.pos - pos);
+    float screenRatio = float(windowHeight) / float(windowWidth);
+    pos = vec3((gl_LaunchIDEXT.x + offX - windowWidth / 2.0) / float(windowHeight) / screenRatio, -((gl_LaunchIDEXT.y + offY - windowHeight / 2.0) / float(windowHeight)), 1) - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    pos *= z;
+    //vec3 posNew = pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    vec3 posNew = rotYinv * rotXinv * hitValue.pos;
+    //pos = rotX * rotY * pos + mypc.pos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ);
+    // = hitValue.pos 
+    vec3 finalPos = oldRotYinv * oldRotXinv * (hitValue.pos + mypc.pos - mypc.oldPos - vec3(drawable.dposX, drawable.dposY, drawable.dposZ));
+    //vec3 finalPos = oldRotYinv * oldRotXinv * (pos - mypc.oldPos);
+	finalPos.x *= screenRatio * 2.0;
+	finalPos.y *= -2.0;
+    finalPos.x /= finalPos.z;
+    finalPos.y /= finalPos.z;
+
     if (hitValue.hitType != 0) {
         for (int j = 0; j < repeats; j++) {
             hitValue.pos = firstPos;

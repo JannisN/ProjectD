@@ -13,6 +13,7 @@ struct RayPayload {
     vec3 normal;
     int hitType;
     vec3 radiance;
+    uint drawable;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload hitValue;
@@ -87,6 +88,7 @@ void main() {
     hitValue2.normal = N;
     hitValue2.hitType = 1;
     hitValue2.radiance = vec3(0);
+    hitValue2.drawable = gl_InstanceCustomIndexEXT;
     hitValue = hitValue2;
     //hitValue = barycentricCoords;
     //hitValue = exp(worldPos);
