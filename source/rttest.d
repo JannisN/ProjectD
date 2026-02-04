@@ -387,7 +387,7 @@ struct TestApp(ECS) {
 		));
 		rtPipeline.pipelineLayout = device.createPipelineLayout(
 			array(rtPipeline.descriptorSetLayout),
-			array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, uint.sizeof * 6))
+			array(VkPushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, uint.sizeof * 11))
 		);
 		rtPipeline.descriptorSet = rtPipeline.descriptorPool.allocateSet(rtPipeline.descriptorSetLayout);
 		rtPipeline.rtPipeline = device.createRayTracingPipeline(pssci, rtsgci, 1, rtPipeline.pipelineLayout, cast(VkDeferredOperationKHR_T*)VK_NULL_HANDLE, cast(VkPipelineCache_T*)VK_NULL_HANDLE);
@@ -2289,14 +2289,19 @@ struct TestApp(ECS) {
 				));
 				cmdBuffer.bindPipeline(rtPipeline.rtPipeline, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 				cmdBuffer.bindDescriptorSets(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rtPipeline.pipelineLayout, 0, array(rtPipeline.descriptorSet), []);
-				float[6] rtPushConstants;
+				float[11] rtPushConstants;
 				rtPushConstants[0] = pos[0];
 				rtPushConstants[1] = pos[1];
 				rtPushConstants[2] = pos[2];
 				rtPushConstants[3] = rot[1];
 				rtPushConstants[4] = rot[0];
 				rtPushConstants[5] = cast(float) rtTime;
-				cmdBuffer.pushConstants(rtPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 6, rtPushConstants.ptr);
+				rtPushConstants[6] = oldPos[0];
+				rtPushConstants[7] = oldPos[1];
+				rtPushConstants[8] = oldPos[2];
+				rtPushConstants[9] = oldRot[1];
+				rtPushConstants[10] = oldRot[0];
+				cmdBuffer.pushConstants(rtPipeline.pipelineLayout, VkShaderStageFlagBits.VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, float.sizeof * 11, rtPushConstants.ptr);
 
 				VkStridedDeviceAddressRegionKHR rayGenRegion;
 				rayGenRegion.deviceAddress = rtPipeline.sbRayGen.getDeviceAddress() + rtPipeline.offsetRayGen;

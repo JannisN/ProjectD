@@ -13,6 +13,8 @@ layout(push_constant) uniform mypc_t {
 	vec3 pos;
     float rotX, rotY;
     float time;
+	vec3 oldPos;
+    float oldRotX, oldRotY;
 } mypc;
 // noch oldPos nötig
 
@@ -20,6 +22,7 @@ layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(set = 0, binding = 1) uniform image2D image;
 layout(set = 0, binding = 3) uniform image2D normalImage;
 layout(set = 0, binding = 4) uniform image2D depthImage;
+// noch bei descriptor hinzufügen
 layout(set = 0, binding = 6) uniform image2D dPos0;
 layout(set = 0, binding = 7) uniform image2D dPos1;
 layout(set = 0, binding = 8) uniform image2D currentDepth;
@@ -62,6 +65,17 @@ float rng2(int seed) {
 }
 
 void main() {
+    mat3 oldRotXinv = mat3(
+        cos(-mypc.oldRotX), 0, sin(-mypc.oldRotX),
+        0, 1, 0,
+        -sin(-mypc.oldRotX), 0, cos(-mypc.oldRotX)
+    );
+    mat3 oldRotYinv = mat3(
+        1, 0, 0,
+        0, cos(-mypc.oldRotY), sin(-mypc.oldRotY),
+        0, -sin(-mypc.oldRotY), cos(-mypc.oldRotY)
+    );
+
     int windowWidth = imageSize(image).x * 3 / 4;
     int windowHeight = imageSize(image).y;
     //vec3 pos = vec3(gl_LaunchIDEXT.x / 200.0 - 5.0, 5.0 - (gl_LaunchIDEXT.y / 200.0 - 0.2), -10.0);
